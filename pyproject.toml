@@ -25,4 +25,10 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-python_files = ["test_*.py"] 
+python_files = ["test_*.py"]
+
+[tool.hatch.build]
+layout = "src"
+
+[tool.hatch.build.targets.wheel]
+packages = ["network_bootstrap"] 

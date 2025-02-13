@@ -57,13 +57,25 @@ class NetworkBootstrap:
     bootstrap-based confidence estimation.
     """
 
-    def __init__(self, logger: logging.Logger | None = None):
+    def __init__(self, param: Optional[Union[logging.Logger, NetworkData]] = None) -> None:
         """Initialize NetworkBootstrap analyzer.
 
         Args:
-            logger: Optional logger instance. If None, creates new logger.
+            param: Optional parameter which can be either a logger instance or a NetworkData instance.
+                   If a logger is provided, it will be used. If a NetworkData object is provided,
+                   it is stored as `self.data` and a default logger is created.
         """
-        self.logger = logger or logging.getLogger(__name__)
+        if param is None:
+            self.logger = logging.getLogger(__name__)
+            self.data = None
+        elif isinstance(param, logging.Logger):
+            self.logger = param
+            self.data = None
+        elif isinstance(param, NetworkData):
+            self.data = param
+            self.logger = logging.getLogger(__name__)
+        else:
+            raise TypeError("Invalid type for parameter. Expected logging.Logger or NetworkData.")
         self._setup_logging()
 
     def _setup_logging(self) -> None:

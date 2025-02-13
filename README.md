@@ -2,6 +2,8 @@
 
 A Python implementation of NB-FDR (Network Bootstrap False Discovery Rate) analysis for network inference. This package implements an algorithm to estimate bootstrap support for network links by comparing measured networks against a shuffled (null) dataset. It computes key metrics such as assignment fractions, evaluates overlap between inferred links, and determines a bootstrap support cutoff at the desired false discovery rate.
 
+```n.b. this package does not run the network inference, it only computes the FDR based on the inferred networks from multiple bootstrap runs.```
+
 ## Overview
 
 In high-throughput network analysis, bootstrapping is used to assess the stability of inferred links. NB-FDR leverages bootstrap iterations to compute the assignment fraction (i.e. the frequency at which a link is inferred) and compares these results against a null distribution obtained from shuffled data. The differences between the measured and shuffled data inform the support level guaranteed for a target FDR level.
@@ -12,6 +14,10 @@ Key features of this package include:
 - **Export of Results:** Summary statistics are saved as a text file.
 - **Visualization:** A dual-axis plot displays the bootstrap support metric (left y-axis) and normalized link frequencies (right y-axis) for both normal and shuffled data.
 - **Modular Design:** Clear separation of source code, tests, examples, and configuration.
+
+## Analysis Output as Figure
+
+![Analysis Output](output/analysis_plot.png)
 
 ## Package Structure
 ```
