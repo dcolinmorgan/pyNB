@@ -2,7 +2,7 @@
 
 A Python implementation of NB-FDR (Network Bootstrap False Discovery Rate) analysis for network inference. This package implements an algorithm to estimate bootstrap support for network links by comparing measured networks against a shuffled (null) dataset. It computes key metrics such as assignment fractions, evaluates overlap between inferred links, and determines a bootstrap support cutoff at the desired false discovery rate.
 
-```n.b. this package does not run the network inference, it only computes the FDR based on the inferred networks from multiple bootstrap runs.```
+```n.b. this package is not meant to run network inference, only to compute the FDR based on the inferred networks from multiple bootstrap runs. However, installing [workflow] installs tools needed to repeat figure below (i.e. snakemake & scenic+) ```
 
 ## Overview
 
@@ -14,6 +14,8 @@ Key features of this package include:
 - **Export of Results:** Summary statistics are saved as a text file.
 - **Visualization:** A dual-axis plot displays the bootstrap support metric (left y-axis) and normalized link frequencies (right y-axis) for both normal and shuffled data.
 - **Modular Design:** Clear separation of source code, tests, examples, and configuration.
+- **Snakemake Workflow:** Automated analysis pipeline for processing multiple samples.
+- **SCENIC+ Integration:** Optional integration with scenicplus for comprehensive gene regulatory network analysis.
 
 ## Analysis Output as Figure
 
@@ -28,13 +30,25 @@ network_bootstrap/
 │   └── network_bootstrap/
 │       ├── __init__.py
 │       ├── nb_fdr.py      # Core implementation of NB-FDR analysis
-│       └── utils.py       # Utility functions for network analysis
+│       ├── utils.py       # Utility functions for network analysis
+│       └── workflow/      # Snakemake workflow for automated analysis
+│           ├── __init__.py
+│           ├── Snakefile
+│           ├── config/
+│           │   └── config.yaml
+│           └── scripts/
+│               ├── compute_assign_frac.py
+│               ├── nb_fdr_analysis.py
+│               ├── generate_plots.py
+│               └── compute_density.py
 ├── tests/
 │   ├── __init__.py
 │   └── test_network_bootstrap.py   # Pytest-based tests
 └── examples/
-    └── basic_usage.py     # Example script demonstrating package usage
+    ├── basic_usage.py     # Example script demonstrating package usage
+    └── run_workflow.py    # Example script for running the workflow
 ```
+
 ## Installation
 
 The recommended way to install the package is to use a virtual environment. For example:
@@ -42,12 +56,15 @@ The recommended way to install the package is to use a virtual environment. For 
 ```bash
 python -m venv venv
 source venv/bin/activate           # On Windows use: venv\Scripts\activate
-pip install -e ".[dev]"
+pip install -e ".[dev]"            # For development
+pip install -e ".[workflow]"       # For Snakemake workflow and SCENIC+ capabilities
 ```
 
-This installs all required dependencies including `numpy`, `pandas`, `matplotlib`, and `pytest`.
+This installs all required dependencies including `numpy`, `pandas`, `matplotlib`, and `pytest`. If you install with the `workflow` extra, you'll also get `snakemake` and `scenicplus` for running the automated analysis pipeline and gene regulatory network analysis.
 
 ## Usage
+
+### Basic API Usage
 
 A complete working example is provided in the `examples/basic_usage.py` file. In summary, the workflow is as follows:
 
@@ -71,7 +88,7 @@ Example:
 
 ```python
 from pathlib import Path
-from src.network_bootstrap.nb_fdr import NetworkBootstrap
+from network_bootstrap.nb_fdr import NetworkBootstrap
 import pandas as pd
 
 def process_network_data(data_path: str, is_null: bool = False) -> pd.DataFrame:
@@ -81,9 +98,10 @@ def process_network_data(data_path: str, is_null: bool = False) -> pd.DataFrame:
     return df[df['run'] < 65].sort_values('run')
 
 def main() -> None:
+    """Main execution function."""
     # Load data
-    normal_data = process_network_data('../scenicplus/normal_data.gz')
-    null_data = process_network_data('../scenicplus/null_data.gz', is_null=True)
+    normal_data = process_network_data('../data/normal_data.gz')
+    null_data = process_network_data('../data/null_data.gz', is_null=True)
     
     # Initialize analyzer
     nb = NetworkBootstrap()
@@ -92,7 +110,6 @@ def main() -> None:
     results = nb.nb_fdr(
         normal_df=normal_data,
         shuffled_df=null_data,
-        method="example",
         init=64,
         data_dir=Path("output"),
         fdr=0.05,
@@ -122,6 +139,92 @@ if __name__ == '__main__':
     main()
 ```
 
+### Using the Snakemake Workflow
+
+The package includes a Snakemake workflow for automating analysis of multiple samples. To use it:
+
+1. **Create Workflow Directory:**
+
+```python
+from network_bootstrap import create_workflow_directory
+
+# Create a directory with Snakefile and config.yaml
+workflow_dir = create_workflow_directory("my_workflow", overwrite=True)
+```
+
+2. **Prepare Input Data:**
+
+Organize your input data in the format expected by the workflow:
+- Place normal data files at: `<output_dir>/data/<sample>/normal_data.csv`
+- Place shuffled data files at: `<output_dir>/data/<sample>/shuffled_data.csv`
+
+3. **Edit Configuration:**
+
+Modify the `config/config.yaml` file to specify samples and parameters.
+
+4. **Run the Workflow:**
+
+```python
+from network_bootstrap import run_workflow
+
+# Dry run to check that everything is set up correctly
+run_workflow("my_workflow", dry_run=True)
+
+# Actual run with 4 cores
+run_workflow("my_workflow", cores=4)
+```
+
+Alternatively, you can run the workflow directly with the `snakemake` command:
+
+```bash
+cd my_workflow
+snakemake --cores 4
+```
+
+5. **Examine Results:**
+
+The workflow generates:
+- Assignment fraction data in `<output_dir>/processed/<sample>/`
+- Analysis results in `<output_dir>/results/<sample>/`
+- Plots in `<output_dir>/plots/<sample>/`
+- Network density information in `<output_dir>/density/`
+
+### Integration with SCENIC+
+
+The package can be used in conjunction with SCENIC+ for comprehensive gene regulatory network analysis. When you install the package with the `workflow` extra dependencies, you'll have access to SCENIC+ functionality that can be used to:
+
+1. Run network inference using SCENIC+ methods
+2. Evaluate networks with bootstrapped FDR through our NB-FDR implementation
+3. Visualize and analyze results within a unified framework
+
+To use SCENIC+ with NB-FDR:
+
+1. **Install the package with workflow dependencies:**
+   ```bash
+   pip install -e ".[workflow]"
+   ```
+
+2. **Create a custom Snakefile that combines SCENIC+ and NB-FDR:**
+   You can adapt the example Snakefile in `src/network_bootstrap/workflow/Snakefile` and the SCENIC+ Snakefile to create a workflow that:
+   - Runs SCENIC+ to infer networks
+   - Uses bootstrapping for multiple iterations
+   - Runs NB-FDR to assess stability and significance
+   - Produces integrated reports and visualizations
+
+3. **Recommended directory structure for SCENIC+ integration:**
+   ```
+   project/
+   ├── config/
+   │   └── config.yaml       # Combined configuration
+   ├── data/
+   │   ├── reference/        # Reference files for SCENIC+
+   │   └── input/            # Input files
+   ├── results/
+   │   ├── scenic/           # SCENIC+ results
+   │   └── nb_fdr/           # NB-FDR results
+   └── Snakefile             # Combined workflow file
+   ```
+
 ## Testing
 
 To run the tests with pytest, simply execute:
@@ -140,7 +243,8 @@ Contributions and feedback are welcome! Please open issues or submit pull reques
 
 - [CancerGRN Analysis Example](https://dcolin.shinyapps.io/cancergrn/)
 - [Bioinformatics Article](https://academic.oup.com/bioinformatics/article/35/6/1026/5086392)
+- [SCENIC+ Documentation](https://scenicplus.readthedocs.io/)
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the [Your License Name] License.

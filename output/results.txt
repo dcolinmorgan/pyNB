@@ -1,18 +1,18 @@
 Network Bootstrap FDR Analysis Results
 ========================================
 Orig Index: 80
-FP Rate: 1.022
+FP Rate: 1.371
 Support Threshold: 0.800
-xnet shape: (159916,)
-ssum shape: (159916,)
-min_ab shape: (159916,)
-sxnet shape: (159916,)
+xnet shape: (32737,)
+ssum shape: (32737,)
+min_ab shape: (32737,)
+sxnet shape: (32737,)
 Accumulated (first 5 rows):
-0.0156 0.0312
-0.0312 0.0469
-0.0469 0.0625
-0.0625 0.0938
-0.0781 0.1406
+0.1250 0.2500
+0.2500 0.7500
+0.3750 1.0000
+0.5000 1.3750
+0.6250 1.7500
 
 Binned frequencies:
-0.3881 0.1739 0.1179 0.0704 0.0515 0.0492 0.0355 0.0367 0.0296 0.0471
+0.0000 0.2881 0.1984 0.1635 0.0000 0.1489 0.0932 0.1079 0.0000 0.0000

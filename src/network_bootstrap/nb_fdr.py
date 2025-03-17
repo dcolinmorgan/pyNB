@@ -153,7 +153,6 @@ class NetworkBootstrap:
         self,
         normal_df: pd.DataFrame,
         shuffled_df: pd.DataFrame,
-        method: str,
         init: int,
         data_dir: Path,
         fdr: float,
@@ -164,7 +163,6 @@ class NetworkBootstrap:
         Args:
             normal_df: Normal network data with gene_i, gene_j, run, link_value columns
             shuffled_df: Shuffled network data with same columns
-            method: Analysis method name
             init: Number of initialization iterations
             data_dir: Directory for output files
             fdr: False Discovery Rate threshold
@@ -175,7 +173,7 @@ class NetworkBootstrap:
         """
         self.logger.info("Starting NB-FDR analysis")
         
-        # Compute assignment fractions
+        # Compute assignment fractions 
         agg_normal = self.compute_assign_frac(normal_df, init, boot)
         agg_shuffled = self.compute_assign_frac(shuffled_df, init, boot)
         
@@ -440,62 +438,105 @@ class NetworkBootstrap:
             np.savetxt(f, results.binned_freq[np.newaxis, :], fmt='%.4f')
     
     def plot_analysis_results(self, merged: pd.DataFrame, plot_file: Path, bins: int = 10) -> None:
-        """Plot analysis results with dual y-axes.
-
-        The x-axis represents support (Afrac_norm),
-        left y-axis displays the average overlap between the normal
-        and shuffled networks, and the right y-axis shows the link frequency.
+        """Plot analysis results with link frequencies for normal and shuffled data.
 
         Args:
             merged: Merged DataFrame with 'Afrac_norm' and 'Afrac_shuf' columns.
             plot_file: Path to save the plot image.
-            bins: Number of bins to use for support.
+            bins: Number of bins for support.
         """
-        # Define bins for support using measured bootstrap support (Afrac_norm)
+        # Bin data
         support_bins = np.linspace(0, 1, bins + 1)
         bin_centers = (support_bins[:-1] + support_bins[1:]) / 2
-        
-        # Compute bin counts for measured (normal) and null (shuffled) data
         counts_norm, _ = np.histogram(merged['Afrac_norm'], bins=support_bins)
         counts_shuf, _ = np.histogram(merged['Afrac_shuf'], bins=support_bins)
-        
-        # For each bin, compute the support metric as:
-        # support_metric = (counts_norm - counts_shuf) / counts_norm   (if counts_norm > 0, else 0)
-        support_metric = []
-        for i in range(len(counts_norm)):
-            if counts_norm[i] > 0:
-                support_metric.append((counts_norm[i] - counts_shuf[i]) / counts_norm[i])
-            else:
-                support_metric.append(0)
-        support_metric = np.array(support_metric)
-        
-        import matplotlib.pyplot as plt
-        fig, ax_left = plt.subplots(figsize=(10, 6))
-        
-        # Plot support metric (i.e. 1 - FDR) on the left y-axis
-        ax_left.plot(bin_centers, support_metric, color='tab:blue', marker='o', label='Support Metric')
-        ax_left.set_xlabel('Bootstrap Support (Afrac_norm)')
-        ax_left.set_ylabel('Support Metric (1 - FDR per bin)', color='black')
-        ax_left.tick_params(axis='y', labelcolor='black')
-        
-        # Create right y-axis for link frequencies from measured and null data
-        ax_right = ax_left.twinx()
-        # Use previously computed counts_norm and counts_shuf to get normalized frequencies
         freq_norm = counts_norm.astype(float) / counts_norm.sum() if counts_norm.sum() > 0 else counts_norm.astype(float)
         freq_shuf = counts_shuf.astype(float) / counts_shuf.sum() if counts_shuf.sum() > 0 else counts_shuf.astype(float)
-        ax_right.plot(bin_centers, freq_norm, color='tab:red', marker='s', label='Freq Normal')
-        ax_right.plot(bin_centers, freq_shuf, color='tab:green', marker='^', label='Freq Shuffled')
-        ax_right.set_ylabel('Link Frequency', color='black')
-        ax_right.tick_params(axis='y', labelcolor='black')
-        
-        # Combine legends from both axes
-        lines_left, labels_left = ax_left.get_legend_handles_labels()
-        lines_right, labels_right = ax_right.get_legend_handles_labels()
-        ax_right.legend(lines_left + lines_right, labels_left + labels_right, loc='upper right')
-        
+
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(figsize=(10, 6))
+
+        # Line plots with distinct styles
+        ax.plot(bin_centers, freq_norm, color='#1b9e77', marker='o', linestyle='-', linewidth=2, label='Normal Data')
+        ax.plot(bin_centers, freq_shuf, color='#d95f02', marker='^', linestyle='--', linewidth=2, label='Shuffled Data')
+
+        # Aesthetics and readability
+        ax.set_xlabel('Support', fontsize=12)
+        ax.set_ylabel('Link Frequency', fontsize=12)
+        ax.tick_params(axis='both', labelsize=10)
+        ax.grid(True, linestyle='--', alpha=0.3)  # Light grid
+
+        # Highlight max difference
+        diff = freq_norm - freq_shuf
+        max_diff_idx = np.argmax(np.abs(diff))
+        ax.annotate(
+            f'Max Diff: {diff[max_diff_idx]:.2f}',
+            xy=(bin_centers[max_diff_idx], max(freq_norm[max_diff_idx], freq_shuf[max_diff_idx])),
+            xytext=(0, 10), textcoords='offset points', ha='center', fontsize=10,
+            arrowprops=dict(arrowstyle='->', color='gray')
+        )
+
+        # Legend with title
+        ax.legend(title='Data Type', loc='upper right', fontsize=10, title_fontsize=12)
+
+        # Optional: Add support threshold (e.g., 0.8 from your code)
+        ax.axvline(x=0.8, color='gray', linestyle='--', alpha=0.5, label='Threshold (0.8)')
+        # if 'Threshold (0.8)' not in [l.get_label() for l in ax.get_legend_handles_labels()[1]]:
+            # ax.legend(title='Data Type', loc='upper right', fontsize=10, title_fontsize=12)
+
         fig.tight_layout()
-        plt.title('Analysis Results: Overlap & Link Frequency vs Support')
-        plt.savefig(plot_file, dpi=300)
+        plt.savefig(plot_file, dpi=300, bbox_inches='tight')  # Ensure annotations fit
         plt.close()
 
-    # Additional helper methods would go here... 
+    def compute_network_density(self, df: pd.DataFrame, threshold: float = 0.0) -> pd.DataFrame:
+        """Compute network density per run.
+
+        Network density is calculated as the number of links (edges) between gene_i and gene_j
+        divided by the total number of possible edges among unique genes, per run.
+        A link is counted if its absolute link_value exceeds the threshold.
+
+        Args:
+            df: DataFrame with columns 'gene_i', 'gene_j', 'link_value', 'run'.
+            threshold: Minimum absolute link_value to consider a link present (default 0.0).
+
+        Returns:
+            DataFrame with columns 'run', 'num_links', 'num_nodes', 'density_simple', 'density'.
+        """
+        self.logger.debug("Computing network density per run")
+
+        # Filter links by threshold and ensure unique links per run
+        df_filtered = df[df['link_value'].abs() > threshold].drop_duplicates(subset=['gene_i', 'gene_j', 'run'])
+
+        # Group by run
+        grouped = df_filtered.groupby('run')
+
+        # Compute metrics per run
+        results = []
+        for run, group in grouped:
+            # Number of links (unique edges)
+            num_links = len(group)
+
+            # Unique nodes (union of gene_i and gene_j)
+            nodes = set(group['gene_i']).union(group['gene_j'])
+            num_nodes = len(nodes)
+
+            # Simple density: links / nodes
+            density_simple = num_links / num_nodes if num_nodes > 0 else 0.0
+
+            # Standard density: links / possible edges (directed graph)
+            # Possible edges = N * (N - 1) for directed graphs
+            possible_edges = num_nodes * (num_nodes - 1) if num_nodes > 1 else 1
+            density = num_links / possible_edges if possible_edges > 0 else 0.0
+
+            results.append({
+                'run': run,
+                'num_links': num_links,
+                'num_nodes': num_nodes,
+                'density_simple': density_simple,
+                'density': density
+            })
+
+        # Convert to DataFrame
+        result_df = pd.DataFrame(results)
+        self.logger.info(f"Computed network density for {len(result_df)} runs")
+        return result_df
