@@ -15,7 +15,7 @@ from pathlib import Path
 
 # Import workflow functions from the package
 try:
-    from network_bootstrap import create_workflow_directory, run_workflow
+    from pyNB import create_workflow_directory, run_workflow
 except ImportError:
     print("Make sure to install with workflow extras: pip install -e '.[workflow]'")
     exit(1)

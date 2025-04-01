@@ -7,7 +7,7 @@ This script is called from the Snakemake workflow.
 
 import pandas as pd
 from pathlib import Path
-from network_bootstrap.nb_fdr import NetworkBootstrap
+from nb_fdr import NetworkBootstrap
 
 # Get inputs, outputs and parameters from Snakemake
 input_normal = snakemake.input.normal

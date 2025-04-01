@@ -26,7 +26,7 @@ logging.basicConfig(
 logger = logging.getLogger("scenic_plus_integration")
 
 try:
-    from network_bootstrap import NetworkBootstrap
+    from pyNB import NetworkBootstrap
     import scenicplus as sp
 except ImportError:
     logger.error("Make sure to install with workflow extras: pip install -e '.[workflow]'")

@@ -1,6 +1,6 @@
 import pandas as pd
 from pathlib import Path
-from src.network_bootstrap.nb_fdr import NetworkBootstrap
+from src.nb_fdr import NetworkBootstrap
 
 def process_network_data(data_path: str, is_null: bool = False) -> pd.DataFrame:
     """Process raw network data file.

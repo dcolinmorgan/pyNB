@@ -2,10 +2,10 @@ from typing import Any
 import pytest
 import numpy as np
 from pathlib import Path
-from network_bootstrap.nb_fdr import NetworkBootstrap, NetworkData
-from network_bootstrap.utils import NetworkUtils
+from nb_fdr import NetworkBootstrap, NetworkData
+from utils import NetworkUtils
 
-def test_network_bootstrap_initialization() -> None:
+def test_pyNB_initialization() -> None:
     """Test NetworkBootstrap class initialization."""
     data = NetworkData(
         Y=np.random.random((10, 10)),

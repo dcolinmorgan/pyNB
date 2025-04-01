@@ -3,12 +3,12 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "network_bootstrap"
+name = "pyNB"
 version = "0.1.0"
 authors = [
-  { name="Your Name", email="your.email@example.com" },
+  { name="D.C.Morgan", email="dcolinmorgan@gmail.com" },
 ]
-description = "Network Bootstrap FDR Analysis"
+description = "Network Bootstrap FDR Analysis w/ some GeneSPIDER capability"
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
@@ -38,4 +38,4 @@ python_files = ["test_*.py"]
 layout = "src"
 
 [tool.hatch.build.targets.wheel]
-packages = ["network_bootstrap"] 
+packages = ["pyNB"] 
