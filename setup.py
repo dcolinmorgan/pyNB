@@ -11,7 +11,7 @@ setup(
         "networkx",
         "pandas",
         "matplotlib",
-        "requests"
+        "requests",
     ],
     author="D.C.Morgan",
     description="A Python port of the GENESpider MATLAB package",

@@ -16,7 +16,7 @@ dependencies = [
     "pandas>=1.5.0",
     "matplotlib>=3.5.0",
     "scipy",
-    "requests"
+    "requests",
 ]
 
 [project.optional-dependencies]
