@@ -1,40 +1,29 @@
+import sys
+sys.path.append("src")  # Add src/ to path
 import numpy as np
+from analyze.Data import Data
 from datastruct.Network import Network
-from datastruct.Experiment import Experiment
-from datastruct.Dataset import Dataset
-from analyse.Model import Model
-from analyse.Data import Data
-from analyse.CompareModels import CompareModels
+from methods.lasso import Lasso
+from methods.lsco import LSCO
+from analyze.CompareModels import CompareModels
+
+
 
 def test_basic_functionality():
-    # Create a simple network
-    A = np.array([[0, 1, 0], [0, 0, 1], [1, 0, 0]])
-    net = Network(A)
-    print(f"Network created: {net.network}")
-
-    # Create an experiment
-    exp = Experiment(net)
-    exp.gaussian()  # Add some noise
-    print(f"Experiment Y: {exp.noiseY()}")
-
-    # Create a dataset
-    ds = Dataset(exp)
-    print(f"Dataset Y: {ds.Y}")
-
-    # Analyze the network model
-    model = Model(net)
-    print(f"Condition Number: {model.interampatteness}")
-    print(f"Small-worldness: {model.proximity_ratio}")
-
-    # Analyze the dataset
-    data = Data(ds)
-    print(f"SNR_L: {data.SNR_L}")
-
-    # Compare models
-    Alist = np.stack([A * 0.9, A * 1.1], axis=2)  # Two slightly perturbed versions
-    comp = CompareModels(net, Alist)
-    print(f"Absolute Frobenius Norm: {comp.afronorm}")
-    print(f"F1 Score: {comp.F1}")
+    dataA = Data.from_json_url('https://bitbucket.org/sonnhammergrni/gs-datasets/raw/d2047430263f5ffe473525c74b4318f723c23b0e/N50/Tjarnberg-ID252384-D20151111-N50-E150-SNR10-IDY252384.json')
+    lasso_net,alpha=Lasso(dataA.data)
+    lasso_net=Network(lasso_net)
+    true_net = Network.from_json_url('https://bitbucket.org/sonnhammergrni/gs-networks/raw/0b3a66e67d776eadaa5d68667ad9c8fbac12ef85/random/N50/Tjarnberg-D20150910-random-N50-L158-ID252384.json')
+    comp = CompareModels(lasso_net, true_net)
+    print(f"lasso F1 Score: {comp.F1}")
+    print(f"lasso MCC : {comp.MCC}")
+    
+    lsco_net,alpha=LSCO(dataA.data)
+    lsco_net=Network(lsco_net)
+    comp = CompareModels(lsco_net, true_net)
+    print(f"lsco F1 Score: {comp.F1}")
+    print(f"lsco MCC : {comp.MCC}")
+    
 
 if __name__ == "__main__":
     test_basic_functionality()
