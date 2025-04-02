@@ -18,7 +18,7 @@ class Dataset(Exchange):
         self._P = None        # Perturbations
         self._lambda = None   # Noise variance
         self._created = {
-            'creator': os.getlogin(),
+            # 'creator': os.getlogin(),
             'time': datetime.now(),
             'id': ''
         }
