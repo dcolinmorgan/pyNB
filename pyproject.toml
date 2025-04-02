@@ -18,6 +18,7 @@ dependencies = [
     "scipy",
     "requests",
     "scikit-learn",
+    "networkx",
 ]
 
 [project.optional-dependencies]
