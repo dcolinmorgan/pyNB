@@ -57,7 +57,7 @@ class Data(DataModel):
     def calc_SNR_Phi_true(data):
         """Calculate SNR_Phi_true: min(svd(true_response))/max(svd(E))."""
         s_true = linalg.svd(data.true_response(), compute_uv=False)
-        s_E = linalg.svd(data.E, compute_uv=False)
+        s_E = linalg.svd(data.E, compute_uv=False) if data.E is not None else np.array([1.0])  # Default if None
         return min(s_true) / max(s_E) if s_E.size > 0 else float('inf')
 
     @staticmethod
@@ -79,7 +79,7 @@ class Data(DataModel):
     def calc_SNR_L(self, data):
         alpha = self.alpha()
         try:
-            sigma = min(linalg.svd(data.true_response(), compute_uv=False))
+            sigma = np.min(linalg.svd(data.true_response(), compute_uv=False))
             denom = np.sqrt(chi2.ppf(1 - alpha, data.P.size) * (data.lambda_ if data.lambda_ is not None else 1.0))
             self._SNR_L = sigma / denom if denom != 0 else float('inf')
         except Exception as e:

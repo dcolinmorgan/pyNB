@@ -12,6 +12,7 @@ class Network(Exchange):
         # Private properties
         self._network = None  # Unique name of network
         self._A = None        # Network matrix
+        self.P = None
         self._G = None        # Static gain model
 
         # Public properties

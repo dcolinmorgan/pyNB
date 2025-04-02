@@ -9,7 +9,7 @@ class Model(DataModel):
     """Calculates properties related to the supplied network."""
 
     def __init__(self, mat, **kwargs):
-        super().__init__()
+        super().__init__(mat)
         # Private properties
         self._network = ''           # Identifier for network
         self._interampatteness = None  # Condition number
@@ -99,7 +99,7 @@ class Model(DataModel):
     def median_path_length(cls, model, **kwargs):
         """Calculate median and mean path lengths."""
         A = cls.give_matrix(model)
-        directed = cls.type() == 'directed'
+        directed = DataModel.type() == 'directed'  # Update here
         G = nx.from_numpy_array(A, create_using=nx.DiGraph if directed else nx.Graph)
         lengths = dict(nx.all_pairs_shortest_path_length(G))
         pl = []
@@ -116,7 +116,7 @@ class Model(DataModel):
     def graphconncomp(cls, model):
         """Calculate number of strongly connected components."""
         A = cls.give_matrix(model)
-        directed = cls.type() == 'directed'
+        directed = DataModel.type() == 'directed'  # Explicitly use DataModel
         G = nx.from_numpy_array(np.sign(A), create_using=nx.DiGraph if directed else nx.Graph)
         return nx.number_strongly_connected_components(G) if directed else nx.number_connected_components(G)
 
@@ -134,7 +134,7 @@ class Model(DataModel):
         A = cls.give_matrix(model)
         A = A.copy()
         np.fill_diagonal(A, 0)  # Remove self-loops
-        directed = cls.type() == 'directed'
+        directed = DataModel.type() == 'directed'
         
         if directed:
             C_out = np.zeros(A.shape[0])
@@ -160,7 +160,7 @@ class Model(DataModel):
         np.fill_diagonal(A, 0)  # Remove self-loops
         A = A.astype(bool)
         
-        if cls.type() == 'directed':
+        if DataModel.type() == 'directed':
             out_degree = np.sum(A, axis=1)
             return out_degree  # Only returning out_degree to match MATLAB’s single-output default
         else:

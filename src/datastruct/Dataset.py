@@ -99,10 +99,12 @@ class Dataset(Exchange):
     # Signal-to-noise ratio (SNR_L)
     @property
     def SNR_L(self):
-        alpha = 0.01
-        sigma = np.min(linalg.svd(self.true_response()))
-        from scipy.stats import chi2
-        return sigma / np.sqrt(chi2.ppf(1 - alpha, self.P.size) * self.lambda_[0])
+        true_resp = self.true_response()
+        print(f"True response shape: {true_resp.shape}")
+        svd_vals = linalg.svd(true_resp, compute_uv=False)
+        print(f"SVD values: {svd_vals}")
+        sigma = np.min(svd_vals)
+        return sigma / np.sqrt(self.lambda_ if self.lambda_ is not None else 1.0)
 
     # Wikipedia SNR
     @property
@@ -151,9 +153,9 @@ class Dataset(Exchange):
             if key in namer:
                 namer[key] = value
 
-        SNR_L = '0' if self.lambda_ is None else str(round(self.SNR_L * 1000))
+        SNR_L = '0' if self.lambda_ is None else str(np.round(self.SNR_L * 1000))
         SNR_Wiki = '0' if self.lambda_ is None else str(self.SNR_Wiki)
-        network_id = self.network.split('-ID')[-1] if '-ID' in self.network else ''
+        network_id = self.network.network.split('-ID')[-1] if '-ID' in self.network.network else ''
         self.dataset = (f"{namer['creator']}-ID{network_id}-D{namer['time'].strftime('%Y%m%d')}"
                         f"-N{self.P.shape[0] if self.P is not None else 0}"
                         f"-E{self.P.shape[1] if self.P is not None else 0}"
@@ -205,9 +207,10 @@ class Dataset(Exchange):
             self.Y = input.A @ input.P if input.P is not None else input.A
             self.P = input.P if input.P is not None else np.eye(input.A.shape[0])
         elif isinstance(input, Experiment):
-            self.network = Network(input._G)  # Create a Network from Experiment's G
-            self.Y = input.noiseY()
+            self.network = Network(input._G)
+            self.Y = input.trueY()
             self.P = input._P
+            self.E = input._E 
             self.lambda_ = np.var(input._E) if input._E is not None else 1.0
         self.X = self.Y
 

@@ -1,10 +1,12 @@
 import numpy as np
+from numpy import linalg
 
 class DataModel:
     """Calculates data properties for the supplied dataset."""
 
-    def __init__(self, data, **kwargs):
+    def __init__(self, data=None, **kwargs):
         super().__init__()
+        self._data = data
         # Private properties
         self._dataset = ''         # Identifier for dataset
         self._SNR_Phi_true = None  # SNR: min(svd(Y_true))/max(svd(E))
@@ -13,11 +15,13 @@ class DataModel:
         self._SNR_phi_true = None  # Min SNR per variable (true)
         self._SNR_phi_gauss = None # Min SNR per variable (Gaussian)
 
-        # Set tolerance from kwargs or use inherited default
-        self._tol = kwargs.get('tol', self.tol())
+        # Set tolerance if provided
+        if 'tol' in kwargs:
+            self._tol = kwargs['tol']
 
         # Analyze the data
-        self.analyse_data(data)
+        # if data is not None:
+            # self.analyse_data(data)
 
     def analyse_data(self, data, **kwargs):
         """Perform analysis on the provided dataset."""
@@ -33,6 +37,18 @@ class DataModel:
     def identifier(cls, data):
         """Get dataset identifier."""
         return data.dataset if isinstance(data, Dataset) else ''
+    
+    @staticmethod
+    def alpha():
+        return 0.01
+
+    @staticmethod
+    def type():
+        return 'directed'
+
+    @staticmethod
+    def tol():
+        return np.finfo(float).eps
 
     @classmethod
     def calc_SNR_Phi_true(cls, data):
@@ -44,6 +60,7 @@ class DataModel:
     @classmethod
     def calc_SNR_phi_true(cls, data):
         """Calculate SNR_phi_true for each variable."""
+        
         X = data.true_response()
         snr = np.zeros(data.N)
         for i in range(data.N):
