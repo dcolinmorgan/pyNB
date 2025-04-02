@@ -1,8 +1,6 @@
-# Network Bootstrap FDR
+# Network Bootstrap FDR & mini GeneSPIDER
 
 A Python implementation of NB-FDR (Network Bootstrap False Discovery Rate) analysis for network inference. This package implements an algorithm to estimate bootstrap support for network links by comparing measured networks against a shuffled (null) dataset. It computes key metrics such as assignment fractions, evaluates overlap between inferred links, and determines a bootstrap support cutoff at the desired false discovery rate.
-
-```n.b. this package is not meant to run network inference, only to compute the FDR based on the inferred networks from multiple bootstrap runs. However, installing [workflow] installs tools needed to repeat figure below (i.e. snakemake & scenic+) ```
 
 ## Overview
 
@@ -16,6 +14,37 @@ Key features of this package include:
 - **Modular Design:** Clear separation of source code, tests, examples, and configuration.
 - **Snakemake Workflow:** Automated analysis pipeline for processing multiple samples.
 - **SCENIC+ Integration:** Optional integration with scenicplus for comprehensive gene regulatory network analysis.
+- **JSON Data Import:** Support for downloading and importing network data from JSON URLs.
+
+## Data and Network Import
+
+The package supports downloading data and networks directly from JSON URLs. This is particularly useful for accessing pre-computed datasets and reference networks.
+
+### Example Usage
+
+```python
+from analyze.Data import Data
+from datastruct.Network import Network
+
+# Download dataset from JSON URL
+dataset = Data.from_json_url(
+    'https://bitbucket.org/sonnhammergrni/gs-datasets/raw/d2047430263f5ffe473525c74b4318f723c23b0e/N50/Tjarnberg-ID252384-D20151111-N50-E150-SNR10-IDY252384.json'
+)
+
+# Download reference network from JSON URL
+true_net = Network.from_json_url(
+    'https://bitbucket.org/sonnhammergrni/gs-networks/raw/0b3a66e67d776eadaa5d68667ad9c8fbac12ef85/random/N50/Tjarnberg-D20150910-random-N50-L158-ID252384.json'
+
+lasso_net,alpha=Lasso(dataset.data)
+lasso_net=Network(lasso_net)
+
+comp = CompareModels(lasso_net, true_net)
+print(f"lasso F1 Score: {comp.F1}")
+[0.32806324]
+print(f"lasso MCC : {comp.MCC}")
+[0.28972279]
+
+```
 
 ## Analysis Output as Figure
 
@@ -27,7 +56,12 @@ pyNB/
 ├── pyproject.toml         # Build and dependency configuration
 ├── README.md              # Package overview and usage guide
 ├── src/
-│   └── pyNB/
+│   └── analyze/
+│       ├── CompareModels.py
+│       ├── Data.py
+│       ├── DataModel.py
+│       ├── Model.py
+│   └── bootstrap/
 │       ├── __init__.py
 │       ├── nb_fdr.py      # Core implementation of NB-FDR analysis
 │       ├── utils.py       # Utility functions for network analysis
@@ -41,6 +75,14 @@ pyNB/
 │               ├── nb_fdr_analysis.py
 │               ├── generate_plots.py
 │               └── compute_density.py
+│   └── datastruct/
+│       ├── Dataset.py
+│       ├── Exchange.py
+│       ├── Experiment.py
+│       ├── Network.py
+│   └── methods/
+│       ├── lasso.py
+│       ├── lsco.py
 ├── tests/
 │   ├── __init__.py
 │   └── test_py   # Pytest-based tests
@@ -56,7 +98,7 @@ The recommended way to install the package is to use a virtual environment. For 
 ```bash
 python -m venv venv
 source venv/bin/activate           # On Windows use: venv\Scripts\activate
-pip install -e ".[dev]"            # For development
+pip install -e ".[dev]"            # For GeneSPIDER partial-functionality
 pip install -e ".[workflow]"       # For Snakemake workflow and SCENIC+ capabilities
 ```
 
@@ -224,6 +266,59 @@ To use SCENIC+ with NB-FDR:
    │   └── nb_fdr/           # NB-FDR results
    └── Snakefile             # Combined workflow file
    ```
+
+
+## Limited GeneSpider Functionality
+
+This package includes a limited implementation of network inference methods inspired by GeneSpider. Currently supported methods include:
+
+### Network Inference Methods
+
+1. **LASSO Regression** (`methods.lasso.Lasso`):
+   - Solves Y = A^-1*P - E using L1-regularized regression
+   - Features:
+     - Cross-validation for optimal regularization parameter
+     - Sparse network solutions
+     - Handles both single and list lambda values
+   - Usage:
+     ```python
+     from methods.lasso import Lasso
+     A, alpha = Lasso(dataset, alpha_range=None, cv=5)
+     ```
+
+2. **Least Squares** (`methods.lsco.LSCO`):
+   - Solves Y = A^-1*P - E using ordinary least squares
+   - Features:
+     - Non-sparse network solutions
+     - Computes mean squared error
+     - Handles singular value decomposition
+   - Usage:
+     ```python
+     from methods.lsco import LSCO
+     A, mse = LSCO(dataset, tol=1e-8)
+     ```
+
+### Data Requirements
+
+Both methods require a Dataset object with:
+- `Y`: Expression data matrix (n_genes × n_samples)
+- `P`: Perturbation matrix (n_genes × n_samples)
+
+The matrices must have matching dimensions (same number of rows).
+
+### Limitations
+
+This is a limited implementation and does not include:
+- Full GeneSpider workflow
+- Advanced network inference algorithms
+- Integration with other network analysis tools
+- Additional preprocessing steps
+- Advanced visualization capabilities
+
+For full GeneSpider functionality, please refer to the original implementation.
+
+```n.b. this package is not meant to run network inference, only to compute the FDR based on the inferred networks from multiple bootstrap runs. However, installing [workflow] installs tools needed to repeat figure below (i.e. snakemake & scenic+) ```
+
 
 ## Testing
 

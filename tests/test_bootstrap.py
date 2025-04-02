@@ -2,8 +2,8 @@ from typing import Any
 import pytest
 import numpy as np
 from pathlib import Path
-from network_bootstrap.nb_fdr import NetworkBootstrap, NetworkData
-from network_bootstrap.utils import NetworkUtils
+from bootstrap.nb_fdr import NetworkBootstrap, NetworkData
+from bootstrap.utils import NetworkUtils
 
 def test_pyNB_initialization() -> None:
     """Test NetworkBootstrap class initialization."""
