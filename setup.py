@@ -10,7 +10,8 @@ setup(
         "scipy",
         "networkx",
         "pandas",
-        "matplotlib"
+        "matplotlib",
+        "requests"
     ],
     author="D.C.Morgan",
     description="A Python port of the GENESpider MATLAB package",
