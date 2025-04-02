@@ -1,221 +1,105 @@
 import numpy as np
-from numpy import linalg
-from datetime import datetime
 import os
+from datetime import datetime
+import requests
+from typing import Optional, Dict, Any
 from datastruct.Exchange import Exchange
 
 class Network(Exchange):
-    """Stores a network matrix A and calculates network properties."""
-
-    def __init__(self, *args):
+    """Represents a network structure."""
+    
+    def __init__(self, A: np.ndarray = None):
         super().__init__()
-        # Private properties
-        self._network = None  # Unique name of network
-        self._A = None        # Network matrix
-        self.P = None
-        self._G = None        # Static gain model
+        self._A = A             # Adjacency matrix
+        self._P = None          # Perturbations
+        self._G = None          # Static gain model
+        self._network_id = self._generate_id() if A is not None else ''
 
-        # Public properties
-        self._names = []
-        self.description = ''
+    @classmethod
+    def from_json_url(cls, url: str) -> 'Network':
+        """Create a Network instance from a JSON file at the given URL.
+        
+        Args:
+            url: URL to the JSON file containing network data
+            
+        Returns:
+            Network instance initialized with the adjacency matrix from the JSON data
+            
+        Raises:
+            requests.exceptions.RequestException: If the URL request fails
+            ValueError: If the JSON data is invalid or doesn't contain the adjacency matrix
+        """
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            data: Dict[str, Any] = response.json()
+            
+            if 'obj_data' not in data:
+                raise ValueError("JSON data does not contain 'obj_data' field")
+                
+            obj_data = data['obj_data']
+            if 'A' not in obj_data:
+                raise ValueError("JSON data does not contain adjacency matrix in obj_data.A")
+                
+            adjacency_data = obj_data['A']
+            if not isinstance(adjacency_data, list) or not all(
+                isinstance(row, list) for row in adjacency_data
+            ):
+                raise ValueError("Adjacency matrix data must be a 2D array")
+                
+            A = np.array(adjacency_data, dtype=float)
+            network = cls(A)
+            
+            # Set network ID if available
+            if 'network' in obj_data:
+                network.network = obj_data['network']
+                
+            return network
+            
+        except requests.exceptions.RequestException as e:
+            raise requests.exceptions.RequestException(
+                f"Failed to fetch network data from URL: {e}"
+            )
+        except ValueError as e:
+            raise ValueError(f"Invalid network data format: {e}")
 
-        # Hidden properties
-        self.created = {
-            'creator': os.getlogin(),
-            'time': datetime.now(),
-            'id': '',
-            'nodes': '',
-            'type': 'unknown',
-            'sparsity': ''
-        }
-        self.tol = np.finfo(float).eps
-        self._N = None  # Number of nodes
+    def populate(self, source):
+        """Populate from another Network or matrix."""
+        if isinstance(source, Network):
+            self._A = source.A
+            self._P = source.P
+            self._G = source.G
+            self._network_id = source.network
+        elif isinstance(source, np.ndarray):
+            self._A = source
+            self._network_id = self._generate_id()
+        else:
+            raise ValueError("Source must be a Network or NumPy array")
 
-        # Handle input arguments
-        if len(args) == 2:
-            self.setA(args[0])
-            self.created['type'] = args[1]
-            self.setname()
-        elif len(args) == 1:
-            self.setA(args[0])
-            self.setname()
+    def _generate_id(self):
+        """Generate unique network identifier."""
+        N = self._A.shape[0] if self._A is not None else 0
+        L = np.sum(self._A != 0) if self._A is not None else 0
+        ID = str(round(np.random.rand() * 10000))
+        return f"{os.getlogin()}-D{datetime.now().strftime('%Y%m%d')}-directed-N{N}-L{L}-ID{ID}"
 
-    # Getter and Setter for network properties
-    @property
-    def network(self):
-        return self._network
-
+    # Properties
     @property
     def A(self):
         return self._A
 
     @property
+    def P(self):
+        return self._P
+
+    @property
     def G(self):
         return self._G
 
-    def setA(self, A):
-        """Set the network matrix A and compute G."""
-        self._A = np.asarray(A)
-        self._G = -linalg.pinv(self._A)  # Full matrix pseudo-inverse
-        self.created['id'] = str(round(linalg.cond(self._A) * 10000))
-        self.created['nodes'] = str(self._A.shape[0])
-        self.created['sparsity'] = str(self.nnz())
-        self._network = self.network  # Trigger name update if needed
-
-    def setname(self, namestruct=None):
-        """Set the network name based on creation metadata."""
-        if namestruct is None:
-            namestruct = self.created
-        if not isinstance(namestruct, dict):
-            raise ValueError("Input argument must be name/value pairs in dict form")
-
-        namer = self.created.copy()
-        for key, value in namestruct.items():
-            if key in namer:
-                namer[key] = value
-
-        self._network = (f"{namer['creator']}-D{namer['time'].strftime('%Y%m%d')}-"
-                         f"{namer['type']}-N{namer['nodes']}-L{self.nnz()}-ID{namer['id']}")
-
     @property
-    def N(self):
-        """Number of nodes in the network."""
-        return self.size()[0] if self._A is not None else 0
+    def network(self):
+        return self._network_id
 
-    @property
-    def names(self):
-        """Get or generate node names."""
-        if not self._names:
-            return [f"G{i:0{int(np.log10(self.N)) + 1}d}" for i in range(1, self.N + 1)]
-        return self._names
-
-    @names.setter
-    def names(self, value):
-        self._names = value
-
-    def show(self):
-        """Display network matrix and properties (requires GUI library)."""
-        try:
-            import matplotlib.pyplot as plt
-            from matplotlib.table import Table
-
-            # Matrix display
-            fig1, ax1 = plt.subplots()
-            ax1.matshow(self._A, cmap='viridis')
-            ax1.set_xticks(range(self.N))
-            ax1.set_yticks(range(self.N))
-            ax1.set_xticklabels(self.names)
-            ax1.set_yticklabels(self.names)
-            plt.title("Network Matrix")
-
-            # Properties table
-            network_properties = [
-                ('Name', self.network),
-                ('Description', self.description),
-                ('Sparseness', self.nnz() / self._A.size),
-                ('# Nodes', self._A.shape[0]),
-                ('# Links', self.nnz())
-            ]
-            fig2, ax2 = plt.subplots()
-            ax2.axis('off')
-            table = Table(ax2, bbox=[0, 0, 1, 1])
-            for i, (prop, val) in enumerate(network_properties):
-                table.add_cell(i, 0, 0.3, 0.1, text=prop, loc='center')
-                table.add_cell(i, 1, 0.7, 0.1, text=str(val), loc='center')
-            ax2.add_table(table)
-            plt.title("Network Properties")
-
-            plt.show()
-        except ImportError:
-            print("Visualization requires matplotlib. Install it with 'pip install matplotlib'.")
-
-    def view(self):
-        """Rough graphical network plot (requires networkx)."""
-        try:
-            import networkx as nx
-            import matplotlib.pyplot as plt
-
-            Ap = self._A.copy()
-            np.fill_diagonal(Ap, 0)  # Remove self-loops
-            G = nx.DiGraph(Ap)
-            pos = nx.spring_layout(G)
-            nx.draw(G, pos, with_labels=True, labels={i: name for i, name in enumerate(self.names)})
-            edge_labels = {(i, j): f"{Ap[i, j]:.2f}" for i, j in G.edges()}
-            nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
-            plt.show()
-            return G
-        except ImportError:
-            print("Network visualization requires networkx. Install it with 'pip install networkx'.")
-            return None
-
-    def sign(self):
-        """Return the sign of the network matrix."""
-        return np.sign(self._A)
-
-    def logical(self):
-        """Return a logical (boolean) version of the network matrix."""
-        return self._A.astype(bool)
-
-    def size(self, dim=None):
-        """Return the size of the network matrix."""
-        if dim is not None:
-            return self._A.shape[dim - 1]  # MATLAB uses 1-based indexing
-        return self._A.shape
-
-    def nnz(self):
-        """Return the number of non-zero elements in the network matrix."""
-        return np.count_nonzero(self._A)
-
-    def svd(self):
-        """Return the singular values of A."""
-        return linalg.svd(self._A, compute_uv=False)
-
-    def __mul__(self, p):
-        """Generate a steady-state response to a perturbation."""
-        p = np.atleast_2d(p)
-        if p.shape[0] == 1:
-            p = p.T
-        return self._G @ p
-
-    def populate(self, input):
-        """Populate the Network object with fields from input."""
-        if not isinstance(input, (dict, Network)):
-            raise ValueError("Input must be a dict or Network object")
-        super().populate(input)
-        if 'A' in (input if isinstance(input, dict) else vars(input)):
-            self.setA(self._A)  # Ensure G and metadata are updated
-        return self
-
-    def save(self, *args, **kwargs):
-        """Save the network to a file."""
-        super().save(*args, **kwargs)
-
-    @staticmethod
-    def load(*args):
-        """Load a network from a file."""
-        return Exchange.load(*args)
-
-    @staticmethod
-    def fetch(*args):
-        """Fetch a network from a remote repository."""
-        options = {
-            'directurl': '',
-            'baseurl': 'https://bitbucket.org/sonnhammergrni/gs-networks/raw/',
-            'version': 'master',
-            'type': 'random',
-            'N': 10,
-            'name': '',
-            'filelist': False,
-            'filetype': ''
-        }
-        if not args:
-            default_file = 'Nordling-D20100302-random-N10-L25-ID1446937.json'
-            obj_data = Exchange.fetch(options, default_file)
-        else:
-            obj_data = Exchange.fetch(options, *args)
-
-        if isinstance(obj_data, list):
-            return obj_data
-        net = Network()
-        net.populate(obj_data)
-        return net
+    @network.setter
+    def network(self, value):
+        self._network_id = value
