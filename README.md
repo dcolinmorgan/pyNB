@@ -57,29 +57,29 @@ pyNB/
 ├── README.md              # Package overview and usage guide
 ├── src/
 │   └── analyze/
-│       ├── CompareModels.py
-│       ├── Data.py
-│       ├── DataModel.py
-│       ├── Model.py
+│   │   ├── CompareModels.py
+│   │   ├── Data.py
+│   │   ├── DataModel.py
+│   │   ├── Model.py
 │   └── bootstrap/
-│       ├── __init__.py
-│       ├── nb_fdr.py      # Core implementation of NB-FDR analysis
-│       ├── utils.py       # Utility functions for network analysis
-│       └── workflow/      # Snakemake workflow for automated analysis
-│           ├── __init__.py
-│           ├── Snakefile
-│           ├── config/
-│           │   └── config.yaml
-│           └── scripts/
-│               ├── compute_assign_frac.py
-│               ├── nb_fdr_analysis.py
-│               ├── generate_plots.py
-│               └── compute_density.py
+│   │   ├── __init__.py
+│   │   ├── nb_fdr.py      # Core implementation of NB-FDR analysis
+│   │   ├── utils.py       # Utility functions for network analysis
+│   │   └── workflow/      # Snakemake workflow for automated analysis
+│   │       ├── __init__.py
+│   │       ├── Snakefile
+│   │       ├── config/
+│   │       │   └── config.yaml
+│   │       └── scripts/
+│   │           ├── compute_assign_frac.py
+│   │           ├── nb_fdr_analysis.py
+│   │           ├── generate_plots.py
+│   │           └── compute_density.py
 │   └── datastruct/
-│       ├── Dataset.py
-│       ├── Exchange.py
-│       ├── Experiment.py
-│       ├── Network.py
+│   │   ├── Dataset.py
+│   │   ├── Exchange.py
+│   │   ├── Experiment.py
+│   │   ├── Network.py
 │   └── methods/
 │       ├── lasso.py
 │       ├── lsco.py
