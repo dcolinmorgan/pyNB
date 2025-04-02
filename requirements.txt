@@ -4,4 +4,4 @@ networkx
 pandas
 matplotlib
 requests
-sklearn
+scikit-learn

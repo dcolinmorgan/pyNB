@@ -12,7 +12,7 @@ setup(
         "pandas",
         "matplotlib",
         "requests",
-        "sklearn"
+        "scikit-learn"
     ],
     author="D.C.Morgan",
     description="A Python port of the GENESpider MATLAB package",

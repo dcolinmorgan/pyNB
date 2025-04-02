@@ -17,7 +17,8 @@ dependencies = [
     "matplotlib>=3.5.0",
     "scipy",
     "requests",
-    "sklearn"
+    "scikit-learn
+"
 ]
 
 [project.optional-dependencies]
