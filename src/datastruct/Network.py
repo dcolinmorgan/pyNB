@@ -81,7 +81,7 @@ class Network(Exchange):
         N = self._A.shape[0] if self._A is not None else 0
         L = np.sum(self._A != 0) if self._A is not None else 0
         ID = str(round(np.random.rand() * 10000))
-        return f"{os.getlogin()}-D{datetime.now().strftime('%Y%m%d')}-directed-N{N}-L{L}-ID{ID}"
+        return f"dc-D{datetime.now().strftime('%Y%m%d')}-directed-N{N}-L{L}-ID{ID}"
 
     # Properties
     @property
