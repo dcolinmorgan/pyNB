@@ -52,21 +52,23 @@ class TestBootstrapEnhanced:
     def test_calc_bin_freq_parametrized(self, matrix_values, bins, expected_properties):
         """Parametrized test for frequency calculations."""
         try:
-            from bootstrap.utils import calc_bin_freq
+            from bootstrap.utils import NetworkUtils
             
-            result = calc_bin_freq(matrix_values, bins)
+            freq, bin_edges = NetworkUtils.calc_bin_freq(matrix_values, bins)
             
             # Validate basic properties
-            assert len(result) == bins
-            assert all(np.isfinite(result))
+            assert len(freq) == bins
+            assert len(bin_edges) == bins + 1  # bin_edges has one more element
+            assert all(np.isfinite(freq))
+            assert all(np.isfinite(bin_edges))
             
             if expected_properties['non_zero']:
-                assert any(result > 0)
+                assert any(freq > 0)
             if expected_properties['finite']:
-                assert all(np.isfinite(result))
+                assert all(np.isfinite(freq))
                 
         except ImportError as e:
-            pytest.skip(f"calc_bin_freq not available: {e}")
+            pytest.skip(f"NetworkUtils not available: {e}")
 
     def test_bootstrap_edge_cases(self):
         """Test edge cases for bootstrap functionality."""
@@ -135,19 +137,26 @@ class TestDatastructEnhanced:
         """Test dataset integration."""
         try:
             from datastruct.Dataset import Dataset
+            from datastruct.Network import Network
+            from datastruct.Experiment import Experiment
             
-            # Create simple test dataset
-            Y = np.random.random((5, 10))
-            P = np.random.random((5, 10))
+            # Create proper objects: Network -> Experiment -> Dataset
+            A = np.random.random((5, 5))
+            net = Network(A)
+            exp = Experiment(net)
+            exp.gaussian()  # Generate the necessary data
             
-            dataset = Dataset(Y, P)
+            # Create dataset from experiment
+            dataset = Dataset(exp)
             assert hasattr(dataset, 'Y')
             assert hasattr(dataset, 'P')
+            assert hasattr(dataset, 'dataset')  # dataset name property
+            
             # Check that the dataset was properly constructed
             if dataset.Y is not None:
-                assert dataset.Y.shape == (5, 10)
+                assert dataset.Y.shape[0] == 5  # Should match network dimensions
             if dataset.P is not None:
-                assert dataset.P.shape == (5, 10)
+                assert dataset.P.shape[0] == 5  # Should match network dimensions
             
         except ImportError as e:
             pytest.skip(f"Dataset class not available: {e}")
@@ -180,21 +189,18 @@ class TestAnalysisEnhanced:
             from datastruct.Dataset import Dataset
             from analyze.Data import Data
             
+            # Create proper objects: Network -> Experiment -> Dataset -> Data
             A = np.random.random((5, 5))
             net = Network(A)
             exp = Experiment(net)
+            exp.gaussian()  # Generate the necessary data
             
-            Y = np.random.random((5, 10))
-            P = np.random.random((5, 10))
-            dataset = Dataset(Y, P)
+            dataset = Dataset(exp)
             
-            # Skip this test if the Data class requires specific attributes
-            if not hasattr(dataset, 'dataset'):
-                pytest.skip("Dataset lacks required 'dataset' attribute")
-            
-            data_analysis = Data(exp, dataset)
-            assert hasattr(data_analysis, 'exp')
-            assert hasattr(data_analysis, 'dataset')
+            # Now create Data analysis from Dataset
+            data_analysis = Data(dataset)
+            assert hasattr(data_analysis, '_data')  # Should have dataset reference
+            assert hasattr(data_analysis, '_dataset_id')  # Should have dataset ID
             
         except ImportError as e:
             pytest.skip(f"Data analysis class not available: {e}")
@@ -269,15 +275,23 @@ class TestMethodsIntegrationEnhanced:
         try:
             from methods.lasso import Lasso
             from datastruct.Dataset import Dataset
+            from datastruct.Network import Network
+            from datastruct.Experiment import Experiment
             
-            Y = np.random.random((5, 10))
-            P = np.random.random((5, 10))
-            dataset = Dataset(Y, P)
+            # Create proper objects: Network -> Experiment -> Dataset
+            A = np.random.random((5, 5))
+            net = Network(A)
+            exp = Experiment(net)
+            exp.gaussian()  # Generate the necessary data
+            
+            # Create dataset from experiment
+            dataset = Dataset(exp)
             
             try:
-                A, alpha = Lasso(dataset)
-                assert A is not None
+                A_inferred, alpha = Lasso(dataset)
+                assert A_inferred is not None
                 assert alpha is not None
+                assert A_inferred.shape == (5, 5)  # Should match input dimensions
             except Exception as e:
                 pytest.skip(f"LASSO method failed: {e}")
                 
@@ -289,15 +303,23 @@ class TestMethodsIntegrationEnhanced:
         try:
             from methods.lsco import LSCO
             from datastruct.Dataset import Dataset
+            from datastruct.Network import Network
+            from datastruct.Experiment import Experiment
             
-            Y = np.random.random((5, 10))
-            P = np.random.random((5, 10))
-            dataset = Dataset(Y, P)
+            # Create proper objects: Network -> Experiment -> Dataset
+            A = np.random.random((5, 5))
+            net = Network(A)
+            exp = Experiment(net)
+            exp.gaussian()  # Generate the necessary data
+            
+            # Create dataset from experiment
+            dataset = Dataset(exp)
             
             try:
-                A, mse = LSCO(dataset)
-                assert A is not None
+                A_inferred, mse = LSCO(dataset)
+                assert A_inferred is not None
                 assert mse is not None
+                assert A_inferred.shape == (5, 5)  # Should match input dimensions
             except Exception as e:
                 pytest.skip(f"LSCO method failed: {e}")
                 
