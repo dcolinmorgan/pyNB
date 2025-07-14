@@ -1,45 +1,15 @@
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
 [project]
-name = "pyNB"
+name = "pynb"
 version = "0.1.0"
-authors = [
-  { name="D.C.Morgan", email="dcolinmorgan@gmail.com" },
-]
-description = "Network Bootstrap FDR Analysis w/ some GeneSPIDER capability"
+description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
-    "numpy>=1.20.0",
-    "pandas>=1.5.0",
-    "matplotlib>=3.5.0",
-    "scipy",
-    "requests",
-    "scikit-learn",
-    "networkx",
+    "matplotlib>=3.10.3",
+    "networkx>=3.4.2",
+    "numpy>=2.2.6",
+    "pandas>=2.3.1",
+    "requests>=2.32.4",
+    "scikit-learn>=1.7.0",
+    "scipy>=1.15.3",
 ]
-
-[project.optional-dependencies]
-dev = [
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-]
-workflow = [
-    "snakemake>=7.30.1",
-    "scenicplus>=0.1.0",
-    "scanpy>=1.9.3",
-    "anndata>=0.8.0",
-    "mudata>=0.2.0",
-]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-
-[tool.hatch.build]
-layout = "src"
-
-[tool.hatch.build.targets.wheel]
-packages = ["pyNB"] 
