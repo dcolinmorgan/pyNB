@@ -7,6 +7,19 @@ import logging
 from pathlib import Path
 from .utils import NetworkUtils
 
+# Import configuration
+try:
+    from ..config import AnalysisConfig
+except ImportError:
+    # Fallback if config module not available
+    @dataclass
+    class AnalysisConfig:
+        total_runs: int = 64
+        inner_group_size: int = 8
+        support_threshold: float = 0.8
+        fdr_threshold: float = 0.05
+        epsilon: float = 1e-10
+
 NDArrayFloat = npt.NDArray[np.float64]
 NDArrayBool = npt.NDArray[np.bool_]
 
@@ -57,25 +70,41 @@ class NetworkBootstrap:
     bootstrap-based confidence estimation.
     """
 
-    def __init__(self, param: Optional[Union[logging.Logger, NetworkData]] = None) -> None:
+    def __init__(self, param: Optional[Union[logging.Logger, NetworkData, AnalysisConfig, dict]] = None) -> None:
         """Initialize NetworkBootstrap analyzer.
 
         Args:
-            param: Optional parameter which can be either a logger instance or a NetworkData instance.
-                   If a logger is provided, it will be used. If a NetworkData object is provided,
-                   it is stored as `self.data` and a default logger is created.
+            param: Optional parameter which can be:
+                   - logger instance
+                   - NetworkData object  
+                   - AnalysisConfig object
+                   - dict with configuration parameters
+                   - None (uses defaults)
         """
-        if param is None:
+        # Initialize configuration
+        if isinstance(param, AnalysisConfig):
+            self.config = param
+            self.logger = logging.getLogger(__name__)
+            self.data = None
+        elif isinstance(param, dict):
+            self.config = AnalysisConfig(**param)
             self.logger = logging.getLogger(__name__)
             self.data = None
         elif isinstance(param, logging.Logger):
+            self.config = AnalysisConfig()
             self.logger = param
             self.data = None
         elif isinstance(param, NetworkData):
+            self.config = AnalysisConfig()
             self.data = param
             self.logger = logging.getLogger(__name__)
+        elif param is None:
+            self.config = AnalysisConfig()
+            self.logger = logging.getLogger(__name__)
+            self.data = None
         else:
-            raise TypeError("Invalid type for parameter. Expected logging.Logger or NetworkData.")
+            raise TypeError("Invalid type for parameter. Expected AnalysisConfig, dict, logging.Logger, or NetworkData.")
+        
         self._setup_logging()
 
     def _setup_logging(self) -> None:
@@ -481,7 +510,7 @@ class NetworkBootstrap:
 
         # Optional: Add support threshold (e.g., 0.8 from your code)
         ax.axvline(x=0.8, color='gray', linestyle='--', alpha=0.5, label='Threshold (0.8)')
-        # if 'Threshold (0.8)' not in [l.get_label() for l in ax.get_legend_handles_labels()[1]]:
+        # if 'Threshold (0.8)' not in [l.get_label() for l in ax.get_legend_handlers_labels()[1]]:
             # ax.legend(title='Data Type', loc='upper right', fontsize=10, title_fontsize=12)
 
         fig.tight_layout()
