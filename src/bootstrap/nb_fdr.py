@@ -20,6 +20,13 @@ except ImportError:
         fdr_threshold: float = 0.05
         epsilon: float = 1e-10
 
+# Import optional factory support
+try:
+    from ..networks.factories import network_registry, create_network
+    FACTORY_AVAILABLE = True
+except ImportError:
+    FACTORY_AVAILABLE = False
+
 NDArrayFloat = npt.NDArray[np.float64]
 NDArrayBool = npt.NDArray[np.bool_]
 
@@ -569,3 +576,32 @@ class NetworkBootstrap:
         result_df = pd.DataFrame(results)
         self.logger.info(f"Computed network density for {len(result_df)} runs")
         return result_df
+
+    # Import optional factory support
+    try:
+        from ..networks.factories import network_registry, create_network
+        FACTORY_AVAILABLE = True
+    except ImportError:
+        FACTORY_AVAILABLE = False
+
+    def create_network_from_data(self, data: Any, network_type: str = 'standard', **kwargs) -> Any:
+        """Create a network object using the factory pattern when available.
+        
+        Args:
+            data: Input data (array, dataframe, etc.)
+            network_type: Type of network factory to use ('standard', 'legacy')
+            **kwargs: Additional arguments for network creation
+            
+        Returns:
+            Network object or None if factory not available
+        """
+        if FACTORY_AVAILABLE:
+            try:
+                factory = network_registry.get_factory(network_type)
+                return factory.create_network(data, **kwargs)
+            except Exception as e:
+                self.logger.warning(f"Factory creation failed: {e}, falling back to direct creation")
+                return None
+        else:
+            self.logger.debug("Factory pattern not available")
+            return None
