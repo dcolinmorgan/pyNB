@@ -83,3 +83,13 @@ class Dataset(Exchange):
     @property
     def lambda_(self):
         return self._lambda
+
+    @property
+    def N(self):
+        """Number of genes (rows in Y matrix)."""
+        return self._Y.shape[0] if self._Y is not None else 0
+
+    @property
+    def M(self):
+        """Number of samples (columns in Y matrix)."""
+        return self._Y.shape[1] if self._Y is not None else 0
