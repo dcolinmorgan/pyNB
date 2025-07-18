@@ -1,0 +1,32 @@
+{
+  "timestamp": "2025-07-18T14:08:29.968798",
+  "dataset_size": "medium",
+  "n_genes": 50,
+  "n_samples": 150,
+  "method": "LSCO",
+  "execution_time": 0.004576921463012695,
+  "memory_usage": 0.0,
+  "peak_memory": 190.4375,
+  "parameter_value": 60.6241521285792,
+  "parameter_name": "mse",
+  "num_edges": "2500",
+  "density": 1.0,
+  "sparsity": 0.0,
+  "network_shape": [
+    50,
+    50
+  ],
+  "network_matrix": "[[ 1.         -0.44029202  0.80224549 ...  0.40405165 -0.0725653\n   0.63436879]\n [-0.77521465  1.         -0.7275974  ...  0.0485763  -0.37822392\n  -0.40212973]\n [-0.61347783  0.1944471   1.         ... -0.63240897 -0.45551653\n  -0.38181018]\n ...\n [ 0.2609392  -0.35710815  0.59899021 ...  1.         -0.52935609\n   0.28770833]\n [ 0.70688925 -0.07801924 -0.0212236  ... -0.2427407   1.\n  -0.43035394]\n [ 0.05412291  0.12904057 -0.35358227 ...  0.08548048  0.32374963\n   1.        ]]",
+  "f1_score": 0.11888638073739656,
+  "mcc": 0.0,
+  "sensitivity": 1.0,
+  "specificity": 0.0,
+  "precision": 0.0632,
+  "auroc": 0.5049787194700753,
+  "true_positives": 158.0,
+  "false_positives": 2342.0,
+  "true_negatives": 0.0,
+  "false_negatives": 0.0,
+  "use_nestboot": false,
+  "method_name": "lsco_simple"
+}

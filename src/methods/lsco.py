@@ -1,11 +1,11 @@
 import numpy as np
 from numpy import linalg
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Union
 from datastruct.Dataset import Dataset
 
 
 def LSCO(
-    dataset: Dataset,
+    dataset: Union[Dataset, 'Data'],
     tol: float = 1e-8,
     rcond: Optional[float] = None
 ) -> Tuple[np.ndarray, float]:
@@ -29,11 +29,19 @@ def LSCO(
     Raises:
         ValueError: If Y or P is None or if dimensions don't match
     """
-    if dataset.Y is None or dataset.P is None:
+    # Handle both Dataset and Data objects
+    if hasattr(dataset, 'data'):
+        # This is a Data object, extract the underlying dataset
+        actual_dataset = dataset.data
+    else:
+        # This is already a Dataset object
+        actual_dataset = dataset
+        
+    if actual_dataset.Y is None or actual_dataset.P is None:
         raise ValueError("Dataset must contain Y and P matrices")
         
-    Y = dataset.Y
-    P = dataset.P
+    Y = actual_dataset.Y
+    P = actual_dataset.P
     
     if Y.shape[0] != P.shape[0]:
         raise ValueError("Y and P must have same number of rows")

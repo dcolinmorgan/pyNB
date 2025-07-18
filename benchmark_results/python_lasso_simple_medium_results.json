@@ -1,0 +1,32 @@
+{
+  "timestamp": "2025-07-18T14:08:29.956672",
+  "dataset_size": "medium",
+  "n_genes": 50,
+  "n_samples": 150,
+  "method": "LASSO",
+  "execution_time": 0.39820313453674316,
+  "memory_usage": 0.640625,
+  "peak_memory": 190.3125,
+  "parameter_value": 0.013738237958832637,
+  "parameter_name": "alpha",
+  "num_edges": "350",
+  "density": 0.14,
+  "sparsity": 0.86,
+  "network_shape": [
+    50,
+    50
+  ],
+  "network_matrix": "[[ 1. -0.  0. ...  0. -0.  0.]\n [-0.  1. -0. ...  0. -0. -0.]\n [-0.  0.  1. ... -0. -0. -0.]\n ...\n [ 0. -0.  0. ...  1. -0.  0.]\n [ 0. -0. -0. ... -0.  1. -0.]\n [ 0.  0. -0. ...  0.  0.  1.]]",
+  "f1_score": 0.33464566929133854,
+  "mcc": 0.2979046627211885,
+  "sensitivity": 0.5379746835443038,
+  "specificity": 0.8868488471391973,
+  "precision": 0.24285714285714285,
+  "auroc": 0.3910836837052154,
+  "true_positives": 85.0,
+  "false_positives": 265.0,
+  "true_negatives": 2077.0,
+  "false_negatives": 73.0,
+  "use_nestboot": false,
+  "method_name": "lasso_simple"
+}
