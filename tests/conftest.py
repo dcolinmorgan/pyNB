@@ -60,4 +60,32 @@ def sample_gene_expression_data():
 def temp_output_dir():
     """Fixture providing a temporary output directory."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        yield Path(temp_dir) 
+        yield Path(temp_dir)
+
+@pytest.fixture
+def small_test_network():
+    """Fixture providing a small test network."""
+    return np.array([
+        [0, 1, 0],
+        [1, 0, 1],
+        [0, 1, 0]
+    ])
+
+@pytest.fixture
+def sample_gene_expression_dataframe():
+    """Fixture providing a sample gene expression dataframe."""
+    return pd.DataFrame({
+        'gene_i': ['GENE_A', 'GENE_B', 'GENE_C', 'GENE_A', 'GENE_B'],
+        'gene_j': ['GENE_B', 'GENE_C', 'GENE_A', 'GENE_C', 'GENE_A'],
+        'link_value': [0.85, 0.72, 0.63, 0.45, 0.91],
+        'run': [0, 0, 0, 1, 1],
+        'p_value': [0.001, 0.005, 0.020, 0.080, 0.002]
+    })
+
+@pytest.fixture
+def network_data_factory():
+    """Fixture providing a factory function for creating network data."""
+    def create_network_data(n_genes, n_experiments):
+        """Create random network data with specified dimensions."""
+        return np.random.random((n_genes, n_experiments))
+    return create_network_data 

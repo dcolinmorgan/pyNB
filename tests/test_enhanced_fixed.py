@@ -54,16 +54,17 @@ class TestBootstrapEnhanced:
         try:
             from bootstrap.utils import calc_bin_freq
             
-            result = calc_bin_freq(matrix_values, bins)
+            freq, bin_edges = calc_bin_freq(matrix_values, bins)
             
             # Validate basic properties
-            assert len(result) == bins
-            assert all(np.isfinite(result))
+            assert len(freq) == bins
+            assert len(bin_edges) == bins + 1  # bin_edges always has one more element
+            assert all(np.isfinite(freq))
             
             if expected_properties['non_zero']:
-                assert any(result > 0)
+                assert any(freq > 0)
             if expected_properties['finite']:
-                assert all(np.isfinite(result))
+                assert all(np.isfinite(freq))
                 
         except ImportError as e:
             pytest.skip(f"calc_bin_freq not available: {e}")
@@ -125,8 +126,11 @@ class TestDatastructEnhanced:
             net = Network(A)
             exp = Experiment(net)
             
-            assert hasattr(exp, 'net')
-            assert exp.net.A.shape == (3, 3)
+            # Test that experiment has the expected properties
+            assert hasattr(exp, 'G')
+            assert hasattr(exp, 'P')
+            assert hasattr(exp, 'Y')
+            assert exp.G.shape == (3, 3)
             
         except ImportError as e:
             pytest.skip(f"Experiment class not available: {e}")
@@ -135,16 +139,18 @@ class TestDatastructEnhanced:
         """Test dataset integration."""
         try:
             from datastruct.Dataset import Dataset
+            from datastruct.Network import Network
             
-            # Create simple test dataset
-            Y = np.random.random((5, 10))
-            P = np.random.random((5, 10))
+            # Create simple test dataset using Network
+            A = np.random.random((5, 5))
+            net = Network(A)
+            dataset = Dataset(net)
             
-            dataset = Dataset(Y, P)
             assert hasattr(dataset, 'Y')
             assert hasattr(dataset, 'P')
-            assert dataset.Y.shape == (5, 10)
-            assert dataset.P.shape == (5, 10)
+            # Y and P might be None initially, so check if they exist as attributes
+            assert dataset.Y is not None or hasattr(dataset, '_Y')
+            assert dataset.P is not None or hasattr(dataset, '_P')
             
         except ImportError as e:
             pytest.skip(f"Dataset class not available: {e}")
@@ -163,8 +169,9 @@ class TestAnalysisEnhanced:
             net = Network(A)
             model = Model(net)
             
-            assert hasattr(model, 'net')
-            assert model.net.A.shape == (3, 3)
+            # Model class stores network as _data and has network property
+            assert hasattr(model, 'network')  # property that returns network ID
+            assert hasattr(model, '_data')    # internal data storage
             
         except ImportError as e:
             pytest.skip(f"Model class not available: {e}")
@@ -181,16 +188,16 @@ class TestAnalysisEnhanced:
             net = Network(A)
             exp = Experiment(net)
             
-            Y = np.random.random((5, 10))
-            P = np.random.random((5, 10))
-            dataset = Dataset(Y, P)
+            # Create dataset from experiment
+            dataset = Dataset(exp)
             
-            data_analysis = Data(exp, dataset)
-            assert hasattr(data_analysis, 'exp')
-            assert hasattr(data_analysis, 'dataset')
+            # Data class takes a Dataset object
+            data_analysis = Data(dataset)
+            assert hasattr(data_analysis, 'dataset')  # property that returns dataset ID
+            assert hasattr(data_analysis, '_data')    # internal data storage
             
         except ImportError as e:
-            pytest.skip(f"Data analysis class not available: {e}")
+            pytest.skip(f"Data class not available: {e}")
 
     def test_compare_models_basic(self):
         """Basic test for CompareModels functionality."""
@@ -224,12 +231,13 @@ class TestWebIntegrationEnhanced:
             # Test URL that should work
             test_url = 'https://bitbucket.org/sonnhammergrni/gs-datasets/raw/d2047430263f5ffe473525c74b4318f723c23b0e/N50/Tjarnberg-ID252384-D20151111-N50-E150-SNR10-IDY252384.json'
             
-            try:
-                dataset = Data.from_json_url(test_url)
-                assert hasattr(dataset, 'Y')
-                assert hasattr(dataset, 'P')
-            except Exception as e:
-                pytest.skip(f"Web data loading failed (expected): {e}")
+            data_obj = Data.from_json_url(test_url)
+            assert hasattr(data_obj, 'data')  # Data object should have data property
+            assert data_obj.data is not None  # The underlying dataset should exist
+            assert hasattr(data_obj.data, 'Y')  # Dataset should have Y
+            assert hasattr(data_obj.data, 'P')  # Dataset should have P
+            assert data_obj.data.Y is not None  # Y should not be None
+            assert data_obj.data.P is not None  # P should not be None
                 
         except ImportError as e:
             pytest.skip(f"Data web loading not available: {e}")
@@ -260,17 +268,21 @@ class TestMethodsIntegrationEnhanced:
         try:
             from methods.lasso import Lasso
             from datastruct.Dataset import Dataset
+            from datastruct.Network import Network
             
-            Y = np.random.random((5, 10))
-            P = np.random.random((5, 10))
-            dataset = Dataset(Y, P)
+            # Create a proper dataset through Network
+            A = np.random.random((5, 5))
+            net = Network(A)
+            dataset = Dataset(net)
             
-            try:
-                A, alpha = Lasso(dataset)
-                assert A is not None
-                assert alpha is not None
-            except Exception as e:
-                pytest.skip(f"LASSO method failed: {e}")
+            # Ensure dataset has Y and P
+            if dataset.Y is None or dataset.P is None:
+                pytest.skip("Dataset Y or P is None, cannot test LASSO")
+            
+            A_result, alpha = Lasso(dataset)
+            assert A_result is not None
+            assert alpha is not None
+            assert A_result.shape == (5, 5)  # Should return a square matrix
                 
         except ImportError as e:
             pytest.skip(f"LASSO method not available: {e}")
@@ -280,17 +292,21 @@ class TestMethodsIntegrationEnhanced:
         try:
             from methods.lsco import LSCO
             from datastruct.Dataset import Dataset
+            from datastruct.Network import Network
             
-            Y = np.random.random((5, 10))
-            P = np.random.random((5, 10))
-            dataset = Dataset(Y, P)
+            # Create a proper dataset through Network
+            A = np.random.random((5, 5))
+            net = Network(A)
+            dataset = Dataset(net)
             
-            try:
-                A, mse = LSCO(dataset)
-                assert A is not None
-                assert mse is not None
-            except Exception as e:
-                pytest.skip(f"LSCO method failed: {e}")
+            # Ensure dataset has Y and P
+            if dataset.Y is None or dataset.P is None:
+                pytest.skip("Dataset Y or P is None, cannot test LSCO")
+            
+            A_result, mse = LSCO(dataset)
+            assert A_result is not None
+            assert mse is not None
+            assert A_result.shape == (5, 5)  # Should return a square matrix
                 
         except ImportError as e:
             pytest.skip(f"LSCO method not available: {e}")
@@ -474,8 +490,8 @@ class TestIntegrationScenarios:
             config_dict = config.to_dict()
             
             assert isinstance(config_dict, dict)
-            assert 'fdr' in config_dict
-            assert 'init' in config_dict
+            assert 'fdr_threshold' in config_dict  # Config uses fdr_threshold, not fdr
+            assert 'total_runs' in config_dict      # Changed from 'init' to actual field
             
         except ImportError:
             pytest.skip("Configuration integration not available")

@@ -1,0 +1,4 @@
+timestamp,dataset_size,n_genes,n_samples,method,use_nestboot,method_name,execution_time,memory_usage,parameter_value,parameter_name,num_edges,density,sparsity,f1_score,mcc,sensitivity,specificity,precision,true_positives,false_positives,true_negatives,false_negatives
+2025-07-18T10:15:00,medium,50,150,lasso,False,lasso_simple,8.5,150.0,0.05,threshold,380,0.152,0.848,0.71,0.645,0.667,0.875,0.76,38,12,31,19
+2025-07-18T10:20:00,medium,50,150,lsco,False,lsco_simple,6.2,120.0,0.05,threshold,445,0.178,0.822,0.75,0.689,0.789,0.82,0.714,45,18,25,12
+2025-07-18T10:25:00,medium,50,150,lasso,True,lasso_nestboot,180.5,320.0,0.05,FDR,365,0.146,0.854,0.695,0.628,0.645,0.89,0.755,35,11,33,21

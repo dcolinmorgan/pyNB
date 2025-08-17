@@ -30,7 +30,8 @@ def LSCO(
         ValueError: If Y or P is None or if dimensions don't match
     """
     # Handle both Dataset and Data objects
-    if hasattr(dataset, 'data'):
+    # Check if this is a Data object (has _dataset_id) vs a Dataset object
+    if hasattr(dataset, '_dataset_id'):
         # This is a Data object, extract the underlying dataset
         actual_dataset = dataset.data
     else:

@@ -66,3 +66,19 @@ class NetworkUtils:
         counts, bin_edges = np.histogram(matrix.flatten(), bins=bins)
         freq = counts / counts.sum()
         return freq, bin_edges 
+
+
+# Standalone function for easier importing
+def calc_bin_freq(matrix: NDArrayFloat, init: int) -> Tuple[NDArrayFloat, NDArrayFloat]:
+    """Calculate binned frequencies of matrix values.
+    
+    Convenience function that wraps NetworkUtils.calc_bin_freq.
+    
+    Args:
+        matrix: Input matrix
+        init: Number of bins
+        
+    Returns:
+        Tuple of (frequencies, bin_edges)
+    """
+    return NetworkUtils.calc_bin_freq(matrix, init) 

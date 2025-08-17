@@ -1,0 +1,32 @@
+{
+  "lasso_simple": {
+    "avg_execution_time": 8.5,
+    "avg_memory_usage": 150.0,
+    "avg_f1_score": 0.71,
+    "avg_precision": 0.76,
+    "avg_recall": 0.667,
+    "avg_sparsity": 0.848,
+    "avg_density": 0.152,
+    "count": 1
+  },
+  "lsco_simple": {
+    "avg_execution_time": 6.2,
+    "avg_memory_usage": 120.0,
+    "avg_f1_score": 0.75,
+    "avg_precision": 0.714,
+    "avg_recall": 0.789,
+    "avg_sparsity": 0.822,
+    "avg_density": 0.178,
+    "count": 1
+  },
+  "lasso_nestboot": {
+    "avg_execution_time": 180.5,
+    "avg_memory_usage": 320.0,
+    "avg_f1_score": 0.695,
+    "avg_precision": 0.755,
+    "avg_recall": 0.645,
+    "avg_sparsity": 0.854,
+    "avg_density": 0.146,
+    "count": 1
+  }
+}

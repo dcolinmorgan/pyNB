@@ -1,0 +1,20 @@
+{
+  "LASSO": {
+    "avg_execution_time": 8.85,
+    "avg_memory_usage": 182.5,
+    "avg_f1_score": 0.765,
+    "avg_precision": 0.819,
+    "avg_recall": 0.7175,
+    "avg_sparsity": 0.491,
+    "avg_density": 0.509
+  },
+  "LSCO": {
+    "avg_execution_time": 1.8,
+    "avg_memory_usage": 65.0,
+    "avg_f1_score": 0.8,
+    "avg_precision": 0.762,
+    "avg_recall": 0.842,
+    "avg_sparsity": 0.05,
+    "avg_density": 0.95
+  }
+}

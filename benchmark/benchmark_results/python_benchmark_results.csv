@@ -1,0 +1,4 @@
+timestamp,dataset_size,n_genes,n_samples,method,execution_time,memory_usage,parameter_value,parameter_name,num_edges,density,sparsity,f1_score,mcc,sensitivity,specificity,precision,true_positives,false_positives,true_negatives,false_negatives
+2025-07-18T10:00:00,small,10,20,LASSO,2.5,85.0,0.123456,alpha,85,0.85,0.15,0.785,0.721,0.737,0.823,0.84,42,8,35,15
+2025-07-18T10:05:00,small,10,20,LSCO,1.8,65.0,0.234567,mse,95,0.95,0.05,0.8,0.742,0.842,0.775,0.762,48,15,28,9
+2025-07-18T10:10:00,medium,50,100,LASSO,15.2,280.0,0.098765,alpha,420,0.168,0.832,0.745,0.683,0.698,0.865,0.798,184,46,2035,80

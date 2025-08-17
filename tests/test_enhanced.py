@@ -9,7 +9,31 @@ import numpy as np
 import pandas as pd
 import warnings
 from pathlib import Path
-import tempfile
+
+
+class TestWebIntegrationEnhanced:
+    """Enhanced tests for web integration functionality."""
+    
+    def test_web_data_loading_robust(self):
+        """Test robust web data loading."""
+        try:
+            from analyze.Data import Data
+            
+            # Test URL that should work
+            test_url = 'https://bitbucket.org/sonnhammergrni/gs-datasets/raw/d2047430263f5ffe473525c74b4318f723c23b0e/N50/Tjarnberg-ID252384-D20151111-N50-E150-SNR10-IDY252384.json'
+            
+            data_obj = Data.from_json_url(test_url)
+            assert hasattr(data_obj, 'data')  # Data object should have data property
+            assert data_obj.data is not None  # The underlying dataset should exist
+            assert hasattr(data_obj.data, 'Y')  # Dataset should have Y
+            assert hasattr(data_obj.data, 'P')  # Dataset should have P
+            assert data_obj.data.Y is not None  # Y should not be None
+            assert data_obj.data.P is not None  # P should not be None
+                
+        except ImportError as e:
+            pytest.skip(f"Data class not available: {e}")
+
+
 import unittest
 
 
