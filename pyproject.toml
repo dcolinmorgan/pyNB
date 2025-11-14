@@ -13,3 +13,13 @@ dependencies = [
     "scikit-learn>=1.7.0",
     "scipy>=1.15.3",
 ]
+
+[tool.uv.workspace]
+members = [
+    "project",
+]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.1.0",
+]
