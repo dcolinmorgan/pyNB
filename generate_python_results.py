@@ -39,12 +39,13 @@ def run_network_inference(dataset, method_name="LASSO"):
     start_memory = monitor_memory()
     
     if method_name == "LASSO":
-        # LASSO uses cross-validation to find optimal alpha
+        # LASSO uses the same sparsity range as MATLAB GeneSPIDER2
+        # MATLAB uses logspace(-6, 0, 30) and selects index 25
         zeta = np.logspace(-6, 0, 30)
         result_network, param = Lasso(dataset, alpha_range=zeta)
         param_name = "alpha"
     elif method_name == "LSCO":
-        # LSCO doesn't take regularization parameter, just tolerance
+        # LSCO uses closed-form solution: A = -P * pinv(Y)
         result_network, param = LSCO(dataset)
         param_name = "mse"
     else:
@@ -55,7 +56,7 @@ def run_network_inference(dataset, method_name="LASSO"):
     execution_time = end_time - start_time
     memory_usage = peak_memory - start_memory
     network_obj = Network(result_network)
-    num_edges = np.sum(network_obj.A != 0)
+    num_edges = np.sum(np.abs(network_obj.A) > 1e-10)  # Count non-zero elements with tolerance
     density = num_edges / (network_obj.A.shape[0] * network_obj.A.shape[1])
     sparsity = 1 - density
     return {
@@ -320,8 +321,9 @@ def main():
     methods_to_test = [
         ("LASSO", False),
         ("LSCO", False), 
-        ("LASSO", True),
-        ("LSCO", True)
+        # Temporarily disable NestBoot to test simple methods first
+        # ("LASSO", True),
+        # ("LSCO", True)
     ]
     
     for method, use_nestboot in methods_to_test:
