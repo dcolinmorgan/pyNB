@@ -2,6 +2,7 @@ import numpy as np
 import os
 from datetime import datetime
 import requests
+import json
 from typing import Optional, Dict, Any
 from datastruct.Exchange import Exchange
 
@@ -60,6 +61,51 @@ class Network(Exchange):
             raise requests.exceptions.RequestException(
                 f"Failed to fetch network data from URL: {e}"
             )
+        except ValueError as e:
+            raise ValueError(f"Invalid network data format: {e}")
+
+    @classmethod
+    def from_json_file(cls, file_path: str) -> 'Network':
+        """Create a Network instance from a local JSON file.
+        
+        Args:
+            file_path: Path to the JSON file containing network data
+            
+        Returns:
+            Network instance initialized with the adjacency matrix from the JSON data
+            
+        Raises:
+            FileNotFoundError: If the file does not exist
+            ValueError: If the JSON data is invalid or doesn't contain the adjacency matrix
+        """
+        try:
+            with open(file_path, 'r') as f:
+                data: Dict[str, Any] = json.load(f)
+            
+            if 'obj_data' not in data:
+                raise ValueError("JSON data does not contain 'obj_data' field")
+                
+            obj_data = data['obj_data']
+            if 'A' not in obj_data:
+                raise ValueError("JSON data does not contain adjacency matrix in obj_data.A")
+                
+            adjacency_data = obj_data['A']
+            if not isinstance(adjacency_data, list) or not all(
+                isinstance(row, list) for row in adjacency_data
+            ):
+                raise ValueError("Adjacency matrix data must be a 2D array")
+                
+            A = np.array(adjacency_data, dtype=float)
+            network = cls(A)
+            
+            # Set network ID if available
+            if 'network' in obj_data:
+                network.network = obj_data['network']
+                
+            return network
+            
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Network file not found: {file_path}")
         except ValueError as e:
             raise ValueError(f"Invalid network data format: {e}")
 

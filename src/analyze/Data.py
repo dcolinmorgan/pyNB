@@ -84,6 +84,73 @@ class Data(DataModel):
         except ValueError as e:
             raise ValueError(f"Invalid dataset data format: {e}")
 
+    @classmethod
+    def from_json_file(cls, file_path: str) -> 'Data':
+        """Create a Data instance from a local JSON file.
+        
+        Args:
+            file_path: Path to the JSON file containing dataset data
+            
+        Returns:
+            Data instance initialized with the dataset from the JSON data
+            
+        Raises:
+            FileNotFoundError: If the file does not exist
+            ValueError: If the JSON data is invalid or missing required fields
+        """
+        import json
+        
+        try:
+            with open(file_path, 'r') as f:
+                data: Dict[str, Any] = json.load(f)
+            
+            if 'obj_data' not in data:
+                raise ValueError("JSON data does not contain 'obj_data' field")
+                
+            obj_data = data['obj_data']
+            
+            # Create Dataset instance
+            dataset = Dataset()
+            
+            # Set basic attributes
+            if 'dataset' in obj_data:
+                dataset._dataset_name = obj_data['dataset']
+            
+            # Create and set Network
+            if 'network' in obj_data:
+                network = Network()
+                network.network = obj_data['network']
+                dataset._network = network
+            
+            # Set matrices
+            for field in ['P', 'E', 'F', 'Y','cvP', 'sdP', 'svE', 'sdY']:
+                if field in obj_data and obj_data[field]:
+                    setattr(dataset, f'_{field}', np.array(obj_data[field], dtype=float))
+            
+            # Set scalar values
+            for field in [ 'lambda', 'SNR_L', 'tol']:
+                if field in obj_data:
+                    setattr(dataset, f'_{field}', (obj_data[field]))
+            
+            # Set metadata
+            if 'names' in obj_data:
+                dataset._names = obj_data['names']
+            if 'N' in obj_data:
+                dataset._N = int(obj_data['N'])
+            if 'M' in obj_data:
+                dataset._M = int(obj_data['M'])
+            if 'description' in obj_data:
+                dataset._description = obj_data['description']
+            if 'created' in obj_data:
+                dataset._created = obj_data['created']
+            
+            return cls(dataset)
+            
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Dataset file not found: {file_path}")
+        except ValueError as e:
+            raise ValueError(f"Invalid dataset data format: {e}")
+
     def _analyze(self):
         """Compute all data properties."""
         ds = self._data

@@ -62,6 +62,8 @@ class NetworkResults:
     binned_freq: NDArrayFloat
     fp_rate: float
     support: float
+    gene_i: Optional[List[str]] = None
+    gene_j: Optional[List[str]] = None
 
 class NetworkBootstrap:
     """Class for performing Network Bootstrap False Discovery Rate analysis.
@@ -216,8 +218,9 @@ class NetworkBootstrap:
         # Merge and compute metrics
         merged = pd.merge(
             agg_normal, agg_shuffled,
-            on=['gene_i', 'gene_j']
-        )
+            on=['gene_i', 'gene_j'],
+            how='outer'
+        ).fillna(0)
         
         support_threshold = 0.8  # Can be made parameter if needed
         results = self._compute_network_metrics(merged, support_threshold)
@@ -264,7 +267,9 @@ class NetworkBootstrap:
             accumulated=accumulated,
             binned_freq=binned_freq,
             fp_rate=fp.mean(),
-            support=support_threshold
+            support=support_threshold,
+            gene_i=merged['gene_i'].tolist(),
+            gene_j=merged['gene_j'].tolist()
         )
 
     def _accumulate(
@@ -569,3 +574,148 @@ class NetworkBootstrap:
         result_df = pd.DataFrame(results)
         self.logger.info(f"Computed network density for {len(result_df)} runs")
         return result_df
+
+    def run_nestboot(
+        self,
+        dataset: Any,
+        inference_method: Any,
+        nest_runs: int = 50,
+        boot_runs: int = 50,
+        seed: int = 42,
+        method_kwargs: Optional[Dict[str, Any]] = None
+    ) -> NetworkResults:
+        """Run NestBoot analysis with bootstrapping and network inference.
+        
+        Args:
+            dataset: Data object containing the dataset
+            inference_method: Function that takes (dataset, **kwargs) and returns (network, param)
+            nest_runs: Number of outer runs
+            boot_runs: Number of inner runs
+            seed: Random seed
+            method_kwargs: Additional arguments for the inference method
+            
+        Returns:
+            NetworkResults object
+        """
+        import copy
+        from analyze.Data import Data
+        
+        if method_kwargs is None:
+            method_kwargs = {}
+            
+        np.random.seed(seed)
+        
+        bootstrap_data = []
+        shuffled_data = []
+        
+        # Access underlying Dataset object
+        if hasattr(dataset, 'data'):
+            ds_obj = dataset.data
+        else:
+            ds_obj = dataset
+            
+        n_genes = ds_obj.N
+        n_samples = ds_obj.M
+        
+        # Keep clean copies of the original data for bootstrapping
+        original_Y = ds_obj.Y.copy()
+        original_P = ds_obj.P.copy()
+        
+        for outer_run in range(nest_runs):
+            self.logger.info(f"NestBoot outer run {outer_run + 1}/{nest_runs}")
+            
+            for boot_run in range(boot_runs):
+                try:
+                    # Bootstrap
+                    bootstrap_indices = np.random.choice(n_samples, size=n_samples, replace=True)
+                    
+                    # Create a new Dataset object with bootstrapped data
+                    from datastruct.Dataset import Dataset
+                    bootstrap_dataset_obj = Dataset()
+                    bootstrap_dataset_obj._Y = original_Y[:, bootstrap_indices]
+                    bootstrap_dataset_obj._P = original_P[:, bootstrap_indices]
+                    bootstrap_dataset_obj._network = ds_obj._network
+                    bootstrap_dataset_obj._names = ds_obj._names
+                    bootstrap_dataset_obj._E = ds_obj._E
+                    bootstrap_dataset_obj._lambda = ds_obj._lambda
+                    bootstrap_dataset_obj._dataset_name = ds_obj._dataset_name
+                    bootstrap_dataset = Data(bootstrap_dataset_obj)
+                    
+                    # Run inference
+                    network_result = inference_method(bootstrap_dataset, **method_kwargs)
+                    
+                    # Handle different return types (tuple or just network)
+                    if isinstance(network_result, tuple):
+                        network_matrix = network_result[0]
+                    else:
+                        network_matrix = network_result
+                        
+                    # Handle 3D array (take first alpha/parameter if multiple returned)
+                    if network_matrix.ndim == 3:
+                        network_matrix = network_matrix[:, :, 0]
+                    
+                    # Store links
+                    for i in range(n_genes):
+                        for j in range(n_genes):
+                            if i != j and abs(network_matrix[i, j]) > 1e-6:
+                                bootstrap_data.append({
+                                    'gene_i': f"Gene_{i:02d}",
+                                    'gene_j': f"Gene_{j:02d}",
+                                    'run': outer_run,
+                                    'link_value': abs(network_matrix[i, j])
+                                })
+                    
+                    # Shuffle
+                    shuffle_indices = np.random.permutation(n_samples)
+                    
+                    shuffled_dataset_obj = Dataset()
+                    shuffled_dataset_obj._Y = original_Y[:, shuffle_indices]
+                    shuffled_dataset_obj._P = original_P[:, shuffle_indices]
+                    shuffled_dataset_obj._network = ds_obj._network
+                    shuffled_dataset_obj._names = ds_obj._names
+                    shuffled_dataset_obj._E = ds_obj._E
+                    shuffled_dataset_obj._lambda = ds_obj._lambda
+                    shuffled_dataset_obj._dataset_name = ds_obj._dataset_name
+                    shuffled_dataset = Data(shuffled_dataset_obj)
+                    
+                    # Run inference on shuffled data
+                    shuffled_result = inference_method(shuffled_dataset, **method_kwargs)
+                    
+                    if isinstance(shuffled_result, tuple):
+                        shuffled_network = shuffled_result[0]
+                    else:
+                        shuffled_network = shuffled_result
+                        
+                    if shuffled_network.ndim == 3:
+                        shuffled_network = shuffled_network[:, :, 0]
+                        
+                    for i in range(n_genes):
+                        for j in range(n_genes):
+                            if i != j and abs(shuffled_network[i, j]) > 1e-6:
+                                shuffled_data.append({
+                                    'gene_i': f"Gene_{i:02d}",
+                                    'gene_j': f"Gene_{j:02d}",
+                                    'run': outer_run,
+                                    'link_value': abs(shuffled_network[i, j])
+                                })
+                                
+                except Exception as e:
+                    self.logger.error(f"Bootstrap iteration failed: {e}")
+                    continue
+                    
+        # Convert to DataFrames
+        normal_df = pd.DataFrame(bootstrap_data)
+        shuffled_df = pd.DataFrame(shuffled_data)
+        
+        if len(normal_df) == 0:
+            raise ValueError("No bootstrap data generated")
+            
+        # Run NB-FDR analysis
+        return self.nb_fdr(
+            normal_df=normal_df,
+            shuffled_df=shuffled_df,
+            init=nest_runs,
+            data_dir=Path("."),
+            fdr=self.config.fdr_threshold if hasattr(self, 'config') else 0.05,
+            boot=boot_runs
+        )

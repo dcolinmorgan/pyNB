@@ -17,6 +17,7 @@ class Dataset(Exchange):
         self._E = None        # Expression noise
         self._P = None        # Perturbations
         self._lambda = None   # Noise variance
+        self._names = None    # Gene names
         self._created = {
             'creator': 'dc', #os.getlogin(),
             'time': datetime.now(),
@@ -93,3 +94,10 @@ class Dataset(Exchange):
     def M(self):
         """Number of samples (columns in Y matrix)."""
         return self._Y.shape[1] if self._Y is not None else 0
+
+    @property
+    def gene_names(self):
+        """Gene names."""
+        if self._names is None and self.N > 0:
+            return [f"G{i+1}" for i in range(self.N)]
+        return self._names

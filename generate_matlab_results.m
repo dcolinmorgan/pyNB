@@ -11,7 +11,7 @@ clear all;
 rng(42); % Set random seed
 output_dir = 'benchmark_results';
 if ~exist(output_dir, 'dir'), mkdir(output_dir); end
-addpath('/path/to/GeneSPIDER2'); % Add GeneSPIDER2 library
+addpath('../Volume1/dmorgan/genespider/'); % Add GeneSPIDER2 library
 
 % Initialize performance tracking
 all_results = [];
@@ -22,17 +22,26 @@ fprintf('========================================\n');
 fprintf('\n📥 Step 1: Network Data Import and Analysis\n');
 fprintf('=====================================\n');
 
-% Load dataset
-dataset_url = 'https://bitbucket.org/sonnhammergrni/gs-datasets/raw/d2047430263f5ffe473525c74b4318f723c23b0e/N50/Tjarnberg-ID252384-D20151111-N50-E150-SNR10-IDY252384.json';
+% Load dataset and network (choose SNR level)
+USE_HIGH_SNR = true; % Set to false for SNR10, true for SNR100000
+
+if USE_HIGH_SNR
+    fprintf('Loading HIGH SNR dataset (SNR100000)...\n');
+    dataset_url = 'https://bitbucket.org/sonnhammergrni/gs-datasets/raw/d2047430263f5ffe473525c74b4318f723c23b0e/N50/Tjarnberg-ID252384-D20151111-N50-E150-SNR100000-IDY252384.json';
+else
+    fprintf('Loading LOW SNR dataset (SNR10)...\n');
+    dataset_url = 'https://bitbucket.org/sonnhammergrni/gs-datasets/raw/d2047430263f5ffe473525c74b4318f723c23b0e/N50/Tjarnberg-ID252384-D20151111-N50-E150-SNR10-IDY252384.json';
+end
+
+network_url = 'https://bitbucket.org/sonnhammergrni/gs-networks/raw/0b3a66e67d776eadaa5d68667ad9c8fbac12ef85/random/N50/Tjarnberg-D20150910-random-N50-L158-ID252384.json';
+
 data = datastruct.Dataset.fetch(dataset_url);
+net = datastruct.Network.fetch(network_url);
+
 fprintf('✅ Dataset loaded: %s\n', data.dataset);
 fprintf('   📊 Expression matrix shape: [%d, %d]\n', size(data.Y));
 fprintf('   🧬 Number of genes: %d\n', data.N);
 fprintf('   🔬 Number of samples: %d\n', data.M);
-
-% Load reference network
-network_url = 'https://bitbucket.org/sonnhammergrni/gs-networks/raw/0b3a66e67d776eadaa5d68667ad9c8fbac12ef85/random/N50/Tjarnberg-D20150910-random-N50-L158-ID252384.json';
-net = datastruct.Network.fetch(network_url);
 fprintf('✅ Reference network loaded: %s\n', net.network);
 
 %% Step 2: Network Inference
@@ -40,79 +49,65 @@ fprintf('\n🔍 Step 2: Network Inference\n');
 fprintf('=====================================\n');
 
 zetavec = logspace(-6, 0, 30); % Sparsity parameters
-FDR = 0.05; % False Discovery Rate
-nest = 50; % Outer bootstrap runs
-boot = 50; % Inner bootstrap iterations
-par = true; % Parallel processing
-cpus = 2; % Number of CPUs
+best_idx = 25; % Index to use for results (MATLAB standard)
 
-% Non-NestBoot LASSO
-fprintf('   🎯 Running non-NestBoot LASSO...\n');
-tic; mem_start = get_memory_usage();
-estA_lasso = Methods.lasso(data, net, zetavec, false);
-time_lasso = toc; mem_lasso = get_memory_usage() - mem_start;
+% Run all network inference methods
+[estA_lasso, time_lasso, mem_lasso] = run_method('LASSO', @Methods.lasso, data, net, zetavec);
+[estA_lsco, time_lsco, mem_lsco] = run_method('LSCO', @Methods.lsco, data, net, zetavec);
 
-% Non-NestBoot LSCO
-fprintf('   🎯 Running non-NestBoot LSCO...\n');
-tic; mem_start = get_memory_usage();
-estA_lsco = Methods.lsco(data, net, zetavec, false, 'input');
-time_lsco = toc; mem_lsco = get_memory_usage() - mem_start;
+% Try optional methods (CLR, GENIE3, TIGRESS) - skip if not available
+fprintf('   Checking for optional methods (CLR, GENIE3, TIGRESS)...\n');
+estA_clr = []; time_clr = 0; mem_clr = 0;
+estA_genie3 = []; time_genie3 = 0; mem_genie3 = 0;
+estA_tigress = []; time_tigress = 0; mem_tigress = 0;
 
-% NestBoot LASSO
-fprintf('   🎯 Running NestBoot LASSO...\n');
-tic; mem_start = get_memory_usage();
-nbout_lasso = Methods.NestBoot(data, 'lasso', nest, boot, zetavec, FDR, output_dir, par, cpus);
-time_nest_lasso = toc; mem_nest_lasso = get_memory_usage() - mem_start;
+if exist('Methods.CLR', 'file') || exist('Methods.clr', 'file')
+    [estA_clr, time_clr, mem_clr] = run_method('CLR', @Methods.CLR, data, net, zetavec);
+else
+    fprintf('   ℹ️  CLR method not found in GeneSPIDER2, skipping...\n');
+end
 
-% NestBoot LSCO
-fprintf('   🎯 Running NestBoot LSCO...\n');
-tic; mem_start = get_memory_usage();
-nbout_lsco = Methods.NestBoot(data, 'lsco', nest, boot, zetavec, FDR, output_dir, par, cpus);
-time_nest_lsco = toc; mem_nest_lsco = get_memory_usage() - mem_start;
+if exist('Methods.GENIE3', 'file') || exist('Methods.genie3', 'file')
+    [estA_genie3, time_genie3, mem_genie3] = run_method('GENIE3', @Methods.GENIE3, data, net, zetavec);
+else
+    fprintf('   ℹ️  GENIE3 method not found in GeneSPIDER2, skipping...\n');
+end
+
+if exist('Methods.TIGRESS', 'file') || exist('Methods.tigress', 'file')
+    [estA_tigress, time_tigress, mem_tigress] = run_method('TIGRESS', @Methods.TIGRESS, data, net, zetavec);
+else
+    fprintf('   ℹ️  TIGRESS method not found in GeneSPIDER2, skipping...\n');
+end
+
 
 %% Step 3: Model Comparison
 fprintf('\n📊 Step 3: Model Comparison\n');
 fprintf('=====================================\n');
 
-% Compare non-NestBoot LASSO
-M_lasso = analyse.CompareModels(net, estA_lasso);
-results_lasso = struct(M_lasso);
-fprintf('   ✅ Non-NestBoot LASSO Results:\n');
-fprintf('      F1 Score: %.3f, Time: %.1fs, Memory: %.1fMB, AUROC: %.3f\n', ...
-    results_lasso.F1(25), time_lasso, mem_lasso, M_lasso.AUROC());
-result_lasso = create_result_struct('lasso', false, data, time_lasso, mem_lasso, ...
-    estA_lasso(:, :, 25), results_lasso, M_lasso.AUROC());
+% Compare all methods and collect results
+result_lasso = compare_and_report('LASSO', net, estA_lasso, best_idx, time_lasso, mem_lasso, data);
 all_results = [all_results; result_lasso];
 
-% Compare non-NestBoot LSCO
-M_lsco = analyse.CompareModels(net, estA_lsco);
-results_lsco = struct(M_lsco);
-fprintf('   ✅ Non-NestBoot LSCO Results:\n');
-fprintf('      F1 Score: %.3f, Time: %.1fs, Memory: %.1fMB, AUROC: %.3f\n', ...
-    results_lsco.F1(25), time_lsco, mem_lsco, M_lsco.AUROC());
-result_lsco = create_result_struct('lsco', false, data, time_lsco, mem_lsco, ...
-    estA_lsco(:, :, 25), results_lsco, M_lsco.AUROC());
+result_lsco = compare_and_report('LSCO', net, estA_lsco, best_idx, time_lsco, mem_lsco, data);
 all_results = [all_results; result_lsco];
 
-% Compare NestBoot LASSO
-M_nest_lasso = analyse.CompareModels(net, nbout_lasso.binary_networks);
-results_nest_lasso = struct(M_nest_lasso);
-fprintf('   ✅ NestBoot LASSO Results:\n');
-fprintf('      F1 Score: %.3f, Time: %.1fs, Memory: %.1fMB, AUROC: %.3f\n', ...
-    results_nest_lasso.F1(end), time_nest_lasso, mem_nest_lasso, M_nest_lasso.AUROC());
-result_nest_lasso = create_result_struct('lasso', true, data, time_nest_lasso, mem_nest_lasso, ...
-    nbout_lasso.binary_networks(:, :, end), results_nest_lasso, M_nest_lasso.AUROC());
-all_results = [all_results; result_nest_lasso];
+if ~isempty(estA_clr)
+    result_clr = compare_and_report('CLR', net, estA_clr, best_idx, time_clr, mem_clr, data);
+    all_results = [all_results; result_clr];
+end
 
-% Compare NestBoot LSCO
-M_nest_lsco = analyse.CompareModels(net, nbout_lsco.binary_networks);
-results_nest_lsco = struct(M_nest_lsco);
-fprintf('   ✅ NestBoot LSCO Results:\n');
-fprintf('      F1 Score: %.3f, Time: %.1fs, Memory: %.1fMB, AUROC: %.3f\n', ...
-    results_nest_lsco.F1(end), time_nest_lsco, mem_nest_lsco, M_nest_lsco.AUROC());
-result_nest_lsco = create_result_struct('lsco', true, data, time_nest_lsco, mem_nest_lsco, ...
-    nbout_lsco.binary_networks(:, :, end), results_nest_lsco, M_nest_lsco.AUROC());
-all_results = [all_results; result_nest_lsco];
+if ~isempty(estA_genie3)
+    result_genie3 = compare_and_report('GENIE3', net, estA_genie3, best_idx, time_genie3, mem_genie3, data);
+    all_results = [all_results; result_genie3];
+end
+
+if ~isempty(estA_tigress)
+    result_tigress = compare_and_report('TIGRESS', net, estA_tigress, best_idx, time_tigress, mem_tigress, data);
+    all_results = [all_results; result_tigress];
+end
+
+
+
 
 %% Step 4: Save Results
 fprintf('\n💾 Step 4: Save Results\n');
@@ -126,25 +121,52 @@ writetable(results_table, fullfile(output_dir, 'matlab_benchmark_results.csv'));
 summary = create_summary_statistics(all_results);
 save_json(fullfile(output_dir, 'matlab_summary.json'), summary);
 
-% Save individual comparison results as CSV
-save_path_lasso = fullfile(output_dir, 'comparison_results_lasso.csv');
-M_lasso.save(save_path_lasso, 'csv');
-save_path_lsco = fullfile(output_dir, 'comparison_results_lsco.csv');
-M_lsco.save(save_path_lsco, 'csv');
-save_path_nest_lasso = fullfile(output_dir, 'comparison_results_nest_lasso.csv');
-M_nest_lasso.save(save_path_nest_lasso, 'csv');
-save_path_nest_lsco = fullfile(output_dir, 'comparison_results_nest_lsco.csv');
-M_nest_lsco.save(save_path_nest_lsco, 'csv');
+% Save comparison results and networks for all methods
+methods = {};
+networks = {};
+comparisons = {};
 
-% Save inferred networks as CSV
-save_network_lasso = fullfile(output_dir, 'inferred_network_lasso.csv');
-writematrix(estA_lasso(:, :, 25), save_network_lasso);
-save_network_lsco = fullfile(output_dir, 'inferred_network_lsco.csv');
-writematrix(estA_lsco(:, :, 25), save_network_lsco);
-save_network_nest_lasso = fullfile(output_dir, 'inferred_network_nest_lasso.csv');
-writematrix(nbout_lasso.binary_networks(:, :, end), save_network_nest_lasso);
-save_network_nest_lsco = fullfile(output_dir, 'inferred_network_nest_lsco.csv');
-writematrix(nbout_lsco.binary_networks(:, :, end), save_network_nest_lsco);
+% Add LASSO and LSCO (always present)
+methods{end+1} = 'lasso';
+networks{end+1} = estA_lasso;
+comparisons{end+1} = result_lasso.comparison_obj;
+
+methods{end+1} = 'lsco';
+networks{end+1} = estA_lsco;
+comparisons{end+1} = result_lsco.comparison_obj;
+
+% Add optional methods if they succeeded
+if ~isempty(estA_clr)
+    methods{end+1} = 'clr';
+    networks{end+1} = estA_clr;
+    comparisons{end+1} = result_clr.comparison_obj;
+end
+
+if ~isempty(estA_genie3)
+    methods{end+1} = 'genie3';
+    networks{end+1} = estA_genie3;
+    comparisons{end+1} = result_genie3.comparison_obj;
+end
+
+if ~isempty(estA_tigress)
+    methods{end+1} = 'tigress';
+    networks{end+1} = estA_tigress;
+    comparisons{end+1} = result_tigress.comparison_obj;
+end
+
+for i = 1:length(methods)
+    method = methods{i};
+    
+    % Save comparison results
+    save_path = fullfile(output_dir, sprintf('comparison_results_%s.csv', method));
+    comparisons{i}.save(save_path, 'csv');
+    
+    % Save inferred network
+    network_path = fullfile(output_dir, sprintf('inferred_network_%s.csv', method));
+    writematrix(networks{i}(:, :, best_idx), network_path);
+end
+
+fprintf('✅ Results saved to %s\n', output_dir);
 
 %% Step 5: Visualize Results
 fprintf('\n📈 Step 5: Visualize Results\n');
@@ -152,13 +174,29 @@ fprintf('=====================================\n');
 
 % Plot ROC curves
 figure;
-subplot(2, 2, 1); M_lasso.ROC(); title('Non-NestBoot LASSO ROC Curve');
-subplot(2, 2, 2); M_lsco.ROC(); title('Non-NestBoot LSCO ROC Curve');
-subplot(2, 2, 3); M_nest_lasso.ROC(); title('NestBoot LASSO ROC Curve');
-subplot(2, 2, 4); M_nest_lsco.ROC(); title('NestBoot LSCO ROC Curve');
+num_methods = length(comparisons);
+rows = 2;
+cols = 3;
 
-% Display true network
-net.show();
+subplot(rows, cols, 1); result_lasso.comparison_obj.ROC(); title('LASSO ROC Curve');
+subplot(rows, cols, 2); result_lsco.comparison_obj.ROC(); title('LSCO ROC Curve');
+
+plot_idx = 3;
+if ~isempty(estA_clr)
+    subplot(rows, cols, plot_idx); result_clr.comparison_obj.ROC(); title('CLR ROC Curve');
+    plot_idx = plot_idx + 1;
+end
+if ~isempty(estA_genie3)
+    subplot(rows, cols, plot_idx); result_genie3.comparison_obj.ROC(); title('GENIE3 ROC Curve');
+    plot_idx = plot_idx + 1;
+end
+if ~isempty(estA_tigress)
+    subplot(rows, cols, plot_idx); result_tigress.comparison_obj.ROC(); title('TIGRESS ROC Curve');
+    plot_idx = plot_idx + 1;
+end
+
+% Always show true network in last subplot
+subplot(rows, cols, 6); net.show(); title('True Network');
 
 fprintf('\n✅ MATLAB benchmark complete!\n');
 fprintf('📁 Results saved to: %s\n', output_dir);
@@ -168,18 +206,93 @@ fprintf('📊 Total tests: %d\n', length(all_results));
 print_summary(summary);
 
 %% Helper Functions
+function [estA, exec_time, mem_usage] = run_method(method_name, method_func, data, net, zetavec)
+    fprintf('   🎯 Running %s...\n', method_name);
+    tic;
+    mem_start = get_memory_usage();
+    
+    % Call the method function with appropriate parameters
+    % Different methods have different signatures in GeneSPIDER2
+    try
+        if strcmp(method_name, 'LASSO')
+            % LASSO: Methods.lasso(data, net, zetavec, false)
+            estA = method_func(data, net, zetavec, false);
+        elseif strcmp(method_name, 'LSCO')
+            % LSCO: Methods.lsco(data, net, zetavec, false, 'input')
+            estA = method_func(data, net, zetavec, false, 'input');
+        elseif strcmp(method_name, 'CLR')
+            % CLR: Try different possible signatures
+            try
+                estA = method_func(data, zetavec);
+            catch
+                try
+                    estA = method_func(data);
+                catch
+                    estA = method_func(data, net, zetavec);
+                end
+            end
+        elseif strcmp(method_name, 'GENIE3')
+            % GENIE3: Try different possible signatures
+            try
+                estA = method_func(data, zetavec);
+            catch
+                try
+                    estA = method_func(data);
+                catch
+                    estA = method_func(data, net, zetavec);
+                end
+            end
+        elseif strcmp(method_name, 'TIGRESS')
+            % TIGRESS: Try different possible signatures
+            try
+                estA = method_func(data, zetavec);
+            catch
+                try
+                    estA = method_func(data);
+                catch
+                    estA = method_func(data, net, zetavec);
+                end
+            end
+        else
+            error('Unknown method: %s', method_name);
+        end
+    catch ME
+        fprintf('   ⚠️  Error running %s: %s\n', method_name, ME.message);
+        fprintf('   Skipping %s...\n', method_name);
+        estA = [];
+        exec_time = toc;
+        mem_usage = 0;
+        return;
+    end
+    
+    exec_time = toc;
+    mem_usage = get_memory_usage() - mem_start;
+end
+
+function result = compare_and_report(method_name, net, estA, idx, exec_time, mem_usage, data)
+    M = analyse.CompareModels(net, estA);
+    results_struct = struct(M);
+    
+    fprintf('   ✅ %s Results:\n', method_name);
+    fprintf('      F1 Score: %.3f, Time: %.1fs, Memory: %.1fMB, AUROC: %.3f\n', ...
+        results_struct.F1(idx), exec_time, mem_usage, M.AUROC());
+    
+    result = create_result_struct(lower(method_name), false, data, exec_time, mem_usage, ...
+        estA(:, :, idx), results_struct, M.AUROC(), idx);
+    result.comparison_obj = M;
+end
+
 function mem_usage = get_memory_usage()
     try
         [~, meminfo] = memory;
         mem_usage = meminfo.MemUsedMATLAB / 1024 / 1024; % Convert to MB
     catch
         % If memory function is not available, return a placeholder value
-        mem_usage = 0; % or use alternative memory monitoring if available
-        warning('Memory monitoring not available on this platform');
+        mem_usage = 0; % Memory monitoring not available on this platform
     end
 end
 
-function result = create_result_struct(method, use_nestboot, data, exec_time, mem_usage, network_matrix, comparison_results, auroc)
+function result = create_result_struct(method, use_nestboot, data, exec_time, mem_usage, network_matrix, comparison_results, auroc, idx)
     result = struct();
     result.timestamp = datestr(now, 'yyyy-mm-ddTHH:MM:SS');
     result.dataset_size = 'medium';
@@ -192,33 +305,34 @@ function result = create_result_struct(method, use_nestboot, data, exec_time, me
     result.memory_usage = mem_usage;
     result.parameter_value = 0.05;
     result.parameter_name = iif(use_nestboot, 'FDR', 'threshold');
+    result.parameter_index = idx;
     result.num_edges = nnz(network_matrix);
     result.density = nnz(network_matrix) / numel(network_matrix);
     result.sparsity = 1 - result.density;
     result.network_shape_0 = size(network_matrix, 1);
     result.network_shape_1 = size(network_matrix, 2);
     if isfield(comparison_results, 'F1') && ~isempty(comparison_results.F1)
-        result.f1_score = comparison_results.F1(25);
+        result.f1_score = comparison_results.F1(idx);
     else
         result.f1_score = 0.0;
     end
     if isfield(comparison_results, 'MCC') && ~isempty(comparison_results.MCC)
-        result.mcc = comparison_results.MCC(25);
+        result.mcc = comparison_results.MCC(idx);
     else
         result.mcc = 0.0;
     end
     if isfield(comparison_results, 'sen') && ~isempty(comparison_results.sen)
-        result.sensitivity = comparison_results.sen(25);
+        result.sensitivity = comparison_results.sen(idx);
     else
         result.sensitivity = 0.0;
     end
     if isfield(comparison_results, 'spe') && ~isempty(comparison_results.spe)
-        result.specificity = comparison_results.spe(25);
+        result.specificity = comparison_results.spe(idx);
     else
         result.specificity = 0.0;
     end
     if isfield(comparison_results, 'pre') && ~isempty(comparison_results.pre)
-        result.precision = comparison_results.pre(25);
+        result.precision = comparison_results.pre(idx);
     else
         result.precision = 0.0;
     end

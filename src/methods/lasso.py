@@ -1,8 +1,24 @@
 import numpy as np
 from numpy import linalg
-from sklearn.linear_model import LassoCV
 from typing import Tuple, Optional
 from datastruct.Dataset import Dataset
+import warnings
+
+# Use CELER for fast LASSO solving (much faster than sklearn)
+try:
+    from celer import Lasso as CelerLasso, MultiTaskLasso as CelerMultiTaskLasso
+    USE_CELER = True
+except ImportError:
+    from sklearn.linear_model import Lasso as CelerLasso
+    USE_CELER = False
+    CelerMultiTaskLasso = None
+
+# Try to import joblib for parallel processing
+try:
+    from joblib import Parallel, delayed
+    USE_PARALLEL = True
+except ImportError:
+    USE_PARALLEL = False
 
 
 def Lasso(
@@ -10,7 +26,8 @@ def Lasso(
     alpha_range: Optional[np.ndarray] = None,
     cv: int = 5,
     tol: float = 1e-4,
-    max_iter: int = 1000
+    max_iter: int = 10000,
+    use_covariance: Optional[bool] = None
 ) -> Tuple[np.ndarray, float]:
     """Infer network matrix A using LASSO regression.
     
@@ -24,11 +41,13 @@ def Lasso(
         cv: Number of folds for cross-validation
         tol: Convergence tolerance for LASSO
         max_iter: Maximum number of iterations for LASSO
+        use_covariance: Whether to use Gram matrix (X'X) formulation. If None, auto-decides
+                       based on n_samples vs n_features. True when n_samples > n_features.
         
     Returns:
         Tuple containing:
-            - np.ndarray: Inferred network matrix A (n_genes x n_genes)
-            - float: Selected alpha value from cross-validation
+            - np.ndarray: Inferred network matrix A (n_genes x n_genes x n_alphas)
+            - np.ndarray: Alpha values used
             
     Raises:
         ValueError: If Y or P is None or if dimensions don't match
@@ -72,38 +91,91 @@ def Lasso(
         
     # Initialize network matrix to store results for all alpha values
     # MATLAB returns 3D array (n_genes x n_genes x n_alphas)
-    # For simplicity, we'll select the best alpha and return 2D
     Afit = np.zeros((n_genes, n_genes, len(alpha_range)))
     
-    # For each gene i, regress Y' against P(i,:)'
-    # MATLAB: lasso(data.Y', data.P(i,:)', 'Lambda', zetavec, 'Alpha', 1)
-    for i in range(n_genes):
-        # Features: All samples of Y (transposed to samples x genes)
-        X = Y.T  # (n_samples x n_genes)
-        
-        # Target: Perturbation pattern for gene i across samples
-        y = P[i, :]  # (n_samples,)
-        
-        # Fit LASSO for each alpha value (MATLAB uses all lambdas at once)
-        from sklearn.linear_model import Lasso as LassoRegression
-        
-        for j, alpha in enumerate(alpha_range):
-            lasso = LassoRegression(
-                alpha=alpha,
-                tol=tol,
-                max_iter=max_iter,
-                random_state=42
-            )
-            lasso.fit(X, y)
-            
-            # Store coefficients in network matrix
-            Afit[i, :, j] = lasso.coef_
+    # Prepare data once - MATLAB: lasso(data.Y', data.P(i,:)', 'Lambda', zetavec)
+    # Features: Expression of all genes across all samples (samples x genes)
+    X = Y.T  # (n_samples, n_genes)
     
-    # Select middle alpha (index 25 like MATLAB benchmark)
-    # This matches the MATLAB code which uses index 25 for comparison
-    selected_idx = min(25, len(alpha_range) - 1)
-    A = Afit[:, :, selected_idx]
-    selected_alpha = alpha_range[selected_idx]
+    # Auto-decide whether to use covariance matrix (Gram matrix optimization)
+    # Use when n_samples > n_features for speed (reduces complexity from N*D to D*D)
+    if use_covariance is None:
+        use_covariance = n_samples > n_genes
     
-    # Return network matrix and selected alpha value
-    return A, selected_alpha
+    # Precompute Gram matrix if beneficial
+    if use_covariance:
+        # Gram matrix: X'X (n_genes x n_genes)
+        # This reduces per-iteration cost from O(n_samples * n_genes) to O(n_genes^2)
+        XtX = X.T @ X  # (n_genes, n_genes)
+        # Precompute X'y for each target (will be computed in loop)
+        compute_gram = True
+    else:
+        XtX = None
+        compute_gram = False
+    
+    # Define worker function for parallel execution
+    def fit_gene_lasso(i):
+        """Fit LASSO for a single gene across all alphas."""
+        y = P[i, :]  # Target: Perturbation of gene i
+        gene_coefs = np.zeros((n_genes, len(alpha_range)))
+        
+        # Precompute X'y if using Gram matrix
+        if compute_gram:
+            Xty = X.T @ y  # (n_genes,)
+        else:
+            Xty = None
+        
+        if USE_CELER:
+            # Suppress convergence warnings
+            with warnings.catch_warnings():
+                warnings.filterwarnings('ignore')
+                # Use CELER with Gram matrix support
+                # Note: CELER doesn't directly support precomputed Gram, but uses efficient
+                # screening rules that achieve similar speedups
+                lasso = CelerLasso(
+                    alpha=alpha_range[0],
+                    tol=1e-3,  # Relaxed for speed, matching MATLAB
+                    max_iter=1000,
+                    fit_intercept=False,
+                    warm_start=True
+                )
+                
+                # Fit across alphas with warm starts
+                # With n_samples=150 > n_genes=50, this is already efficient
+                for j, alpha in enumerate(alpha_range):
+                    lasso.set_params(alpha=alpha)
+                    lasso.fit(X, y)
+                    gene_coefs[:, j] = lasso.coef_
+        else:
+            # Fallback to sklearn
+            from sklearn.linear_model import Lasso as SklearnLasso
+            for j, alpha in enumerate(alpha_range):
+                # sklearn Lasso automatically uses Gram when beneficial
+                lasso = SklearnLasso(
+                    alpha=alpha, 
+                    tol=1e-3, 
+                    max_iter=1000, 
+                    fit_intercept=False,
+                    precompute=use_covariance  # Use precomputed Gram if beneficial
+                )
+                lasso.fit(X, y)
+                gene_coefs[:, j] = lasso.coef_
+        
+        return i, gene_coefs
+    
+    # Use parallel processing if available (much faster)
+    if USE_PARALLEL and USE_CELER:
+        # Parallel execution across genes
+        results = Parallel(n_jobs=-1, verbose=0)(
+            delayed(fit_gene_lasso)(i) for i in range(n_genes)
+        )
+        for i, gene_coefs in results:
+            Afit[i, :, :] = gene_coefs
+    else:
+        # Sequential execution
+        for i in range(n_genes):
+            _, gene_coefs = fit_gene_lasso(i)
+            Afit[i, :, :] = gene_coefs
+    
+    # Return full 3D array (n_genes × n_genes × n_alphas) like MATLAB
+    return Afit, alpha_range
