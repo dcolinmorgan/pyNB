@@ -1,10 +1,8 @@
-
 import sys
 import os
 import json
 import time
 import glob
-import re
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -65,7 +63,7 @@ def find_network_file(network_dir, network_id):
     return None
 
 def run_nestboot_method(method_name, data, net, zetavec, n_init, n_boot, fdr, seed=42):
-    """Run NestBoot for a specific method, matching MATLAB implementation."""
+    """Run NestBoot for a specific method."""
     np.random.seed(seed)
     
     # Initialize NetworkBootstrap
@@ -73,16 +71,12 @@ def run_nestboot_method(method_name, data, net, zetavec, n_init, n_boot, fdr, se
     
     start_time = time.time()
     
-    # Create method function that matches MATLAB interface
+    # Create method function
     def inference_method(dataset, zetavec=None):
         if method_name == 'LASSO':
-            # MATLAB: Methods.lasso(data_b, net, zetavec, false)
-            # Returns 3D array (n_genes x n_genes x n_zeta)
             A_3d, _ = Lasso(dataset, alpha_range=zetavec)
             return A_3d
         elif method_name == 'LSCO':
-            # MATLAB: Methods.lsco(data_b, net, zetavec, false, 'input')
-            # Returns 3D array (n_genes x n_genes x n_zeta)
             A_3d, _ = LSCO(dataset, threshold_range=zetavec)
             return A_3d
         else:
@@ -111,7 +105,7 @@ def run_nestboot_method(method_name, data, net, zetavec, n_init, n_boot, fdr, se
     # Compare with true network
     metrics = run_comparison_analysis(net, binary_network)
     
-    # Return results matching MATLAB structure
+    # Return results
     result = {
         'method': method_name,
         'n_init': n_init,
@@ -131,24 +125,27 @@ def run_nestboot_method(method_name, data, net, zetavec, n_init, n_boot, fdr, se
 
 def main():
     # Configuration - matching MATLAB exactly
-    N_INIT = 5      # Outer loop iterations
-    N_BOOT = 5      # Inner loop iterations
+    N_INIT = 10      # Outer loop iterations (reduced for faster testing)
+    N_BOOT = 10      # Inner loop iterations (reduced for faster testing)
     FDR = 5         # FDR percentage
-    OUTPUT_DIR = 'benchmark_results_n50_5x5_matlab_replica'
+    OUTPUT_DIR = 'benchmark_results'
+    FIGURES_DIR = 'benchmark_figures'
     
-    # Create output directory
+    # Create output directories
     output_dir = Path(OUTPUT_DIR)
+    figures_dir = Path(FIGURES_DIR)
     output_dir.mkdir(exist_ok=True)
+    figures_dir.mkdir(exist_ok=True)
     
-    # Dataset paths - matching MATLAB
+    # Dataset paths
     dataset_root = os.path.expanduser('~/Downloads/gs-datasets/N50')
     network_root = os.path.expanduser('~/Downloads/gs-networks')
     
     # Zetavec - CRITICAL: must match MATLAB exactly
-    zetavec = np.logspace(-6, 0, 30)  # logspace(-6, 0, 30)
+    zetavec = np.logspace(-6, 0, 30)
     
-    print(f"🚀 NestBoot N50 Benchmark (Init={N_INIT}, Boot={N_BOOT}, FDR={FDR}%)")
-    print(f"   Zetavec: {len(zetavec)} values from {zetavec[0]:.2e} to {zetavec[-1]:.2e}")
+    print(f"🚀 Python NestBoot N50 Benchmark (Init={N_INIT}, Boot={N_BOOT}, FDR={FDR}%)")
+    print("=" * 70)
     
     # Find datasets
     dataset_files = sorted(glob.glob(os.path.join(dataset_root, "*.json")))
@@ -156,7 +153,10 @@ def main():
     
     # Results storage
     all_results = []
-    results_file = output_dir / 'nestboot_n50_results.csv'
+    results_file = output_dir / 'python_nestboot_results.csv'
+    
+    # Check if file exists to determine if we need headers
+    file_exists = results_file.exists()
     
     # Process all datasets
     processed_count = 0
@@ -169,20 +169,15 @@ def main():
             # Load dataset
             data = Data.from_json_file(dataset_path)
             
-            # Extract network ID - matching MATLAB logic
-            # MATLAB: network_id = data.network or from JSON
+            # Extract network ID
             network_id = None
             if hasattr(data.data, 'network') and data.data.network:
-                # data.data.network is a Network object, get its network property
                 network_id = data.data.network.network.split('-ID')[-1]
-                print(f"   🔍 Extracted network ID: {network_id}")
             else:
-                # Read from JSON directly
                 with open(dataset_path, 'r') as f:
                     json_data = json.load(f)
                 if 'obj_data' in json_data and 'network' in json_data['obj_data']:
                     network_id = json_data['obj_data']['network'].split('-ID')[-1]
-                    print(f"   🔍 Extracted network ID from JSON: {network_id}")
             
             if not network_id:
                 print(f"   ⚠️ Could not extract network ID from {dataset_filename}")
@@ -192,9 +187,6 @@ def main():
             network_path = find_network_file(network_root, network_id)
             if not network_path:
                 print(f"   ⚠️ Network file not found for ID {network_id}")
-                # Debug: list some network files
-                network_files = list(Path(network_root).rglob("*.json"))[:5]
-                print(f"   📁 Sample network files: {[str(f.name) for f in network_files]}")
                 continue
                 
             # Load network
@@ -202,24 +194,27 @@ def main():
             
             print(f"   📂 Network: {os.path.basename(str(network_path))}")
             
-            # Run LASSO
+            # Run LASSO NestBoot
             print("   Running LASSO NestBoot...")
             res_lasso = run_nestboot_method('LASSO', data, net, zetavec, N_INIT, N_BOOT, FDR)
             res_lasso['dataset'] = dataset_filename
+            res_lasso['network'] = os.path.basename(str(network_path))
             all_results.append(res_lasso)
-            # Save after each result
-            df_results = pd.DataFrame(all_results)
-            df_results.to_csv(results_file, index=False)
+            # Save after each result (append mode)
+            df_result = pd.DataFrame([res_lasso])
+            df_result.to_csv(results_file, mode='a', header=not file_exists, index=False)
+            file_exists = True  # Headers written after first save
             print(".3f")
             
-            # Run LSCO
+            # Run LSCO NestBoot
             print("   Running LSCO NestBoot...")
             res_lsco = run_nestboot_method('LSCO', data, net, zetavec, N_INIT, N_BOOT, FDR)
             res_lsco['dataset'] = dataset_filename
+            res_lsco['network'] = os.path.basename(str(network_path))
             all_results.append(res_lsco)
-            # Save after each result
-            df_results = pd.DataFrame(all_results)
-            df_results.to_csv(results_file, index=False)
+            # Save after each result (append mode)
+            df_result = pd.DataFrame([res_lsco])
+            df_result.to_csv(results_file, mode='a', header=False, index=False)
             print(".3f")
             
             processed_count += 1
@@ -239,10 +234,11 @@ def main():
         for method in ['LASSO', 'LSCO']:
             method_results = df_results[df_results['method'] == method]
             if len(method_results) > 0:
-                print(f"   {method}:")
+                print(f"   {method} NestBoot:")
                 print(f"      F1: {method_results['f1'].mean():.3f} ± {method_results['f1'].std():.3f}")
                 print(f"      AUROC: {method_results['auroc'].mean():.3f} ± {method_results['auroc'].std():.3f}")
                 print(f"      Time: {method_results['time'].mean():.1f} ± {method_results['time'].std():.1f}s")
+                print(f"      Density: {method_results['density'].mean():.3f} ± {method_results['density'].std():.3f}")
 
 if __name__ == "__main__":
     main()
