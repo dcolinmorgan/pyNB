@@ -11,7 +11,11 @@ figures_dir = 'benchmark_figures';
 if ~exist(output_dir, 'dir'), mkdir(output_dir); end
 if ~exist(figures_dir, 'dir'), mkdir(figures_dir); end
 
-addpath('../GeneSPIDER2/'); % Add GeneSPIDER2 library
+addpath('GeneSPIDER2/'); % Add GeneSPIDER2 library
+addpath('GeneSPIDER2/dependencies/jsonlab-master'); % Add dependencies
+addpath(genpath('GeneSPIDER2/dependencies')); % Add TIGRESS dependency
+
+
 
 % Initialize performance tracking
 all_results = [];
@@ -20,8 +24,8 @@ fprintf('========================================\n');
 
 %% Configuration
 % Dataset and network paths
-dataset_root = '../GeneSPIDER2/data/gs-datasets/N50';
-network_root = '../GeneSPIDER2/data/gs-networks';
+dataset_root = 'GeneSPIDER2/data/gs-datasets/N50';
+network_root = 'GeneSPIDER2/data/gs-networks';
 
 % Zetavec for LASSO and LSCO
 zetavec = logspace(-6, 0, 30); % Sparsity parameters
@@ -39,33 +43,13 @@ for i = 1:length(dataset_files)
     fprintf('\n🔄 [%d/%d] Processing %s\n', i, length(dataset_files), dataset_filename);
     
     try
-        % Load dataset from JSON file locally
-        data = load_dataset_from_json(dataset_path);
+        % load dataset
+        data = datastruct.Dataset.load([ dataset_path]);
         
-        % Extract network ID from dataset
-        network_id = [];
-        if isfield(data, 'network') && ~isempty(data.network)
-            % Extract ID from network field
-            parts = strsplit(data.network, '-ID');
-            if length(parts) > 1
-                network_id = parts{2};
-            end
-        end
+        parts = strsplit(data.network, '-');
+        network_file=[ network_root,'/',parts{3},'/',parts{4},'/',data.network,'.json'];
         
-        if isempty(network_id)
-            fprintf('   ⚠️ Could not extract network ID from %s\n', dataset_filename);
-            continue;
-        end
-        
-        % Find network file
-        network_file = find_network_file(network_root, network_id);
-        if isempty(network_file)
-            fprintf('   ⚠️ Network file not found for ID %s\n', network_id);
-            continue;
-        end
-        
-        % Load network from JSON file locally
-        net = load_network_from_json(network_file);
+        net = datastruct.Network.load([ network_file]);
         
         fprintf('   📂 Network: %s\n', network_file);
         
@@ -314,35 +298,4 @@ function save_json(filename, data)
     fid = fopen(filename, 'w');
     fprintf(fid, '%s', json_str);
     fclose(fid);
-end
-
-function data = load_dataset_from_json(filename)
-    % Load dataset from JSON file locally
-    json_str = fileread(filename);
-    data_struct = jsondecode(json_str);
-    
-    % Convert to expected structure - assuming the JSON has obj_data field
-    if isfield(data_struct, 'obj_data')
-        data = data_struct.obj_data;
-    else
-        data = data_struct;
-    end
-end
-
-function net = load_network_from_json(filename)
-    % Load network from JSON file locally
-    json_str = fileread(filename);
-    net_struct = jsondecode(json_str);
-    
-    % Convert to expected structure - assuming the JSON has obj_data field
-    if isfield(net_struct, 'obj_data')
-        net = net_struct.obj_data;
-    else
-        net = net_struct;
-    end
-    
-    % Ensure A field exists (adjacency matrix)
-    if ~isfield(net, 'A')
-        error('Network JSON must contain adjacency matrix field "A"');
-    end
 end
