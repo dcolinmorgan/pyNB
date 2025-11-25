@@ -138,8 +138,8 @@ def main():
     figures_dir.mkdir(exist_ok=True)
     
     # Dataset paths
-    dataset_root = os.path.expanduser('../Volume1/GeneSPIDER2/data/gs-datasets/N50')
-    network_root = os.path.expanduser('../Volume1/GeneSPIDER2/data/gs-networks')
+    dataset_root = os.path.expanduser('../GeneSPIDER2/data/gs-datasets/N50')
+    network_root = os.path.expanduser('../GeneSPIDER2/data/gs-networks')
     
     # Zetavec - CRITICAL: must match MATLAB exactly
     zetavec = np.logspace(-6, 0, 30)

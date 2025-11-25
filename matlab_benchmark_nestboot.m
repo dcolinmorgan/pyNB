@@ -12,7 +12,7 @@ figures_dir = 'benchmark_figures';
 if ~exist(output_dir, 'dir'), mkdir(output_dir); end
 if ~exist(figures_dir, 'dir'), mkdir(figures_dir); end
 
-addpath('../Volume1/GeneSPIDER2/'); % Add GeneSPIDER2 library
+addpath('../GeneSPIDER2/'); % Add GeneSPIDER2 library
 
 % Initialize performance tracking
 all_results = [];
@@ -21,8 +21,8 @@ fprintf('===================================\n');
 
 %% Configuration
 % Dataset and network paths
-dataset_root = '../Volume1/GeneSPIDER2/data/gs-datasets/N50';
-network_root = '../Volume1/GeneSPIDER2/data/gs-networks';
+dataset_root = '../GeneSPIDER2/data/gs-datasets/N50';
+network_root = '../GeneSPIDER2/data/gs-networks';
 
 % NestBoot parameters - matching MATLAB standard
 N_INIT = 10;     % Outer loop iterations (reduced for faster testing)
