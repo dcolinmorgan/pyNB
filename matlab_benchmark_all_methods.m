@@ -39,8 +39,8 @@ for i = 1:length(dataset_files)
     fprintf('\n🔄 [%d/%d] Processing %s\n', i, length(dataset_files), dataset_filename);
     
     try
-        % Load dataset
-        data = datastruct.Dataset.fetch(['file://' dataset_path]);
+        % Load dataset from JSON file locally
+        data = load_dataset_from_json(dataset_path);
         
         % Extract network ID from dataset
         network_id = [];
@@ -64,8 +64,8 @@ for i = 1:length(dataset_files)
             continue;
         end
         
-        % Load network
-        net = datastruct.Network.fetch(['file://' network_file]);
+        % Load network from JSON file locally
+        net = load_network_from_json(network_file);
         
         fprintf('   📂 Network: %s\n', network_file);
         
@@ -314,4 +314,35 @@ function save_json(filename, data)
     fid = fopen(filename, 'w');
     fprintf(fid, '%s', json_str);
     fclose(fid);
+end
+
+function data = load_dataset_from_json(filename)
+    % Load dataset from JSON file locally
+    json_str = fileread(filename);
+    data_struct = jsondecode(json_str);
+    
+    % Convert to expected structure - assuming the JSON has obj_data field
+    if isfield(data_struct, 'obj_data')
+        data = data_struct.obj_data;
+    else
+        data = data_struct;
+    end
+end
+
+function net = load_network_from_json(filename)
+    % Load network from JSON file locally
+    json_str = fileread(filename);
+    net_struct = jsondecode(json_str);
+    
+    % Convert to expected structure - assuming the JSON has obj_data field
+    if isfield(net_struct, 'obj_data')
+        net = net_struct.obj_data;
+    else
+        net = net_struct;
+    end
+    
+    % Ensure A field exists (adjacency matrix)
+    if ~isfield(net, 'A')
+        error('Network JSON must contain adjacency matrix field "A"');
+    end
 end
