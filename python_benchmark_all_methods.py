@@ -106,8 +106,8 @@ def main():
     figures_dir.mkdir(exist_ok=True)
 
     # Dataset and network paths
-    dataset_root = os.path.expanduser('~/Downloads/gs-datasets/N50')
-    network_root = os.path.expanduser('~/Downloads/gs-networks')
+    dataset_root = os.path.expanduser('../Volume1/GeneSPIDER2/data/gs-datasets/N50')
+    network_root = os.path.expanduser('../Volume1/GeneSPIDER2/data/gs-networks')
 
     # Zetavec for LASSO and LSCO
     zetavec = np.logspace(-6, 0, 30)
