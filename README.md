@@ -96,12 +96,11 @@ python generate_box_plots.py
 
 Here are example performance comparison plots for the 5 supported methods (N50 networks):
 
-![MATLAB Comparison Violin Plot](benchmark_results/plots/language_comparison_all.png)
+![MATLAB Comparison Violin Plot](benchmark/plots/language_comparison_all.png)
 
 
 Each plot shows F1 Score, MCC, and AUROC comparisons across different SNR levels, providing a comprehensive view of method performance and stability.
 
 
 ### BENCHMARK CODE
-The benchmark and plotting scripts are located in the `benchmark` directory. You can customize and extend these scripts to suit your analysis needs.
-
+The benchmark and plotting scripts are located in the [benchmark](benchmark/demo_code/n50_benchmark.ipynb). You can customize and extend these scripts to suit your analysis needs.
