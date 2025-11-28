@@ -3,6 +3,7 @@ from numpy import linalg
 from datastruct.Network import Network
 from analyze.Model import Model
 from typing import Union, List
+from sklearn.metrics import roc_auc_score
 
 
 class CompareModels:
@@ -48,6 +49,7 @@ class CompareModels:
         self._structsim = np.zeros(len(self._models))
         self._MCC = np.zeros(len(self._models))
         self._FEL = np.zeros(len(self._models))
+        self._AUROC = np.zeros(len(self._models))
         
         # Get reference network binary matrix
         ref_binary = ref_A != 0
@@ -89,6 +91,9 @@ class CompareModels:
             
             # FEL (Fraction of Existing Links)
             self._FEL[i] = self._FP[i] / np.sum(ref_binary) if np.sum(ref_binary) > 0 else 0
+
+            # AUROC
+            self._AUROC[i] = roc_auc_score(ref_binary.flatten(), pred_binary.flatten())
 
     @property
     def afronorm(self) -> np.ndarray:
@@ -164,3 +169,8 @@ class CompareModels:
     def FEL(self) -> np.ndarray:
         """Get array of fraction of existing links (FP/TP_ref) for each model."""
         return self._FEL
+
+    @property
+    def AUROC(self) -> np.ndarray:
+        """Get array of AUROC for each model."""
+        return self._AUROC
