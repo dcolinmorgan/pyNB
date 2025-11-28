@@ -96,15 +96,12 @@ python generate_box_plots.py
 
 Here are example performance comparison plots for the 5 supported methods (N50 networks):
 
-![LASSO Violin Plot](output/lasso_violin_comparison.png)
-
-![LSCO Violin Plot](output/lsco_violin_comparison.png)
-
-![CLR Violin Plot](output/clr_violin_comparison.png)
-
-![GENIE3 Violin Plot](output/genie3_violin_comparison.png)
-
-![TIGRESS Violin Plot](output/tigress_violin_comparison.png)
+![MATLAB Comparison Violin Plot](benchmark_results/plots/language_comparison_all.png)
 
 
 Each plot shows F1 Score, MCC, and AUROC comparisons across different SNR levels, providing a comprehensive view of method performance and stability.
+
+
+### BENCHMARK CODE
+The benchmark and plotting scripts are located in the `benchmark` directory. You can customize and extend these scripts to suit your analysis needs.
+
