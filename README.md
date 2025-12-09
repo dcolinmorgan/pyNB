@@ -135,6 +135,39 @@ print(M2.AUROC)
 
 ```
 
+###Nestboot
+```
+import sys
+import numpy as np
+sys.path.insert(0, 'src')
+
+from methods.nestboot import Nestboot
+from methods.lsco import LSCO
+from analyze.Data import Data
+
+dataset = Data.from_json_url(
+    'https://bitbucket.org/sonnhammergrni/gs-datasets/raw/d2047430263f5ffe473525c74b4318f723c23b0e/N50/Tjarnberg-ID252384-D20151111-N50-E150-SNR100000-IDY252384.json'
+)
+
+zetavec = np.logspace(-6, 0, 30)
+
+nb = Nestboot()
+
+results = nb.run_nestboot(
+    dataset=dataset,
+    inference_method=LSCO,  # The class itself
+    method_params={'threshold_range': zetavec},  # Parameters for the method
+    nest_runs=5,
+    boot_runs=5,
+    seed=42
+)
+
+
+results.fp_rate()
+results.support()
+
+```
+
 ## 📊 Benchmark Results Visualization
 
 After running the benchmark, you can generate comprehensive performance comparison plots using the included visualization notebooks.

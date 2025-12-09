@@ -14,7 +14,7 @@ from datastruct.Network import Network
 from methods.lasso import Lasso
 from methods.lsco import LSCO
 from analyze.CompareModels import CompareModels
-from bootstrap.nb_fdr import NetworkBootstrap
+from methods.nestboot import Nestboot
 
 def run_comparison_analysis(true_net, inferred_net):
     """Compare inferred network with true network."""
@@ -66,8 +66,8 @@ def run_nestboot_method(method_name, data, net, zetavec, n_init, n_boot, fdr, se
     """Run NestBoot for a specific method."""
     np.random.seed(seed)
     
-    # Initialize NetworkBootstrap
-    nb = NetworkBootstrap()
+    # Initialize Nestboot
+    nb = Nestboot()
     
     start_time = time.time()
     
@@ -85,11 +85,11 @@ def run_nestboot_method(method_name, data, net, zetavec, n_init, n_boot, fdr, se
     # Run NestBoot
     results = nb.run_nestboot(
         dataset=data,
-        inference_method=lambda ds, **kwargs: inference_method(ds, zetavec),
+        inference_method=inference_method,  # Pass the method function
+        method_params={'zetavec': zetavec} if method_name == 'LASSO' else {'threshold_range': zetavec},  # Parameters
         nest_runs=n_init,
         boot_runs=n_boot,
-        seed=seed,
-        method_kwargs={}
+        seed=seed
     )
     
     exec_time = time.time() - start_time

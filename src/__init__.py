@@ -28,6 +28,12 @@ except ImportError:
     NetworkData = None  
     NetworkResults = None
 
+# Import new Nestboot class
+try:
+    from .methods.nestboot import Nestboot
+except ImportError:
+    Nestboot = None  # type: ignore
+
 # Import integration layer
 try:
     from .integration import (
@@ -65,6 +71,9 @@ __all__ = [
     'NetworkBootstrapOOP', 
     'NetworkBootstrapLegacy',
     'HybridNetworkBootstrap',
+    
+    # New Nestboot class
+    'Nestboot',
     
     # Legacy classes
     'LegacyNetworkBootstrap',
