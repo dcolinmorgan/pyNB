@@ -13,7 +13,7 @@ def test_pyNB_initialization() -> None:
         N=10,
         M=10
     )
-    nb = NetworkBootstrap(data)
+    nb = Nestboot(data)
     assert nb.data == data
     assert nb.logger is not None
 

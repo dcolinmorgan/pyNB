@@ -5,7 +5,7 @@ import requests
 from typing import Dict, Any
 from datastruct.Dataset import Dataset
 from datastruct.Network import Network
-from analyze.DataModel import DataModel
+from .DataModel import DataModel
 
 class Data(DataModel):
     """Analyzes properties of a Dataset."""
@@ -162,7 +162,11 @@ class Data(DataModel):
 
     def _calc_SNR_Phi_true(self, ds):
         """SNR: min(svd(true_response))/max(svd(E))."""
-        s_true = linalg.svd(ds.true_response(), compute_uv=False)
+        true_resp = ds.true_response()
+        if true_resp is None:
+            return 0.0
+            
+        s_true = linalg.svd(true_resp, compute_uv=False)
         s_E = linalg.svd(ds.E, compute_uv=False) if ds.E is not None else np.array([1.0])
         return min(s_true) / max(s_E) if s_E.size > 0 else float('inf')
 
@@ -230,6 +234,9 @@ class Data(DataModel):
     def _calc_SNR_phi_true(self, ds):
         """Per-variable SNR (true)."""
         X = ds.true_response()
+        if X is None:
+            return np.array([0.0])
+            
         return np.array([
             linalg.norm(X[i, :]) / linalg.norm(ds.E[i, :]) if ds.E is not None and linalg.norm(ds.E[i, :]) > 0 else float('inf')
             for i in range(X.shape[0])

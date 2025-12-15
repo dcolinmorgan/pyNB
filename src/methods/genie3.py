@@ -7,9 +7,15 @@ GENIE3 uses random forests to infer gene regulatory networks.
 
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
+from typing import Union, Optional, Tuple, Any, List
+from datastruct.Dataset import Dataset
+from analyze.Data import Data
 
-
-def GENIE3(dataset, threshold_range=None, n_estimators=100, max_features='sqrt', random_state=42):
+def GENIE3(dataset: Union[Dataset, Data, Any], 
+           threshold_range: Optional[Union[np.ndarray, List[float]]] = None, 
+           n_estimators: int = 100, 
+           max_features: Union[str, int, float] = 'sqrt', 
+           random_state: int = 42) -> Tuple[np.ndarray, np.ndarray]:
     """
     GENIE3 network inference using Random Forest regression.
     
@@ -37,19 +43,22 @@ def GENIE3(dataset, threshold_range=None, n_estimators=100, max_features='sqrt',
         Array of threshold values used
     """
     # Handle both Dataset and Data objects
-    if hasattr(dataset, 'data'):
+    if hasattr(dataset, 'Y') and dataset.Y is not None:
+        Y = dataset.Y
+    elif hasattr(dataset, 'data') and dataset.data is not None:
         data = dataset.data
+        if hasattr(data, 'Y') and data.Y is not None:
+            Y = data.Y
+        elif hasattr(data, 'data'):
+            Y = data.data
+        else:
+            Y = data
     else:
-        data = dataset
+        Y = dataset
     
-    # Get expression data
-    if hasattr(data, 'Y'):
-        Y = data.Y  # genes × samples
-    elif hasattr(data, 'data'):
-        Y = data.data
-    else:
-        Y = data
-    
+    if not isinstance(Y, np.ndarray):
+        raise ValueError("Could not extract expression matrix Y from dataset")
+
     n_genes, n_samples = Y.shape
     
     # Initialize importance matrix
@@ -91,7 +100,8 @@ def GENIE3(dataset, threshold_range=None, n_estimators=100, max_features='sqrt',
         zeta = np.asarray(threshold_range)
     
     # Scale threshold range based on importance values
-    imp_min = np.min(importance_matrix[importance_matrix > 0]) if np.sum(importance_matrix > 0) > 0 else 0
+    pos_vals = importance_matrix[importance_matrix > 0]
+    imp_min = np.min(pos_vals) if pos_vals.size > 0 else 0
     imp_max = np.max(importance_matrix)
     
     if imp_max > imp_min:
@@ -100,9 +110,6 @@ def GENIE3(dataset, threshold_range=None, n_estimators=100, max_features='sqrt',
         threshold_range_scaled = zeta * imp_max
     
     # Apply thresholds to create 3D output
-    Afit = np.zeros((n_genes, n_genes, len(threshold_range_scaled)))
-    
-    for k, threshold in enumerate(threshold_range_scaled):
-        Afit[:, :, k] = importance_matrix * (importance_matrix >= threshold)
+    Afit = importance_matrix[:, :, np.newaxis] * (importance_matrix[:, :, np.newaxis] >= threshold_range_scaled)
     
     return Afit, threshold_range_scaled

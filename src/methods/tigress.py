@@ -7,9 +7,15 @@ TIGRESS combines LARS (Least Angle Regression) with stability selection.
 
 import numpy as np
 from sklearn.linear_model import LassoLarsIC, Lars
+from typing import Union, Optional, Tuple, Any, List
+from datastruct.Dataset import Dataset
+from analyze.Data import Data
 
-
-def tigress_single_gene(target_expr, predictor_expr, n_bootstrap=100, alpha_range=None, random_state=42):
+def tigress_single_gene(target_expr: np.ndarray, 
+                        predictor_expr: np.ndarray, 
+                        n_bootstrap: int = 100, 
+                        alpha_range: Optional[Union[np.ndarray, List[float]]] = None, 
+                        random_state: int = 42) -> np.ndarray:
     """
     Run TIGRESS for a single target gene.
     
@@ -22,7 +28,7 @@ def tigress_single_gene(target_expr, predictor_expr, n_bootstrap=100, alpha_rang
     n_bootstrap : int
         Number of bootstrap samples for stability selection
     alpha_range : array-like, optional
-        Range of regularization parameters
+        Range of regularization parameters (not used in current implementation but kept for API consistency)
     random_state : int
         Random seed
     
@@ -39,11 +45,11 @@ def tigress_single_gene(target_expr, predictor_expr, n_bootstrap=100, alpha_rang
     # Count how many times each feature is selected across bootstraps
     selection_counts = np.zeros(n_predictors)
     
-    np.random.seed(random_state)
+    rng = np.random.RandomState(random_state)
     
-    for boot_idx in range(n_bootstrap):
+    for _ in range(n_bootstrap):
         # Bootstrap sample
-        bootstrap_indices = np.random.choice(n_samples, size=n_samples, replace=True)
+        bootstrap_indices = rng.choice(n_samples, size=n_samples, replace=True)
         X_boot = predictor_expr[bootstrap_indices, :]
         y_boot = target_expr[bootstrap_indices]
         
@@ -56,14 +62,14 @@ def tigress_single_gene(target_expr, predictor_expr, n_bootstrap=100, alpha_rang
             selected = np.abs(model.coef_) > 1e-10
             selection_counts += selected.astype(float)
             
-        except Exception as e:
+        except Exception:
             # If LassoLarsIC fails, use regular LARS
             try:
                 model = Lars(n_nonzero_coefs=min(5, n_predictors), fit_intercept=True)
                 model.fit(X_boot, y_boot)
                 selected = np.abs(model.coef_) > 1e-10
                 selection_counts += selected.astype(float)
-            except:
+            except Exception:
                 # If that also fails, skip this bootstrap
                 continue
     
@@ -73,7 +79,10 @@ def tigress_single_gene(target_expr, predictor_expr, n_bootstrap=100, alpha_rang
     return stability_scores
 
 
-def TIGRESS(dataset, threshold_range=None, n_bootstrap=50, random_state=42):
+def TIGRESS(dataset: Union[Dataset, Data, Any], 
+            threshold_range: Optional[Union[np.ndarray, List[float]]] = None, 
+            n_bootstrap: int = 50, 
+            random_state: int = 42) -> Tuple[np.ndarray, np.ndarray]:
     """
     TIGRESS network inference using stability selection with LARS.
     
@@ -96,19 +105,22 @@ def TIGRESS(dataset, threshold_range=None, n_bootstrap=50, random_state=42):
         Array of threshold values used
     """
     # Handle both Dataset and Data objects
-    if hasattr(dataset, 'data'):
+    if hasattr(dataset, 'Y') and dataset.Y is not None:
+        Y = dataset.Y
+    elif hasattr(dataset, 'data') and dataset.data is not None:
         data = dataset.data
+        if hasattr(data, 'Y') and data.Y is not None:
+            Y = data.Y
+        elif hasattr(data, 'data'):
+            Y = data.data
+        else:
+            Y = data
     else:
-        data = dataset
+        Y = dataset
     
-    # Get expression data
-    if hasattr(data, 'Y'):
-        Y = data.Y  # genes × samples
-    elif hasattr(data, 'data'):
-        Y = data.data
-    else:
-        Y = data
-    
+    if not isinstance(Y, np.ndarray):
+        raise ValueError("Could not extract expression matrix Y from dataset")
+
     n_genes, n_samples = Y.shape
     
     # Initialize stability score matrix
@@ -142,7 +154,8 @@ def TIGRESS(dataset, threshold_range=None, n_bootstrap=50, random_state=42):
     
     # Scale threshold range based on stability scores (which are in [0, 1])
     # Use the actual range of non-zero scores
-    stab_min = np.min(stability_matrix[stability_matrix > 0]) if np.sum(stability_matrix > 0) > 0 else 0
+    pos_vals = stability_matrix[stability_matrix > 0]
+    stab_min = np.min(pos_vals) if pos_vals.size > 0 else 0
     stab_max = np.max(stability_matrix)
     
     if stab_max > stab_min:
@@ -151,15 +164,15 @@ def TIGRESS(dataset, threshold_range=None, n_bootstrap=50, random_state=42):
         threshold_range_scaled = zeta * stab_max if stab_max > 0 else zeta * 0.5
     
     # Apply thresholds to create 3D output
-    Afit = np.zeros((n_genes, n_genes, len(threshold_range_scaled)))
-    
-    for k, threshold in enumerate(threshold_range_scaled):
-        Afit[:, :, k] = stability_matrix * (stability_matrix >= threshold)
+    # Vectorized implementation
+    Afit = stability_matrix[:, :, np.newaxis] * (stability_matrix[:, :, np.newaxis] >= threshold_range_scaled)
     
     return Afit, threshold_range_scaled
 
 
-def tigress_base_single_gene(target_expr, predictor_expr, random_state=42):
+def tigress_base_single_gene(target_expr: np.ndarray, 
+                             predictor_expr: np.ndarray, 
+                             random_state: int = 42) -> np.ndarray:
     """
     Run TIGRESS base learner (LassoLarsIC) for a single target gene without bootstrapping.
     
@@ -190,19 +203,21 @@ def tigress_base_single_gene(target_expr, predictor_expr, random_state=42):
         model.fit(predictor_expr, target_expr)
         coefs = model.coef_
         
-    except Exception as e:
+    except Exception:
         # If LassoLarsIC fails, use regular LARS
         try:
             model = Lars(n_nonzero_coefs=min(5, n_predictors), fit_intercept=True)
             model.fit(predictor_expr, target_expr)
             coefs = model.coef_
-        except:
+        except Exception:
             coefs = np.zeros(n_predictors)
             
     return coefs
 
 
-def TIGRESS_base(dataset, random_state=42, **kwargs):
+def TIGRESS_base(dataset: Union[Dataset, Data, Any], 
+                 random_state: int = 42, 
+                 **kwargs: Any) -> np.ndarray:
     """
     TIGRESS base learner (LassoLarsIC) without stability selection.
     Intended for use within NestBoot which handles the bootstrapping.
@@ -220,19 +235,22 @@ def TIGRESS_base(dataset, random_state=42, **kwargs):
         Adjacency matrix (n_genes × n_genes)
     """
     # Handle both Dataset and Data objects
-    if hasattr(dataset, 'data'):
+    if hasattr(dataset, 'Y') and dataset.Y is not None:
+        Y = dataset.Y
+    elif hasattr(dataset, 'data') and dataset.data is not None:
         data = dataset.data
+        if hasattr(data, 'Y') and data.Y is not None:
+            Y = data.Y
+        elif hasattr(data, 'data'):
+            Y = data.data
+        else:
+            Y = data
     else:
-        data = dataset
+        Y = dataset
     
-    # Get expression data
-    if hasattr(data, 'Y'):
-        Y = data.Y  # genes × samples
-    elif hasattr(data, 'data'):
-        Y = data.data
-    else:
-        Y = data
-    
+    if not isinstance(Y, np.ndarray):
+        raise ValueError("Could not extract expression matrix Y from dataset")
+
     n_genes, n_samples = Y.shape
     
     # Initialize adjacency matrix

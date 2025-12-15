@@ -1,6 +1,6 @@
 import numpy as np
-from datastruct.Exchange import Exchange
-from datastruct.Network import Network
+from .Exchange import Exchange
+from .Network import Network
 
 class Experiment(Exchange):
     """Generates experimental data for a Network."""
@@ -22,7 +22,9 @@ class Experiment(Exchange):
         if network.A is None:
             raise ValueError("Network A matrix must be set")
         self._G = network.G if network.G is not None else np.eye(network.A.shape[0])
-        self._P = network.P if network.P is not None else np.eye(network.A.shape[0])
+        self._P = getattr(network, 'P', None)
+        if self._P is None:
+            self._P = np.eye(network.A.shape[0])
 
     def gaussian(self):
         """Generate Gaussian noise and response."""

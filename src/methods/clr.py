@@ -8,9 +8,12 @@ CLR uses mutual information with context-based normalization to infer gene regul
 import numpy as np
 from scipy.stats import zscore
 from sklearn.metrics import mutual_info_score
+from typing import Union, Optional, Tuple, Any, List
+from datastruct.Dataset import Dataset
+from analyze.Data import Data
 
 
-def mutual_information_matrix(data):
+def mutual_information_matrix(data: np.ndarray) -> np.ndarray:
     """
     Calculate mutual information matrix between all pairs of genes.
     
@@ -29,6 +32,9 @@ def mutual_information_matrix(data):
     
     # Discretize data for MI calculation (using equal-frequency binning)
     n_bins = min(int(np.sqrt(n_samples)), 10)
+    if n_bins < 2:
+        n_bins = 2
+        
     discretized = np.zeros_like(data, dtype=int)
     
     for i in range(n_genes):
@@ -49,7 +55,7 @@ def mutual_information_matrix(data):
     return mi_matrix
 
 
-def clr_transform(mi_matrix):
+def clr_transform(mi_matrix: np.ndarray) -> np.ndarray:
     """
     Apply CLR (Context Likelihood of Relatedness) transformation.
     
@@ -64,38 +70,34 @@ def clr_transform(mi_matrix):
         CLR-transformed matrix
     """
     n_genes = mi_matrix.shape[0]
-    clr_matrix = np.zeros((n_genes, n_genes))
     
-    # Calculate z-scores for each row and column
+    # Mask diagonal for stats calculation
+    mask = np.ones((n_genes, n_genes), dtype=bool)
+    np.fill_diagonal(mask, 0)
+    
+    means = np.zeros(n_genes)
+    stds = np.zeros(n_genes)
+    
     for i in range(n_genes):
-        for j in range(n_genes):
-            if i != j:
-                # Get MI values for gene i (excluding diagonal)
-                mi_i = mi_matrix[i, :]
-                mi_i_no_diag = mi_i[np.arange(n_genes) != i]
-                
-                # Get MI values for gene j (excluding diagonal)
-                mi_j = mi_matrix[:, j]
-                mi_j_no_diag = mi_j[np.arange(n_genes) != j]
-                
-                # Calculate z-scores
-                if np.std(mi_i_no_diag) > 0:
-                    z_i = (mi_matrix[i, j] - np.mean(mi_i_no_diag)) / np.std(mi_i_no_diag)
-                else:
-                    z_i = 0
-                
-                if np.std(mi_j_no_diag) > 0:
-                    z_j = (mi_matrix[i, j] - np.mean(mi_j_no_diag)) / np.std(mi_j_no_diag)
-                else:
-                    z_j = 0
-                
-                # CLR score is sqrt of sum of squared z-scores
-                clr_matrix[i, j] = np.sqrt(z_i**2 + z_j**2)
+        row = mi_matrix[i, mask[i, :]]
+        means[i] = np.mean(row)
+        stds[i] = np.std(row)
+        
+    # Avoid division by zero
+    stds[stds == 0] = 1.0
+    
+    # Calculate z-scores
+    # Z[i, j] is z-score of MI[i, j] using stats of i
+    Z = (mi_matrix - means[:, np.newaxis]) / stds[:, np.newaxis]
+    
+    # CLR[i, j] = sqrt(Z[i, j]^2 + Z[j, i]^2)
+    clr_matrix = np.sqrt(Z**2 + Z.T**2)
+    np.fill_diagonal(clr_matrix, 0)
     
     return clr_matrix
 
 
-def CLR(dataset, threshold_range=None):
+def CLR(dataset: Union[Dataset, Data, Any], threshold_range: Optional[Union[np.ndarray, List[float]]] = None) -> Tuple[np.ndarray, np.ndarray]:
     """
     Context Likelihood of Relatedness (CLR) network inference.
     
@@ -114,18 +116,21 @@ def CLR(dataset, threshold_range=None):
         Array of threshold values used
     """
     # Handle both Dataset and Data objects
-    if hasattr(dataset, 'data'):
+    if hasattr(dataset, 'Y') and dataset.Y is not None:
+        Y = dataset.Y
+    elif hasattr(dataset, 'data') and dataset.data is not None:
         data = dataset.data
+        if hasattr(data, 'Y') and data.Y is not None:
+            Y = data.Y
+        elif hasattr(data, 'data'):
+            Y = data.data
+        else:
+            Y = data
     else:
-        data = dataset
+        Y = dataset
     
-    # Get expression data (genes × samples)
-    if hasattr(data, 'Y'):
-        Y = data.Y
-    elif hasattr(data, 'data'):
-        Y = data.data
-    else:
-        Y = data
+    if not isinstance(Y, np.ndarray):
+        raise ValueError("Could not extract expression matrix Y from dataset")
     
     n_genes = Y.shape[0]
     
@@ -142,7 +147,8 @@ def CLR(dataset, threshold_range=None):
         zeta = np.asarray(threshold_range)
     
     # Scale threshold range based on CLR values
-    clr_min = np.min(clr_matrix[clr_matrix > 0]) if np.sum(clr_matrix > 0) > 0 else 0
+    pos_vals = clr_matrix[clr_matrix > 0]
+    clr_min = np.min(pos_vals) if pos_vals.size > 0 else 0
     clr_max = np.max(clr_matrix)
     
     if clr_max > clr_min:
@@ -151,12 +157,7 @@ def CLR(dataset, threshold_range=None):
         threshold_range_scaled = zeta * clr_max
     
     # Apply thresholds to create 3D output
-    Afit = np.zeros((n_genes, n_genes, len(threshold_range_scaled)))
-    
-    for k, threshold in enumerate(threshold_range_scaled):
-        Afit[:, :, k] = clr_matrix * (clr_matrix >= threshold)
-    
-    # Make network directed by using asymmetric edge weights
-    # (keep the CLR scores which are symmetric, but threshold creates sparsity)
+    # Vectorized thresholding
+    Afit = clr_matrix[:, :, np.newaxis] * (clr_matrix[:, :, np.newaxis] >= threshold_range_scaled)
     
     return Afit, threshold_range_scaled

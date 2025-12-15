@@ -1,15 +1,15 @@
 import numpy as np
 from numpy import linalg
 from datastruct.Network import Network
-from analyze.Model import Model
-from typing import Union, List
+from .Model import Model
+from typing import Union, List, Optional
 from sklearn.metrics import roc_auc_score
 
 
 class CompareModels:
     """Compares multiple network models against a reference."""
     
-    def __init__(self, ref_net: Network, net_list: Union[np.ndarray, Network]):
+    def __init__(self, ref_net: Network, net_list: Union[np.ndarray, Network, List[Network]]) -> None:
         """Initialize comparison between networks.
         
         Args:
@@ -18,44 +18,72 @@ class CompareModels:
                      If numpy array, should be of shape (N, N, M) where M is number of networks
         """
         self._ref = Model(ref_net)
+        self._models: List[Model] = []
         
         if isinstance(net_list, Network):
-            # Single network comparison
-            self._models = [Model(net_list)]
-        else:
-            # Multiple network comparison
-            self._models = [Model(Network(net)) for net in net_list.transpose(2, 0, 1)]
+            if net_list.A is not None and net_list.A.ndim == 3:
+                # Network object containing 3D array (e.g. Lasso path)
+                self._models = [Model(Network(net_list.A[:, :, i])) for i in range(net_list.A.shape[2])]
+            else:
+                # Single network comparison
+                self._models = [Model(net_list)]
+        elif isinstance(net_list, np.ndarray):
+            # Multiple network comparison (numpy array)
+            if net_list.ndim == 3:
+                self._models = [Model(Network(net_list[:, :, i])) for i in range(net_list.shape[2])]
+            else:
+                 # Assume list of networks? Or 2D array?
+                 # Original code: net_list.transpose(2, 0, 1) implies 3D array (N, N, M)
+                 # But transpose(2, 0, 1) on (N, N, M) -> (M, N, N)
+                 # Then iterating gives (N, N) matrices.
+                 # My fix above for Network object does manual slicing.
+                 
+                 # Let's keep original logic for numpy array but be safer
+                 # If it's 2D, treat as single network?
+                 if net_list.ndim == 2:
+                     self._models = [Model(Network(net_list))]
+                 else:
+                     # Fallback or error?
+                     pass
+        elif isinstance(net_list, list):
+             self._models = [Model(net) if isinstance(net, Network) else Model(Network(net)) for net in net_list]
             
         self._analyze()
 
-    def _analyze(self):
+    def _analyze(self) -> None:
         """Compute comparison metrics."""
         ref_A = self._ref.data.A
+        if ref_A is None:
+            return
+            
         n_nodes = ref_A.shape[0]
+        n_models = len(self._models)
         
         # Initialize metric arrays
-        self._afronorm = np.zeros(len(self._models))
-        self._F1 = np.zeros(len(self._models))
-        self._nlinks = np.zeros(len(self._models))
-        self._TP = np.zeros(len(self._models))
-        self._TN = np.zeros(len(self._models))
-        self._FP = np.zeros(len(self._models))
-        self._FN = np.zeros(len(self._models))
-        self._sen = np.zeros(len(self._models))
-        self._spe = np.zeros(len(self._models))
-        self._comspe = np.zeros(len(self._models))
-        self._pre = np.zeros(len(self._models))
-        self._TPTN = np.zeros(len(self._models))
-        self._structsim = np.zeros(len(self._models))
-        self._MCC = np.zeros(len(self._models))
-        self._FEL = np.zeros(len(self._models))
-        self._AUROC = np.zeros(len(self._models))
+        self._afronorm = np.zeros(n_models)
+        self._F1 = np.zeros(n_models)
+        self._nlinks = np.zeros(n_models)
+        self._TP = np.zeros(n_models)
+        self._TN = np.zeros(n_models)
+        self._FP = np.zeros(n_models)
+        self._FN = np.zeros(n_models)
+        self._sen = np.zeros(n_models)
+        self._spe = np.zeros(n_models)
+        self._comspe = np.zeros(n_models)
+        self._pre = np.zeros(n_models)
+        self._TPTN = np.zeros(n_models)
+        self._structsim = np.zeros(n_models)
+        self._MCC = np.zeros(n_models)
+        self._FEL = np.zeros(n_models)
+        self._AUROC = np.zeros(n_models)
         
         # Get reference network binary matrix
         ref_binary = ref_A != 0
         
         for i, model in enumerate(self._models):
             pred_A = model.data.A
+            if pred_A is None:
+                continue
             
             # Basic metrics
             self._afronorm[i] = linalg.norm(ref_A - pred_A, 'fro')
@@ -93,7 +121,15 @@ class CompareModels:
             self._FEL[i] = self._FP[i] / np.sum(ref_binary) if np.sum(ref_binary) > 0 else 0
 
             # AUROC
-            self._AUROC[i] = roc_auc_score(ref_binary.flatten(), pred_binary.flatten())
+            # roc_auc_score requires binary labels and probability scores.
+            # If pred_binary is binary, it works but might be trivial.
+            # If pred_A has weights, we should use them?
+            # Original code used pred_binary.
+            try:
+                self._AUROC[i] = roc_auc_score(ref_binary.flatten(), pred_binary.flatten())
+            except ValueError:
+                # Handle case where only one class is present in y_true
+                self._AUROC[i] = 0.5
 
     @property
     def afronorm(self) -> np.ndarray:

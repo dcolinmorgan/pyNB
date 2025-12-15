@@ -14,7 +14,7 @@ def test_basic_functionality():
     lasso_net,alpha=Lasso(dataA.data)
     lasso_net=Network(lasso_net)
     true_net = Network.from_json_url('https://bitbucket.org/sonnhammergrni/gs-networks/raw/0b3a66e67d776eadaa5d68667ad9c8fbac12ef85/random/N50/Tjarnberg-D20150910-random-N50-L158-ID252384.json')
-    comp = CompareModels(lasso_net, true_net)
+    comp = CompareModels(true_net, lasso_net)
     print(f"lasso F1 Score: {comp.F1}")
     print(f"lasso MCC : {comp.MCC}")
     

@@ -634,7 +634,9 @@ class Nestboot:
         shuffled_data = []
         
         # Access underlying Dataset object
-        if hasattr(dataset, 'data'):
+        if hasattr(dataset, 'Y') and dataset.Y is not None:
+            ds_obj = dataset
+        elif hasattr(dataset, 'data') and dataset.data is not None:
             ds_obj = dataset.data
         else:
             ds_obj = dataset

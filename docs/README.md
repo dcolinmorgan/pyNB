@@ -46,7 +46,7 @@ from datastruct.random import randomNet
 from datastruct.stabilize import stabilize
 import analyze
 from datastruct.Dataset import Dataset
-N=200
+N=20
 A=scalefree(N,3)
 A = stabilize(A, iaa='low')
 

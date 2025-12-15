@@ -7,3 +7,6 @@ seaborn
 requests
 scikit-learn
 cvxpy
+snakemake
+PyYAML
+pulp<2.8
