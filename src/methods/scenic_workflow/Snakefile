@@ -1,6 +1,6 @@
 # TODO: disable tqdm
 
-configfile: "config.yaml"
+configfile: "config/config.yaml"
 
 # Get run_id from command line, default to '1' if not specified
 run_id = config.get('run_id', '1')

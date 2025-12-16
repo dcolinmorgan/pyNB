@@ -22,21 +22,22 @@ def mock_dataset():
     return dataset
 
 @patch('src.methods.scenicplus.subprocess.run')
-@patch('src.methods.scenicplus.sc.AnnData.write_h5ad')
 @patch('src.methods.scenicplus.os.path.exists') # Mock os.path.exists
-def test_scenicplus_wrapper_success(mock_exists, mock_write_h5ad, mock_subprocess, mock_dataset, tmp_path):
+@patch('src.methods.scenicplus.yaml.safe_load')
+@patch('src.methods.scenicplus.yaml.dump')
+def test_scenicplus_wrapper_success(mock_yaml_dump, mock_yaml_load, mock_exists, mock_subprocess, mock_dataset, tmp_path):
     """Test SCENICPLUS wrapper success path with mocking."""
     
     # Mock subprocess.run to return success
     mock_subprocess.return_value = MagicMock(returncode=0, stdout="Success")
     
-    # Mock os.path.exists to return True for config, snakefile, and results
-    # We need to be careful not to break other checks.
-    # The code checks:
-    # 1. config_path (real file)
-    # 2. snakefile_path (real file)
-    # 3. results_file (generated file)
+    # Mock yaml load
+    mock_yaml_load.return_value = {
+        'input_data': {},
+        'params_general': {'output_dir': 'results/run_{run_id}'}
+    }
     
+    # Mock os.path.exists to return True for config, snakefile, and results
     def side_effect(path):
         if "eRegulons" in str(path):
             return True
@@ -48,10 +49,6 @@ def test_scenicplus_wrapper_success(mock_exists, mock_write_h5ad, mock_subproces
         
     mock_exists.side_effect = side_effect
     
-    # We need to simulate the creation of the output file by Snakemake.
-    # Since SCENICPLUS runs in a temp dir we don't control easily from outside without mocking tempfile,
-    # we can mock pd.read_csv to return a dummy dataframe instead of relying on the file existing.
-    
     with patch('src.methods.scenicplus.pd.read_csv') as mock_read_csv:
         # Mock the results dataframe
         mock_df = pd.DataFrame({
@@ -62,8 +59,24 @@ def test_scenicplus_wrapper_success(mock_exists, mock_write_h5ad, mock_subproces
         mock_read_csv.return_value = mock_df
         
         # Run the function
-        # We pass a dummy cisTopic path
         adj = run('scenicplus', mock_dataset, cisTopic_obj_fname="dummy.pkl")
+        
+        # Verify write_h5ad was called (input preparation)
+        # Since scanpy is mocked via sys.modules, we can check the mock
+        import src.methods.scenicplus as sp
+        # sp.sc is the MagicMock for scanpy
+        # sp.sc.AnnData is the class/constructor
+        # sp.sc.AnnData.return_value is the instance returned
+        assert sp.sc.AnnData.return_value.write_h5ad.called
+        
+        # Verify yaml dump was called (config generation)
+        assert mock_yaml_dump.called
+        # Check that the dumped config contains the overrides
+        dumped_config = mock_yaml_dump.call_args[0][0]
+        assert 'input_data' in dumped_config
+        assert 'GEX_anndata_fname' in dumped_config['input_data']
+        assert 'cisTopic_obj_fname' in dumped_config['input_data']
+        assert dumped_config['input_data']['cisTopic_obj_fname'].endswith('dummy.pkl')
         
         # Verify subprocess was called
         assert mock_subprocess.called
@@ -71,6 +84,8 @@ def test_scenicplus_wrapper_success(mock_exists, mock_write_h5ad, mock_subproces
         cmd = args[0]
         assert "snakemake" in cmd
         assert "all" in cmd
+        # Verify it uses the run_config.yaml
+        assert any("run_config.yaml" in str(arg) for arg in cmd)
         
         # Verify result shape
         assert adj.shape == (3, 3)
