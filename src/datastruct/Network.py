@@ -157,78 +157,180 @@ class Network(Exchange):
         print(f"# Links: {np.count_nonzero(self._A)}")
     
     def view(self) -> None:
-        """Graphical network view using NetworkX."""
+        """Graphical network view."""
+        if self._A is None:
+            print("No network matrix to display")
+            return
+
+        # Try Graphistry first
+        try:
+            import graphistry
+            # Check if API key is set or public mode is okay? 
+            # Graphistry usually requires an account or runs in local mode if configured.
+            # We'll just try calling it.
+            print("Opening Graphistry visualization...")
+            self.plot_graphistry()
+            return
+        except ImportError:
+            pass
+            
+        # Fallback to NetworkX + Matplotlib
         try:
             import networkx as nx
             import matplotlib.pyplot as plt
             
-            if self._A is None:
-                print("No network matrix to display")
-                return
-                
+            print("Plotting with NetworkX/Matplotlib...")
             G = self.to_networkx()
-            pos = nx.spring_layout(G)
-            nx.draw(G, pos, with_labels=True, node_color='lightblue', 
-                   node_size=500, arrowstyle='->', arrowsize=10)
+            
+            # Use circular layout for small, spring for large
+            if self.N < 20:
+                pos = nx.circular_layout(G)
+            else:
+                pos = nx.spring_layout(G, seed=42)
+                
+            plt.figure(figsize=(10, 8))
+            
+            # Draw nodes
+            nx.draw_networkx_nodes(G, pos, node_color='lightblue', node_size=500)
+            nx.draw_networkx_labels(G, pos, font_size=10)
+            
+            # Draw edges with varying width based on weight magnitude
+            weights = [G[u][v]['weight'] for u, v in G.edges()]
+            # Normalize weights for width
+            if weights:
+                max_w = max(abs(w) for w in weights)
+                widths = [1 + 2 * abs(w)/max_w for w in weights]
+                # Color edges by sign
+                edge_colors = ['red' if w < 0 else 'blue' for w in weights]
+            else:
+                widths = 1.0
+                edge_colors = 'black'
+                
+            nx.draw_networkx_edges(G, pos, width=widths, edge_color=edge_colors, 
+                                 arrowsize=20, arrowstyle='->')
+            
             plt.title(f"Network: {self.network}")
+            plt.axis('off')
             plt.show()
+            
         except ImportError:
-            print("Network visualization requires networkx and matplotlib")
-            print("pip install networkx matplotlib")
+            print("Network visualization requires networkx and matplotlib.")
+            print("For interactive viz, install graphistry.")
 
     def to_networkx(self) -> Any:
-        """Convert to NetworkX DiGraph object.
+        """Convert to NetworkX DiGraph.
         
         Returns:
-            networkx.DiGraph: Directed graph representation of the network.
+            nx.DiGraph: NetworkX directed graph where edges represent A[i,j] (j -> i).
         """
         import networkx as nx
         if self._A is None:
             return nx.DiGraph()
         
-        # Create graph from adjacency matrix
-        # Use create_using=nx.DiGraph for directed graph
-        G = nx.from_numpy_array(self._A, create_using=nx.DiGraph)
+        # A[i, j] is effect of j on i. NetworkX expects A[u, v] to be u -> v.
+        # So we transpose A to get Source x Target format.
+        G = nx.from_numpy_array(self._A.T, create_using=nx.DiGraph)
         
-        # Add node names if available
-        if self._names:
-            mapping = {i: name for i, name in enumerate(self._names)}
-            G = nx.relabel_nodes(G, mapping)
-            
+        # Relabel nodes with names
+        mapping = {i: name for i, name in enumerate(self.names)}
+        G = nx.relabel_nodes(G, mapping)
+        
         return G
 
-    def to_graphistry(self, bind_source: str = 'src', bind_destination: str = 'dst') -> Any:
-        """Convert to Graphistry plot (requires graphistry package).
+    def to_graph_tool(self) -> Any:
+        """Convert to graph-tool Graph.
         
         Returns:
-            graphistry.Plotter: Graphistry plotter object.
+            gt.Graph: Graph-tool graph object.
+        """
+        try:
+            import graph_tool.all as gt
+        except ImportError:
+            raise ImportError("graph-tool is not installed. Please install it to use this feature.")
+            
+        if self._A is None:
+            return gt.Graph()
+            
+        g = gt.Graph(directed=True)
+        # Add vertices
+        vlist = list(g.add_vertex(self.N))
+        
+        # Add property for names
+        v_name = g.new_vertex_property("string")
+        for i, v in enumerate(vlist):
+            v_name[v] = self.names[i]
+        g.vertex_properties["name"] = v_name
+        
+        # Add edges
+        # A[i, j] is effect of j on i (j -> i)
+        rows, cols = np.nonzero(self._A)
+        # rows are targets (i), cols are sources (j)
+        
+        # Add property for weights
+        e_weight = g.new_edge_property("double")
+        
+        for i, j in zip(rows, cols):
+            e = g.add_edge(vlist[j], vlist[i])
+            e_weight[e] = self._A[i, j]
+            
+        g.edge_properties["weight"] = e_weight
+        return g
+
+    def to_graphistry(self) -> Any:
+        """Convert to Graphistry Plotter object.
+        
+        Returns:
+            graphistry.Plotter: Graphistry object bound with edges.
         """
         try:
             import graphistry
             import pandas as pd
         except ImportError:
-            raise ImportError("Graphistry support requires: pip install graphistry pandas")
-
+            raise ImportError("graphistry or pandas is not installed. Please install them to use this feature.")
+            
         if self._A is None:
             return None
-
-        # Get edges
+            
+        # Create edge list DataFrame
         rows, cols = np.nonzero(self._A)
-        weights = self._A[rows, cols]
+        # rows=target, cols=source
         
-        # Get names
-        names = self.names
-        src_names = [names[r] for r in rows]
-        dst_names = [names[c] for c in cols]
+        edges = []
+        for i, j in zip(rows, cols):
+            edges.append({
+                'source': self.names[j],
+                'target': self.names[i],
+                'weight': self._A[i, j],
+                'abs_weight': abs(self._A[i, j]),
+                'sign': 'repressor' if self._A[i, j] < 0 else 'activator'
+            })
+            
+        df = pd.DataFrame(edges)
         
-        df = pd.DataFrame({
-            bind_source: src_names,
-            bind_destination: dst_names,
-            'weight': weights
-        })
+        if df.empty:
+            return graphistry.bind(source='source', destination='target')
+            
+        # Bind
+        g = graphistry.bind(source='source', destination='target')
+        g = g.edges(df)
         
-        return graphistry.bind(source=bind_source, destination=bind_destination).edges(df)
+        return g
 
+    def plot_graphistry(self, **kwargs: Any) -> Any:
+        """Plot using Graphistry.
+        
+        Args:
+            **kwargs: Arguments passed to graphistry.bind().plot()
+            
+        Returns:
+            The graphistry plot object (iframe or url).
+        """
+        g = self.to_graphistry()
+        if g is None:
+            print("No network to plot")
+            return
+            
+        return g.plot(**kwargs)
     
     def sign(self) -> np.ndarray:
         """Return sign of adjacency matrix."""
