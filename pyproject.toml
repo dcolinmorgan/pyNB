@@ -1,29 +1,39 @@
 [project]
-name = "pynb"
+name = "pyGS"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
-    "cvxpy>=1.7.4",
-    "matplotlib>=3.10.3",
-    "networkx>=3.4.2",
-    "numpy>=2.2.6",
-    "pandas>=2.3.1",
-    "requests>=2.32.4",
-    "scanpy>=1.11.5",
-    "scikit-learn>=1.7.0",
-    "scipy>=1.15.3",
+    "cvxpy>=1.4.0",
+    "matplotlib>=3.6.3",
+    "networkx>=3.2.1",
+    "numpy>=1.26.4",
+    "pandas>=1.5.0",
+    "requests>=2.31.0",
+    "scanpy>=1.8.2",
+    "scikit-learn>=1.3.2",
+    "scipy>=1.12.0",
     "seaborn>=0.13.2",
     "PyYAML",
     "snakemake",
-    "pulp<2.8",
+    "pulp>=2.8.0",
+    "tables>=3.10.2",
+    "scenicplus",
+]
+
+[tool.uv]
+override-dependencies = [
+    "tables>=3.10.2",
 ]
 
 [tool.uv.workspace]
 members = [
     "project",
 ]
+
+[tool.uv.sources]
+scenicplus = { git = "https://github.com/aertslab/scenicplus.git" }
 
 [dependency-groups]
 dev = [

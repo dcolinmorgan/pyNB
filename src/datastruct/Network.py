@@ -157,9 +157,78 @@ class Network(Exchange):
         print(f"# Links: {np.count_nonzero(self._A)}")
     
     def view(self) -> None:
-        """Graphical network view (placeholder)."""
-        print("Network visualization not implemented in this Python version")
-        print("Consider using networkx for graph visualization")
+        """Graphical network view using NetworkX."""
+        try:
+            import networkx as nx
+            import matplotlib.pyplot as plt
+            
+            if self._A is None:
+                print("No network matrix to display")
+                return
+                
+            G = self.to_networkx()
+            pos = nx.spring_layout(G)
+            nx.draw(G, pos, with_labels=True, node_color='lightblue', 
+                   node_size=500, arrowstyle='->', arrowsize=10)
+            plt.title(f"Network: {self.network}")
+            plt.show()
+        except ImportError:
+            print("Network visualization requires networkx and matplotlib")
+            print("pip install networkx matplotlib")
+
+    def to_networkx(self) -> Any:
+        """Convert to NetworkX DiGraph object.
+        
+        Returns:
+            networkx.DiGraph: Directed graph representation of the network.
+        """
+        import networkx as nx
+        if self._A is None:
+            return nx.DiGraph()
+        
+        # Create graph from adjacency matrix
+        # Use create_using=nx.DiGraph for directed graph
+        G = nx.from_numpy_array(self._A, create_using=nx.DiGraph)
+        
+        # Add node names if available
+        if self._names:
+            mapping = {i: name for i, name in enumerate(self._names)}
+            G = nx.relabel_nodes(G, mapping)
+            
+        return G
+
+    def to_graphistry(self, bind_source: str = 'src', bind_destination: str = 'dst') -> Any:
+        """Convert to Graphistry plot (requires graphistry package).
+        
+        Returns:
+            graphistry.Plotter: Graphistry plotter object.
+        """
+        try:
+            import graphistry
+            import pandas as pd
+        except ImportError:
+            raise ImportError("Graphistry support requires: pip install graphistry pandas")
+
+        if self._A is None:
+            return None
+
+        # Get edges
+        rows, cols = np.nonzero(self._A)
+        weights = self._A[rows, cols]
+        
+        # Get names
+        names = self.names
+        src_names = [names[r] for r in rows]
+        dst_names = [names[c] for c in cols]
+        
+        df = pd.DataFrame({
+            bind_source: src_names,
+            bind_destination: dst_names,
+            'weight': weights
+        })
+        
+        return graphistry.bind(source=bind_source, destination=bind_destination).edges(df)
+
     
     def sign(self) -> np.ndarray:
         """Return sign of adjacency matrix."""

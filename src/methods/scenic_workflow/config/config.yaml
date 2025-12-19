@@ -1,10 +1,10 @@
 input_data:
-  cisTopic_obj_fname: "../scenicplus/data/outs/cistopic_obj.pkl"
-  GEX_anndata_fname: "../scenicplus/data/pbmc_adata.h5ad"
-  region_set_folder: "../scenicplus/data/outs/region_sets"
-  ctx_db_fname: "../scenicplus/data/hg38_screen_v10_clust.regions_vs_motifs.rankings.feather"
-  dem_db_fname: "../scenicplus/data/hg38_screen_v10_clust.regions_vs_motifs.scores.feather"
-  path_to_motif_annotations: "../scenicplus/data/Motifsv10nrclustnr.tbl"
+  cisTopic_obj_fname: "../../../../scenicplus/data/outs/cistopic_obj.pkl"
+  GEX_anndata_fname: "../../../../scenicplus/data/pbmc_adata.h5ad"
+  region_set_folder: "../../../../scenicplus/data/outs/region_sets"
+  ctx_db_fname: "../../../../scenicplus/data/hg38_screen_v10_clust.regions_vs_motifs.rankings.feather"
+  dem_db_fname: "../../../../scenicplus/data/hg38_screen_v10_clust.regions_vs_motifs.scores.feather"
+  path_to_motif_annotations: "../../../../scenicplus/data/Motifsv10nrclustnr.tbl"
 
 output_data:
   # output for prepare_GEX_ACC .h5mu

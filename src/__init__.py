@@ -1,21 +1,21 @@
 """
-PyNB Package - Network Bootstrap False Discovery Rate Analysis
+pyGS Package - Network Bootstrap False Discovery Rate Analysis
 
 This package provides both the original interface and an improved Object-Oriented 
 Programming (OOP) architecture for network bootstrap analysis.
 
 Usage:
     # Original interface (backward compatible)
-    from pynb import NetworkBootstrap
+    from pyGS import NetworkBootstrap
     nb = NetworkBootstrap()
     
     # New OOP interface  
-    from pynb.oop import NetworkBootstrapFacade, AnalysisConfig
+    from pyGS.oop import NetworkBootstrapFacade, AnalysisConfig
     config = AnalysisConfig(total_runs=64, support_threshold=0.8)
     nb = NetworkBootstrapFacade(config)
     
     # Hybrid interface (automatically chooses best implementation)
-    from pynb import create_network_bootstrap
+    from pyGS import create_network_bootstrap
     nb = create_network_bootstrap(prefer_oop=True)
 """
 
@@ -86,7 +86,7 @@ __all__ = [
 
 # Package metadata
 __doc__ = """
-PyNB - Network Bootstrap False Discovery Rate Analysis
+pyGS - Network Bootstrap False Discovery Rate Analysis
 
 A Python package for performing bootstrap-based false discovery rate analysis
 on gene regulatory networks. Features both legacy and modern OOP interfaces.
@@ -101,7 +101,7 @@ Key Features:
 
 Example Usage:
     import pandas as pd
-    from pynb import NetworkBootstrap
+    from pyGS import NetworkBootstrap
     
     # Load your network data
     normal_data = pd.read_csv('normal_network_data.csv')

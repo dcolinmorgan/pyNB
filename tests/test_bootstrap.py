@@ -5,7 +5,7 @@ from pathlib import Path
 from methods.nestboot import Nestboot, NetworkData
 from bootstrap.utils import NetworkUtils
 
-def test_pyNB_initialization() -> None:
+def test_pyGS_initialization() -> None:
     """Test NetworkBootstrap class initialization."""
     data = NetworkData(
         Y=np.random.random((10, 10)),

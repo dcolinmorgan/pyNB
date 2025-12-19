@@ -47,7 +47,7 @@ rule sample_data:
         
         # Sample 10% of cells using the random seed
         # if random==True:
-        sc.pp.sample(adata, fraction=0.95, replace=False)
+        sc.pp.subsample(adata, fraction=0.95, replace=False)
         for col in numeric_columns:
             adata.obs[col] = np.random.permutation(adata.obs[col].values)
         
@@ -283,7 +283,9 @@ rule download_genome_annotations:
             --species {params.species} \
             --biomart_host {params.biomart_host} \
             --genome_annotation_out_fname {output.genome_annotation} \
-            --chromsizes_out_fname {output.chromsizes}
+            --chromsizes_out_fname {output.chromsizes} || true
+        
+        python scripts/fetch_chromsizes.py {output.chromsizes}
         """
 
 rule get_search_space:

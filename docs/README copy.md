@@ -36,7 +36,7 @@ A comprehensive Python implementation of NB-FDR (Network Bootstrap False Discove
 ### Quick Start with uv (Recommended)
 ```bash
 # Navigate to project directory
-cd /path/to/pyNB
+cd /path/to/pyGS
 
 # For development with all features
 uv pip install -e ".[dev,workflow]"
@@ -54,7 +54,7 @@ pip install -e ".[workflow]"       # + Snakemake & SCENIC+ integration
 ```python
 # Add this to start of iPython sessions for direct imports
 import sys
-sys.path.insert(0, '/path/to/pyNB/src')
+sys.path.insert(0, '/path/to/pyGS/src')
 
 # Now all imports work directly:
 from analyze.Data import Data
@@ -328,7 +328,7 @@ for thresh in thresholds:
 ## 🏗️ Package Architecture
 
 ```
-pyNB/
+pyGS/
 ├── 📦 Core Components
 │   ├── src/bootstrap/nb_fdr.py      # 🧮 Main NB-FDR implementation
 │   ├── src/bootstrap/utils.py       # 🔧 Network analysis utilities  
@@ -379,7 +379,7 @@ Save this as `quickstart.py`:
 
 ```python
 #!/usr/bin/env python3
-"""PyNB Quick Start - Complete workflow demonstration"""
+"""pyGS Quick Start - Complete workflow demonstration"""
 
 import sys
 sys.path.insert(0, 'src')
@@ -394,7 +394,7 @@ import pandas as pd
 from pathlib import Path
 
 def main():
-    print("🚀 PyNB Complete Workflow Demo")
+    print("🚀 pyGS Complete Workflow Demo")
     print("=" * 35)
     
     # 1. Load real data
@@ -439,7 +439,7 @@ The package includes a Snakemake workflow for automating analysis of multiple sa
 1. **Create Workflow Directory:**
 
 ```python
-from pyNB import create_workflow_directory
+from pyGS import create_workflow_directory
 
 # Create a directory with Snakefile and config.yaml
 workflow_dir = create_workflow_directory("my_workflow", overwrite=True)
@@ -458,7 +458,7 @@ Modify the `config/config.yaml` file to specify samples and parameters.
 4. **Run the Workflow:**
 
 ```python
-from pyNB import run_workflow
+from pyGS import run_workflow
 
 # Dry run to check that everything is set up correctly
 run_workflow("my_workflow", dry_run=True)
@@ -498,7 +498,7 @@ To use SCENIC+ with NB-FDR:
    ```
 
 2. **Create a custom Snakefile that combines SCENIC+ and NB-FDR:**
-   You can adapt the example Snakefile in `src/pyNB/workflow/Snakefile` and the SCENIC+ Snakefile to create a workflow that:
+   You can adapt the example Snakefile in `src/pyGS/workflow/Snakefile` and the SCENIC+ Snakefile to create a workflow that:
    - Runs SCENIC+ to infer networks
    - Uses bootstrapping for multiple iterations
    - Runs NB-FDR to assess stability and significance

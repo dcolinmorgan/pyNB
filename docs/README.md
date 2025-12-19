@@ -17,7 +17,7 @@ This package includes implementations of the following network inference methods
 ### Quick Start with uv (Recommended)
 ```bash
 # Navigate to project directory
-cd /path/to/pyNB
+cd /path/to/pyGS
 
 # For development with all features
 uv pip install -e ".[dev,workflow]"
@@ -183,5 +183,5 @@ Each plot shows F1 Score, MCC, and AUROC comparisons across different SNR levels
 
 
 ### BENCHMARK CODE
-The benchmark and plotting scripts are located in the [benchmark](benchmark/demo_code/n50_benchmark.ipynb). You can customize and extend these scripts to suit your analysis needs.
+The benchmark and plotting scripts are located in the [benchmark](benchmark/demo_code/n50_benchmark.ipyGS). You can customize and extend these scripts to suit your analysis needs.
 

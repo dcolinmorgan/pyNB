@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Enhanced test suite for pyNB package
+Enhanced test suite for pyGS package
 Provides comprehensive testing that builds upon existing test patterns
 """
 

@@ -1,4 +1,4 @@
-# PyNB: A Comprehensive Python Implementation of Network Bootstrap False Discovery Rate Control
+# pyGS: A Comprehensive Python Implementation of Network Bootstrap False Discovery Rate Control
 
 ## Application Note and Technical Documentation
 
@@ -22,7 +22,7 @@
 
 ## Executive Summary
 
-**PyNB** (Python Nested Bootstrapping) is a comprehensive Python package implementing Network Bootstrap False Discovery Rate (NB-FDR) control for network inference analysis. It provides researchers with tools to:
+**pyGS** (Python Nested Bootstrapping) is a comprehensive Python package implementing Network Bootstrap False Discovery Rate (NB-FDR) control for network inference analysis. It provides researchers with tools to:
 
 - **Assess network link reliability** through bootstrap-based statistical assessment
 - **Control false discovery rates** when inferring biological networks from high-throughput data
@@ -44,9 +44,9 @@ Network inference is fundamental to understanding biological systems. Whether re
 
 High-throughput methods produce thousands of potential links, many unreliable. The false discovery rate (FDR) – the proportion of false positives among significant findings – is a key metric for ensuring reliability.
 
-### How PyNB Solves This Problem
+### How pyGS Solves This Problem
 
-PyNB implements a sophisticated bootstrap-based approach:
+pyGS implements a sophisticated bootstrap-based approach:
 
 1. **Multiple Inference Runs**: Execute network inference multiple times with resampled data
 2. **Null Hypothesis Testing**: Generate shuffled data to create a null distribution
@@ -97,7 +97,7 @@ Key Metrics Generated:
 
 #### Synthetic Network Generation
 
-PyNB includes multiple network topology generators:
+pyGS includes multiple network topology generators:
 
 **Scale-Free Networks** (Power-law degree distribution)
 ```python
@@ -224,7 +224,7 @@ dataset._E = E
 
 ### 4. **Network Inference Methods**
 
-PyNB implements five major network inference algorithms, each optimized for different scenarios:
+pyGS implements five major network inference algorithms, each optimized for different scenarios:
 
 #### LASSO (Least Absolute Shrinkage and Selection Operator)
 
@@ -440,7 +440,7 @@ nb.plot_analysis_results(
 ### Package Structure
 
 ```
-pyNB/
+pyGS/
 │
 ├── 📦 CORE BOOTSTRAP FDR
 │   ├── src/bootstrap/
@@ -528,7 +528,7 @@ pyNB/
 #### Method 1: Using `uv` (Recommended)
 ```bash
 # Navigate to project directory
-cd /path/to/pyNB
+cd /path/to/pyGS
 
 # Install with core dependencies
 uv pip install -e ".[dev]"
@@ -564,7 +564,7 @@ pip install -e ".[dev,workflow]"
 
 ```python
 #!/usr/bin/env python3
-"""Verify PyNB installation"""
+"""Verify pyGS installation"""
 
 import sys
 sys.path.insert(0, 'src')
@@ -964,7 +964,7 @@ print(f"  FP rate (LSCO): {results_lsco.fp_rate:.4f}")
 
 ```python
 #!/usr/bin/env python3
-"""Complete PyNB workflow demonstration"""
+"""Complete pyGS workflow demonstration"""
 
 import sys
 sys.path.insert(0, 'src')
@@ -984,7 +984,7 @@ from analyze.CompareModels import CompareModels
 import pandas as pd
 
 print("=" * 60)
-print("PyNB Complete Workflow Demonstration")
+print("pyGS Complete Workflow Demonstration")
 print("=" * 60)
 
 # ========== STEP 1: Load Data ==========
@@ -1197,7 +1197,7 @@ print("\n✅ Analysis complete!")
 
 ### Dataset Description
 
-PyNB includes benchmarks on the GeneSPIDER N50 dataset:
+pyGS includes benchmarks on the GeneSPIDER N50 dataset:
 - **Network sizes**: 50 genes
 - **Samples**: 100-150
 - **SNR levels**: 1, 10, 100, 1000, 10000, 100000
@@ -1230,7 +1230,7 @@ PyNB includes benchmarks on the GeneSPIDER N50 dataset:
 
 ### SCENIC+ Integration
 
-PyNB can be integrated with SCENIC+ for scRNA-seq analysis:
+pyGS can be integrated with SCENIC+ for scRNA-seq analysis:
 
 ```python
 from bootstrap.nb_fdr import NetworkBootstrap
@@ -1395,7 +1395,7 @@ For typical parameters (n=50, init=64, boot=8):
 
 ### Documentation
 
-- PyNB GitHub: https://github.com/dcolinmorgan/pyNB
+- pyGS GitHub: https://github.com/dcolinmorgan/pyGS
 - ReadTheDocs: (if available)
 - Example notebooks: `/examples/` directory
 
@@ -1435,21 +1435,21 @@ alpha_range = np.logspace(-4, -1, 20)  # Smaller range
 
 ## Conclusion
 
-PyNB provides a comprehensive, production-ready implementation of network bootstrap FDR control for computational biology. With support for multiple inference methods, synthetic network generation, detailed comparison metrics, and integration with modern workflows (SCENIC+, Snakemake), it enables researchers to build confidence in inferred biological networks.
+pyGS provides a comprehensive, production-ready implementation of network bootstrap FDR control for computational biology. With support for multiple inference methods, synthetic network generation, detailed comparison metrics, and integration with modern workflows (SCENIC+, Snakemake), it enables researchers to build confidence in inferred biological networks.
 
 The package combines statistical rigor with practical usability, making it suitable for both small exploratory analyses and large-scale genomics studies.
 
 ---
 
 **For Questions or Contributions:**
-- GitHub: https://github.com/dcolinmorgan/pyNB
+- GitHub: https://github.com/dcolinmorgan/pyGS
 - Contact: dc@example.com (or maintainer email)
-- Issues: https://github.com/dcolinmorgan/pyNB/issues
+- Issues: https://github.com/dcolinmorgan/pyGS/issues
 
 **Citation:**
-If you use PyNB in your research, please cite:
+If you use pyGS in your research, please cite:
 ```
-Morgan, D.C., et al. (2024). "PyNB: Python Nested Bootstrapping for 
+Morgan, D.C., et al. (2024). "pyGS: Python Nested Bootstrapping for 
 False Discovery Rate Control in Network Inference." 
 [Journal/Preprint Information]
 ```

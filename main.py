@@ -1,5 +1,5 @@
 def main():
-    print("Hello from pynb!")
+    print("Hello from pyGS!")
 
 
 if __name__ == "__main__":

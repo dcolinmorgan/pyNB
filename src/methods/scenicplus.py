@@ -27,7 +27,7 @@ def SCENICPLUS(dataset: Optional[Dataset] = None,
                _is_inner_run: bool = False,
                **kwargs: Any) -> np.ndarray:
     """
-    SCENIC+ inference wrapper for pyNB.
+    SCENIC+ inference wrapper for pyGS.
     
     Parameters
     ----------

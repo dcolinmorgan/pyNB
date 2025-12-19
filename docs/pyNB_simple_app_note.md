@@ -1,4 +1,4 @@
-# PyNB: A Comprehensive Python Implementation of Network Bootstrap False Discovery Rate Control in Network Inference
+# pyGS: A Comprehensive Python Implementation of Network Bootstrap False Discovery Rate Control in Network Inference
 
 *An Application Note on Reliable Gene Regulatory Network Discovery through Statistical FDR Control*
 
@@ -6,7 +6,7 @@
 
 ## Abstract
 
-Network inference—the computational reconstruction of gene regulatory networks and other biological networks from high-throughput data—has become indispensable for systems biology research. However, false positives remain a fundamental challenge in this field, with typical inference methods producing numerous spurious links that do not represent true biological interactions. Here, we present **PyNB**, a comprehensive Python package that implements Network Bootstrap False Discovery Rate (NB-FDR) control, a statistical framework for assessing the reliability of inferred network links and controlling the false discovery rate at user-specified levels. PyNB supports multiple state-of-the-art network inference algorithms (LASSO, LSCO, CLR, GENIE3, TIGRESS), provides tools for synthetic network generation with realistic topologies (scale-free, random, small-world), and integrates seamlessly with modern computational biology workflows including SCENIC+ and Snakemake. Through rigorous bootstrap resampling and comparison against null distributions, PyNB enables researchers to distinguish true network connections from false positives with quantifiable statistical confidence. We demonstrate the utility of PyNB through comprehensive benchmarking on the GeneSPIDER N50 dataset and provide complete implementation examples. PyNB is freely available as open-source software, bridging the gap between the original MATLAB NestBoot implementation and modern Python-based computational biology infrastructure.
+Network inference—the computational reconstruction of gene regulatory networks and other biological networks from high-throughput data—has become indispensable for systems biology research. However, false positives remain a fundamental challenge in this field, with typical inference methods producing numerous spurious links that do not represent true biological interactions. Here, we present **pyGS**, a comprehensive Python package that implements Network Bootstrap False Discovery Rate (NB-FDR) control, a statistical framework for assessing the reliability of inferred network links and controlling the false discovery rate at user-specified levels. pyGS supports multiple state-of-the-art network inference algorithms (LASSO, LSCO, CLR, GENIE3, TIGRESS), provides tools for synthetic network generation with realistic topologies (scale-free, random, small-world), and integrates seamlessly with modern computational biology workflows including SCENIC+ and Snakemake. Through rigorous bootstrap resampling and comparison against null distributions, pyGS enables researchers to distinguish true network connections from false positives with quantifiable statistical confidence. We demonstrate the utility of pyGS through comprehensive benchmarking on the GeneSPIDER N50 dataset and provide complete implementation examples. pyGS is freely available as open-source software, bridging the gap between the original MATLAB NestBoot implementation and modern Python-based computational biology infrastructure.
 
 **Keywords:** Network inference, false discovery rate control, gene regulatory networks, bootstrap resampling, systems biology, computational biology
 
@@ -39,11 +39,11 @@ The false discovery rate (FDR), defined as the expected proportion of false posi
 
 Network Bootstrap False Discovery Rate (NB-FDR) control, originally implemented in MATLAB as NestBoot (Bonneau et al., 2006), provides an alternative approach specifically designed for network inference. Rather than adjusting p-values from independent tests, NB-FDR compares network inference results from real data against results from randomized (null) data, establishing empirical FDR thresholds based on observed link frequencies across bootstrap iterations. This approach remains method-agnostic, working with any inference algorithm, and provides valid FDR control without assuming distributional properties of network links (Marbach et al., 2012).
 
-### Motivation for PyNB
+### Motivation for pyGS
 
-Despite the statistical advantages of NB-FDR control, adoption has been limited by several factors. The original MATLAB implementation is not readily integrated into modern computational biology workflows, Python has become the dominant language in systems biology research (particularly following the growth of single-cell omics), and the original implementation lacks flexibility in inference method selection and comprehensive benchmarking capabilities. These limitations motivated the development of PyNB: a comprehensive, production-ready Python implementation of NB-FDR that includes five state-of-the-art network inference algorithms, full support for synthetic network generation, detailed comparison metrics, and integration with modern analysis workflows.
+Despite the statistical advantages of NB-FDR control, adoption has been limited by several factors. The original MATLAB implementation is not readily integrated into modern computational biology workflows, Python has become the dominant language in systems biology research (particularly following the growth of single-cell omics), and the original implementation lacks flexibility in inference method selection and comprehensive benchmarking capabilities. These limitations motivated the development of pyGS: a comprehensive, production-ready Python implementation of NB-FDR that includes five state-of-the-art network inference algorithms, full support for synthetic network generation, detailed comparison metrics, and integration with modern analysis workflows.
 
-This application note describes PyNB's design, implementation, and validation, providing both technical documentation for users and scientific justification for the methodological choices embedded in the software.
+This application note describes pyGS's design, implementation, and validation, providing both technical documentation for users and scientific justification for the methodological choices embedded in the software.
 
 ---
 
@@ -71,7 +71,7 @@ Links are included in the final FDR-controlled network if their support exceeds 
 
 ### Inference Methods
 
-PyNB incorporates five established network inference algorithms, each based on distinct mathematical principles:
+pyGS incorporates five established network inference algorithms, each based on distinct mathematical principles:
 
 **LASSO Regression** solves the inverse problem $\mathbf{Y} = -\mathbf{A}^{-1}\mathbf{P} + \mathbf{E}$ using L1-penalized regression (Tibshirani, 1996). The optimization problem minimizes:
 
@@ -93,7 +93,7 @@ where $z$ scores normalize mutual information against background distributions. 
 
 ### Software Architecture
 
-PyNB is organized into six primary modules: (1) **bootstrap**, implementing NB-FDR core algorithms; (2) **datastruct**, providing Network and Dataset classes plus network generation functions; (3) **methods**, containing the five inference algorithms; (4) **analyze**, providing comparison metrics and data analysis tools; (5) **tests**, comprehensive unit tests; and (6) **workflow**, Snakemake integration for automation.
+pyGS is organized into six primary modules: (1) **bootstrap**, implementing NB-FDR core algorithms; (2) **datastruct**, providing Network and Dataset classes plus network generation functions; (3) **methods**, containing the five inference algorithms; (4) **analyze**, providing comparison metrics and data analysis tools; (5) **tests**, comprehensive unit tests; and (6) **workflow**, Snakemake integration for automation.
 
 The design prioritizes modularity, enabling independent use of each component and straightforward addition of novel inference methods. All computationally intensive operations employ NumPy/SciPy vectorization for performance, and the package uses standard data interchange formats (JSON, CSV) for reproducibility and interoperability.
 
@@ -113,7 +113,7 @@ The `Dataset` class maintains expression data ($\mathbf{Y}$, gene expression mat
 
 #### Synthetic Network Generation
 
-PyNB includes functions for generating benchmark networks with realistic topologies:
+pyGS includes functions for generating benchmark networks with realistic topologies:
 
 - **Scale-Free Networks**: Generated via preferential attachment with adjustable power-law exponent, mimicking the degree distributions observed in biological networks (Barabási and Albert, 1999). 
 - **Random Networks**: Erdős-Rényi models with specified edge probability, serving as null hypotheses.
@@ -188,7 +188,7 @@ These metrics collectively characterize inference performance across different d
 
 ### Computational Efficiency
 
-PyNB employs several strategies for computational efficiency:
+pyGS employs several strategies for computational efficiency:
 
 1. **NumPy/SciPy Vectorization**: All matrix operations use optimized BLAS/LAPACK routines
 2. **Intelligent Caching**: Repeated computations cache results to avoid redundant operations
@@ -203,7 +203,7 @@ Computational complexity scales as $O(n^2 \cdot B_{outer} \cdot B_{inner})$ wher
 
 ### Benchmarking on GeneSPIDER N50 Dataset
 
-To validate PyNB's implementation and compare inference methods, we performed comprehensive benchmarking on the GeneSPIDER N50 dataset (Marbach et al., 2012), a standard benchmark consisting of 50-gene networks with systematically varied signal-to-noise ratios (SNR).
+To validate pyGS's implementation and compare inference methods, we performed comprehensive benchmarking on the GeneSPIDER N50 dataset (Marbach et al., 2012), a standard benchmark consisting of 50-gene networks with systematically varied signal-to-noise ratios (SNR).
 
 #### Experimental Design
 
@@ -245,9 +245,9 @@ Figure 1 presents comprehensive performance metrics across all methods and SNR l
 
 #### Synthetic Network Validation
 
-To assess PyNB's network generation capabilities, we compared scale-free networks generated by PyNB against networks from the GeneSPIDER repository and analyzed their topological properties.
+To assess pyGS's network generation capabilities, we compared scale-free networks generated by pyGS against networks from the GeneSPIDER repository and analyzed their topological properties.
 
-**Degree Distribution Analysis**: PyNB-generated scale-free networks with exponent γ = 3 showed power-law degree distributions consistent with theoretical predictions (α = -3 in log-log plots), with Kolmogorov-Smirnov test p-values > 0.05 compared to theoretical distributions in 95% of samples.
+**Degree Distribution Analysis**: pyGS-generated scale-free networks with exponent γ = 3 showed power-law degree distributions consistent with theoretical predictions (α = -3 in log-log plots), with Kolmogorov-Smirnov test p-values > 0.05 compared to theoretical distributions in 95% of samples.
 
 **Clustering Coefficient**: Generated networks maintained clustering coefficients within 5% of expected theoretical values, confirming topological realism.
 
@@ -270,7 +270,7 @@ These times are competitive with or superior to the original MATLAB implementati
 
 ### Methodological Considerations
 
-Our implementation of NB-FDR in PyNB preserves the methodological strengths of the original MATLAB implementation while addressing practical limitations. The core innovation—comparing network inference results against shuffled data rather than assuming parametric null distributions—remains valid and statistically sound. By avoiding distributional assumptions, NB-FDR provides principled FDR control even when standard assumptions (independence, normality) are violated.
+Our implementation of NB-FDR in pyGS preserves the methodological strengths of the original MATLAB implementation while addressing practical limitations. The core innovation—comparing network inference results against shuffled data rather than assuming parametric null distributions—remains valid and statistically sound. By avoiding distributional assumptions, NB-FDR provides principled FDR control even when standard assumptions (independence, normality) are violated.
 
 A key design decision was supporting multiple inference methods simultaneously. While the original NestBoot focused exclusively on LASSO-based inference, biological networks may exhibit diverse structural properties. LASSO's sparsity is appropriate for transcriptional networks with sparse regulatory structure, while information-theoretic methods (CLR) may be preferable for complex, non-linear relationships. GENIE3's ensemble learning approach captures non-linear dependencies. Our benchmarking demonstrates that TIGRESS—combining stability selection with LASSO—provides superior single-run performance, yet even TIGRESS is substantially improved by NestBoot's bootstrap framework. This suggests complementary roles for different methods: individual methods provide efficient initial estimates, while NestBoot's bootstrapping provides robust statistical guarantees.
 
@@ -278,7 +278,7 @@ The nested bootstrap design (outer bootstrap for network variation, inner bootst
 
 ### Implementation Quality and Validation
 
-PyNB prioritizes software engineering best practices: (1) comprehensive unit tests covering all major functions; (2) vectorized NumPy operations for computational efficiency; (3) standard file formats (JSON, CSV) for reproducibility; (4) extensive documentation with docstrings; (5) integration with version control (Git) for reproducibility. These features address common pitfalls in scientific software development (Merali, 2010).
+pyGS prioritizes software engineering best practices: (1) comprehensive unit tests covering all major functions; (2) vectorized NumPy operations for computational efficiency; (3) standard file formats (JSON, CSV) for reproducibility; (4) extensive documentation with docstrings; (5) integration with version control (Git) for reproducibility. These features address common pitfalls in scientific software development (Merali, 2010).
 
 The benchmarking against GeneSPIDER N50, a standard in the network inference literature (Marbach et al., 2012), provides objective validation. Our results showing 14-20% F1 improvement from NestBoot+LASSO over single-run LASSO are consistent with published results (Bonneau et al., 2006), validating our implementation.
 
@@ -290,11 +290,11 @@ Several limitations merit discussion:
 
 2. **Parameter Selection**: While bootstrap parameters (B_outer, B_inner) influence computational time and statistical power, no principled guidelines exist for their selection beyond empirical exploration. Information-theoretic methods from bootstrap literature might inform optimal parameter selection.
 
-3. **Directional Inference**: NB-FDR as implemented provides FDR control on network edges, but directionality of edges remains ambiguous. While PyNB tracks sign consistency, truly directed network inference (distinguishing A→B from B→A) requires additional approaches (e.g., time-series data, known regulatory hierarchies).
+3. **Directional Inference**: NB-FDR as implemented provides FDR control on network edges, but directionality of edges remains ambiguous. While pyGS tracks sign consistency, truly directed network inference (distinguishing A→B from B→A) requires additional approaches (e.g., time-series data, known regulatory hierarchies).
 
-4. **Method-Specific Tuning**: Different inference methods require different preprocessing (normalization, discretization) and parameter tuning. PyNB's current implementation uses defaults; more sophisticated automated tuning could improve results.
+4. **Method-Specific Tuning**: Different inference methods require different preprocessing (normalization, discretization) and parameter tuning. pyGS's current implementation uses defaults; more sophisticated automated tuning could improve results.
 
-5. **Integration with Single-Cell Omics**: While PyNB supports SCENIC+ integration, the framework could be extended with native single-cell methods (e.g., scGRNom, SingleCellNet) to enable direct GRN inference from scRNA-seq data.
+5. **Integration with Single-Cell Omics**: While pyGS supports SCENIC+ integration, the framework could be extended with native single-cell methods (e.g., scGRNom, SingleCellNet) to enable direct GRN inference from scRNA-seq data.
 
 ### Comparison with Related Software
 
@@ -305,7 +305,7 @@ Several software packages address network inference and validation:
 - **CLR/miRNA** (R packages) provide information-theoretic inference without bootstrap validation
 - **SCENIC+** (Python) integrates ChIP-seq and scRNA-seq but uses different FDR approach
 
-PyNB uniquely combines multiple inference methods, bootstrap FDR control, synthetic network generation, and modern Python integration in a unified framework. The modular architecture enables straightforward extension or replacement of individual components.
+pyGS uniquely combines multiple inference methods, bootstrap FDR control, synthetic network generation, and modern Python integration in a unified framework. The modular architecture enables straightforward extension or replacement of individual components.
 
 ### Scientific Impact and Applications
 
@@ -316,11 +316,11 @@ Network inference remains challenging across diverse biological domains. Beyond 
 - **Ecological networks**: Species interaction inference from observational data requires FDR control
 - **Social networks**: Link prediction and community detection benefit from statistical validation
 
-The open-source availability and Python implementation position PyNB to enable broader adoption of rigorous FDR-controlled network inference across these domains.
+The open-source availability and Python implementation position pyGS to enable broader adoption of rigorous FDR-controlled network inference across these domains.
 
 ### Reproducibility and Open Science
 
-PyNB exemplifies open science principles: (1) freely available source code under permissive license; (2) comprehensive documentation enabling reproduction of results; (3) standard data formats enabling data sharing; (4) version-controlled development enabling tracking of improvements; (5) continuous integration testing ensuring code stability. These practices align with evolving standards in computational biology (Peng et al., 2006).
+pyGS exemplifies open science principles: (1) freely available source code under permissive license; (2) comprehensive documentation enabling reproduction of results; (3) standard data formats enabling data sharing; (4) version-controlled development enabling tracking of improvements; (5) continuous integration testing ensuring code stability. These practices align with evolving standards in computational biology (Peng et al., 2006).
 
 The provision of benchmark datasets and complete analysis scripts enables independent verification of published claims and lowers barriers for new users. This approach accelerates the scientific feedback loop: users discover improvements, contribute code, and the package continuously improves.
 
@@ -354,21 +354,21 @@ The provision of benchmark datasets and complete analysis scripts enables indepe
 
 **Method 1: Using uv (Recommended)**
 ```bash
-cd /path/to/pyNB
+cd /path/to/pyGS
 uv pip install -e ".[dev,workflow]"
 ```
 
 **Method 2: Using conda**
 ```bash
-conda create -n pynb python=3.10
-conda activate pynb
+conda create -n pyGS python=3.10
+conda activate pyGS
 pip install -e ".[dev,workflow]"
 ```
 
 **Method 3: From GitHub**
 ```bash
-git clone https://github.com/dcolinmorgan/pyNB.git
-cd pyNB
+git clone https://github.com/dcolinmorgan/pyGS.git
+cd pyGS
 pip install -e ".[dev,workflow]"
 ```
 
@@ -387,14 +387,14 @@ pytest --cov=src --cov-report=html
 
 ### Documentation
 
-- **Online**: https://github.com/dcolinmorgan/pyNB
+- **Online**: https://github.com/dcolinmorgan/pyGS
 - **Example Notebooks**: `/examples/` directory
 - **API Documentation**: Docstrings in source code
 - **Tutorial**: Complete worked examples in `/benchmark/demo_code/`
 
 ### Source Code Availability
 
-PyNB is freely available at: https://github.com/dcolinmorgan/pyNB
+pyGS is freely available at: https://github.com/dcolinmorgan/pyGS
 
 **License**: MIT License (permissive open-source license)
 
@@ -445,7 +445,7 @@ Tibshirani, R. (1996). Regression shrinkage and selection via the lasso. *Journa
 
 **Corresponding Author**: D. Colin Morgan  
 **Email**: [contact email]  
-**GitHub Issues**: https://github.com/dcolinmorgan/pyNB/issues
+**GitHub Issues**: https://github.com/dcolinmorgan/pyGS/issues
 
 ---
 
