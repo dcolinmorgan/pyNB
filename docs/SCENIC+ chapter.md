@@ -22,21 +22,21 @@ A few essential housekeeping steps are necessary to get the data before culminat
 
 To run the SCENIC+ workflow, the following specific inputs are required:
 
-·      **cisTopic Object (.pkl)**: A pre-computed object containing topic modeling results from scATAC-seq data.
+  **cisTopic Object (.pkl)**: A pre-computed object containing topic modeling results from scATAC-seq data.
 
-·      **Gene Expression Data (.h5ad)**: An AnnData object containing scRNA-seq counts (raw or normalized).
+  **Gene Expression Data (.h5ad)**: An AnnData object containing scRNA-seq counts (raw or normalized).
 
-·      **Region Sets**: A folder containing the genomic coordinates of regulatory regions (peaks) derived from scATAC-seq.
+  **Region Sets**: A folder containing the genomic coordinates of regulatory regions (peaks) derived from scATAC-seq.
 
-·      **Motif Databases**:
+  **Motif Databases**:
 
-o   **Rankings Database (.feather)**: For cisTarget (e.g., hg38\_screen\_v10\_clust...rankings.feather).
+   **Rankings Database (.feather)**: For cisTarget (e.g., hg38\_screen\_v10\_clust...rankings.feather).
 
-o   **Scores Database (.feather)**: For DEM (e.g., hg38\_screen\_v10\_clust...scores.feather).
+   **Scores Database (.feather)**: For DEM (e.g., hg38\_screen\_v10\_clust...scores.feather).
 
-o   **Motif Annotations (.tbl)**: A table mapping motif IDs to Transcription Factors.
+   **Motif Annotations (.tbl)**: A table mapping motif IDs to Transcription Factors.
 
-·      **Genome Annotations**: Reference genome files (e.g., genome\_annotation.tsv, chromsizes.tsv) matching the species (e.g., hg38).
+  **Genome Annotations**: Reference genome files (e.g., genome\_annotation.tsv, chromsizes.tsv) matching the species (e.g., hg38).
 
 **Create new environment & install dependencies**
 
