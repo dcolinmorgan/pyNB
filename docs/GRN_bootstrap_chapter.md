@@ -20,19 +20,21 @@ This chapter provides detailed explanations of each technique, including their t
 
 ### Network Inference Stability
 
-Measure is taken of genes under various conditions and fed into calculation as a *Y* matrix. GRN inference algorithms return an adjacency matrix *A,* whose inverse (*G, equation 1*) encodes the graph structure within this *Y.* This adjacency matrix can be signed — indicating activation or suppression of the target, or unsigned. The leftmost matrix in Figure 2 represents the expression levels of five genes *i* measured across various experimental conditions *j*. These conditions may include diverse cell types, environmental growth conditions, or targeted perturbations, such as knocking down the expression of individual genes. For instance, gene A's expression is measured under the knockdown of genes B, C, D, and E, and similarly for other genes.
+Measure is taken of genes under various conditions and fed into calculation as a *Y* matrix. GRN inference algorithms return an adjacency matrix *A,* whose inverse *G* encodes the graph structure within this *Y.* The steady-state relationship between gene perturbations and the resulting gene expression changes can be described by a linear time-invariant system:
+
+$$ X = -A^{-1}P $$
+
+where *X* is the noise-free gene expression matrix, *P* is the perturbation design matrix, and $A^{-1}$ is the static gain matrix *G*. This adjacency matrix can be signed — indicating activation or suppression of the target, or unsigned. The leftmost matrix in Figure 2 represents the expression levels of five genes *i* measured across various experimental conditions *j*. These conditions may include diverse cell types, environmental growth conditions, or targeted perturbations, such as knocking down the expression of individual genes. For instance, gene A's expression is measured under the knockdown of genes B, C, D, and E, and similarly for other genes.
 
 Variability and noise inherent in the measurements and inference can be characterized under various combinations by sampling across conditions, so their effect can be calculated serially, highlighting signals otherwise quashed under certain combinations. Subsampling allows for robust inference of the underlying relationships, yielding an adjacency matrix of relationships for each subsampled dataset. Comparison aids in identifying commonalities and differences across the resulting networks, essential for evaluating the stability and reliability of GRN inference methods.
 
 Similarity metrics can be employed to assess these networks using distance metrics such as cosine similarity, intersection or partial non-overlapping counts. Partial overlap or intersection offers a simple method for evaluating structural consistency. Let G1,G2,…,Gk represent the adjacency matrices of k GRNs inferred from subsampled datasets. Each Gt, f, for arbitrary *t* between 1 and k, is an N×N matrix, where N is the number of genes, and the entry Gt\[i,j\] represents the presence (or weight) of an edge between gene i and gene j in the n-th network.
 
-We define the **consensus adjacency matrix** Gc​ with entries:
+We define the **consensus adjacency matrix** $G_c$ with entries:
 
-Equation 1\.
+$$ G_c[i,j] = \begin{cases} 1 & \text{if } \sum_{t=1}^{k} \mathbb{I}(G_t[i,j] \neq 0) \ge T \\ 0 & \text{otherwise} \end{cases} $$
 
-![][image1]
-
-Where **I**(Gt\[i,j\]≠0)is an indicator function that equals 1 if there is an edge between i and j in the t-th network (i.e., Gt\[i,j\]≠0), and 0 otherwise. The sum of this counts the number of networks in which the edge (i,j) is present. T is the threshold for partial overlap, representing the minimum number of networks in which the edge must appear for it to be included in the consensus network. For each pair of genes (i,j) the formula checks how many networks among G1,G2,…,Gk contain the edge (i,j). If this count meets or exceeds the threshold T, the edge is included in the consensus matrix Gci​ otherwise, it is excluded.
+Where $\mathbb{I}(G_t[i,j] \neq 0)$ is an indicator function that equals 1 if there is an edge between i and j in the t-th network (i.e., $G_t[i,j] \neq 0$), and 0 otherwise. The sum of this counts the number of networks in which the edge (i,j) is present. T is the threshold for partial overlap, representing the minimum number of networks in which the edge must appear for it to be included in the consensus network. For each pair of genes (i,j) the formula checks how many networks among $G_1,G_2,\dots,G_k$ contain the edge (i,j). If this count meets or exceeds the threshold T, the edge is included in the consensus matrix $G_c$; otherwise, it is excluded.
 
 ### Tigress
 

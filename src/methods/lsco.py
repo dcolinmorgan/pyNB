@@ -54,6 +54,12 @@ def LSCO(
     # So: Als = -P * pinv(Y)
     
     # Compute pseudo-inverse of Y
+    # Handle rcond=None explicitly if needed, though numpy usually handles it.
+    # If rcond is None, we pass 1e-15 or let numpy handle it.
+    # However, some numpy versions might have issues if None is passed explicitly.
+    if rcond is None:
+        rcond = 1e-15
+        
     Y_pinv = linalg.pinv(Y, rcond=rcond)
     
     # Compute unthresholded network matrix: A = -P * pinv(Y)

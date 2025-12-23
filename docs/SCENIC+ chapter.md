@@ -12,7 +12,7 @@ Single-cell RNA sequencing unveils intricate cellular diversity and the molecula
 
 Gene regulatory networks (GRNs)—graphs where nodes represent transcription factors (TFs) or genes and edges denote regulatory interactions—provide a systems-level framework for understanding cellular regulation. While experimental mapping of GRNs offers precise insights, its high cost and limited scalability restrict its ability to capture the full diversity of cell types and conditions. Single-cell RNA sequencing (scRNA-seq) has revolutionized this landscape by profiling thousands of genes across millions of cells, exposing cell-to-cell variability and context-specific regulation. However, traditional GRN inference methods, often optimized for bulk data, falter at this scale, often relying on dimensionality reduction that risks oversimplifying the underlying biology.
 
-SCENIC+ addresses these challenges as a comprehensive computational framework designed to infer robust, context-specific GRNs from single-cell data. It integrates multiple genomic layers—TF expression, motif enrichment, chromatin accessibility, and gene expression—to construct enhancer-driven regulatory networks. The workflow begins by identifying candidate enhancers with shared accessibility patterns from scATAC-seq data, followed by motif enrichment analysis to predict TF binding sites. It then computes TF-to-gene and region-to-gene importance scores by correlating TF expression, gene expression, and chromatin accessibility. This process teases out regulatory interactions that embrace the non-deterministic nature of gene regulation, spotlighting dynamic and heterogeneous control through eRegulons. eRegulons are sets of genes regulated by a TF via specific enhancer regions—topologically, a triplet: TF → Region → Gene. This explicitly links a TF to a regulatory region (based on motif enrichment in open chromatin) and to a target gene (based on correlation between accessibility and expression).
+SCENIC+ addresses these challenges as a comprehensive computational framework designed to infer robust, context-specific GRNs from single-cell data. It integrates multiple genomic layers—TF expression, motif enrichment, chromatin accessibility, and gene expression—to construct enhancer-driven regulatory networks. The workflow begins by identifying candidate enhancers with shared accessibility patterns from scATAC-seq data, followed by motif enrichment analysis to predict TF binding sites. It then computes TF-to-gene and region-to-gene importance scores by correlating TF expression, gene expression, and chromatin accessibility. This process teases out regulatory interactions that embrace the non-deterministic nature of gene regulation, spotlighting dynamic and heterogeneous control through eRegulons. eRegulons are sets of genes regulated by a TF via specific enhancer regions—topologically, a triplet: $$ TF \rightarrow Region \rightarrow Gene $$ This explicitly links a TF to a regulatory region (based on motif enrichment in open chromatin) and to a target gene (based on correlation between accessibility and expression).
 
 # Preparation & Pre-processing
 
@@ -93,7 +93,10 @@ The SCENIC+ framework uses Snakemake to orchestrate a multi-step pipeline that i
 
 **1. Data Preparation (`prepare_GEX_ACC`)**
 
-The pipeline begins by integrating gene expression (GEX) and chromatin accessibility (ACC) data into a unified MuData object. Depending on the input (multiome or separate datasets), it merges modalities or generates pseudo-multiome data. Key steps include barcode standardization, potential meta-cell generation, and count normalization.
+The pipeline begins by integrating gene expression (GEX) and chromatin accessibility (ACC) data into a unified MuData object. This step is critical for ensuring that both modalities are aligned and ready for downstream analysis. Depending on the input (multiome or separate datasets), it merges modalities or generates pseudo-multiome data. Key steps include:
+*   **Barcode Standardization**: Ensuring cell barcodes match across both assays.
+*   **Quality Control**: Filtering low-quality cells based on mitochondrial content and fragment counts.
+*   **Normalization**: Normalizing gene expression counts and chromatin accessibility features to account for sequencing depth and technical variability.
 
 ```bash
 snakemake --forcerun prepare_GEX_ACC
@@ -107,9 +110,9 @@ For the 10x PBMC dataset, this step processes the input to return a MuData objec
 
 **2. Motif Enrichment (`motif_enrichment_cistarget` & `motif_enrichment_dem`)**
 
-SCENIC+ maps chromatin accessibility to TF activity using two complementary methods:
-*   **cisTarget**: Uses Cluster-Buster to identify motif clusters in consensus peaks, prioritizing biological realism. It outputs enrichment scores (NES, AUC) to rank TFs.
-*   **DEM (Differential Enrichment of Motifs)**: Compares foreground regions to a background set to identify differentially enriched motifs, useful for finding cell-type-specific drivers.
+SCENIC+ maps chromatin accessibility to TF activity using two complementary methods to identify potential regulatory interactions:
+*   **cisTarget**: Uses Cluster-Buster to identify motif clusters in consensus peaks, prioritizing biological realism. It outputs enrichment scores (NES, AUC) to rank TFs based on their global enrichment across the dataset (Figure 5).
+*   **DEM (Differential Enrichment of Motifs)**: Compares foreground regions (e.g., cell-type specific peaks) to a background set to identify differentially enriched motifs. This is particularly useful for finding cell-type-specific drivers that might be missed by global enrichment methods (Figure 6).
 
 ```bash
 snakemake --forcerun motif_enrichment_cistarget
@@ -119,11 +122,13 @@ scenicplus grn_inference motif_enrichment_cistarget \
     --cistarget_db_fname {input.ctx_db_fname}
 ```
 
-These steps generate tables detailing motif enrichment metrics (NES, AUC) and differential enrichment statistics (Log2FC, p-values), linking TFs to regulatory elements.
+These steps generate tables detailing motif enrichment metrics (NES, AUC) and differential enrichment statistics (Log2FC, p-values), linking TFs to regulatory elements. This forms the basis for the "cistromes" used in later steps.
 
 **3. eRegulon Data Preparation (`prepare_menr`)**
 
-This step aggregates motif enrichment results and regulatory link predictions to define candidate eRegulons. It matches ranked motifs to TFs and generates "cistromes"—collections of target regions (direct/proximal or extended/distal).
+This step aggregates motif enrichment results and regulatory link predictions to define candidate eRegulons. It acts as a bridge between the motif discovery phase and the network inference phase. Specifically, it:
+*   **Matches Motifs to TFs**: Uses the motif annotation database to link enriched motifs to specific transcription factors.
+*   **Generates Cistromes**: Creates collections of target regions for each TF. These are classified as "direct" (high-confidence, proximal) or "extended" (lower-confidence, distal) based on the strength of the motif evidence and genomic location.
 
 ```bash
 snakemake --forcerun prepare_menr
@@ -135,9 +140,9 @@ scenicplus prepare_data prepare_menr \
 
 **4. TF-to-Gene and Region-to-Gene Inference**
 
-Regulatory interactions are inferred via two parallel tracks:
-*   **TF-to-Gene**: Predicts gene expression from TF expression using Gradient Boosting Machines (GBM), assessing TF influence.
-*   **Region-to-Gene**: Correlates chromatin accessibility at specific regions with nearby gene expression (Spearman Rank) to identify cis-regulatory links.
+Regulatory interactions are inferred via two parallel tracks to capture different aspects of regulation:
+*   **TF-to-Gene**: Predicts gene expression from TF expression using Gradient Boosting Machines (GBM). This step assesses the influence of each TF on potential target genes based on co-expression patterns (Figure 1B).
+*   **Region-to-Gene**: Correlates chromatin accessibility at specific regions with nearby gene expression using Spearman Rank correlation. This identifies cis-regulatory links, determining which accessible regions are likely regulating which genes (Figure 4).
 
 ```bash
 snakemake --forcerun tf_to_gene & region_to_gene
@@ -152,10 +157,9 @@ scenicplus grn_inference region_to_gene \
 
 **5. eRegulon Construction (`eGRN_direct` & `eGRN_extended`)**
 
-Finally, TF-to-gene and region-to-gene interactions are combined with motif enrichment data to form eRegulons. Gene Set Enrichment Analysis (GSEA) is used to identify leading-edge target genes.
-
-*   **Direct eGRN**: Immediate TF-to-gene relationships supported by proximal regulatory regions.
-*   **Extended eGRN**: Incorporates indirect or distal interactions.
+Finally, the pipeline synthesizes the outputs from the previous steps—TF-to-gene links, region-to-gene links, and motif enrichment—to construct the final eRegulons. Gene Set Enrichment Analysis (GSEA) is used to identify the "leading-edge" target genes, ensuring that the regulons are biologically coherent.
+*   **Direct eGRN**: Captures immediate TF-to-gene relationships supported by high-confidence motif matches in proximal regulatory regions. These represent the strongest regulatory evidence (Figure 2).
+*   **Extended eGRN**: Incorporates indirect or distal interactions, including lower-affinity motif matches or distal enhancers. This broadens the regulatory landscape to capture more subtle or complex interactions (Figure 3).
 
 ```bash
 snakemake --forcerun eGRN_direct & eGRN_extended
@@ -176,7 +180,7 @@ scenicplus grn_inference eGRN \
     --eRegulon_out_fname {output.eRegulons_extended}
 ```
 
-The output is a comprehensive table of eRegulons, detailing TF-Region-Gene triplets and their associated importance scores.
+The output is a comprehensive table of eRegulons, detailing TF-Region-Gene triplets and their associated importance scores. This table serves as the primary resource for downstream analysis, such as visualizing network topology (Figure 1A) or assessing regulon activity in specific cell types.
 
 # Best Practices
 
@@ -244,22 +248,22 @@ params_inference:
 
 ![][image3]
 
-**Figure 1.** **A.** Network Visualization and **B.** Node Degree, Importance and Rho Distribution plots from SCENIC+ TF-to-gene output when filtering rho > 0.8 (returning 802 nodes and 2749 edges).
+**Figure 1.** **A.** Network Visualization of the inferred Gene Regulatory Network. Nodes represent TFs and target genes, while edges represent regulatory interactions. **B.** Diagnostic plots showing the distribution of Node Degree (number of connections per node), Importance scores (from GBM), and Rho (correlation coefficients) from the SCENIC+ TF-to-gene output. These metrics help in filtering for high-confidence interactions, here showing results when filtering for $$ \rho > 0.8 $$ (returning 802 nodes and 2749 edges).
 
-| ![][image4] <br> **Figure 2.** Top 20 TFs by Regulon Size (Direct) | ![][image5] <br> **Figure 3.** Regulon Size Comparison: Direct vs Extended |
+| ![][image4] <br> **Figure 2.** Top 20 TFs by Regulon Size (Direct). This bar chart ranks transcription factors based on the number of target genes in their "direct" regulons, highlighting the most influential regulators in the dataset. | ![][image5] <br> **Figure 3.** Regulon Size Comparison: Direct vs Extended. A scatter plot comparing the number of target genes in direct versus extended regulons for each TF, illustrating the expansion of the regulatory network when including distal interactions. |
 | :---: | :---: |
 
 ![][image6]
 
-**Figure 4.** Distribution of Region-to-Gene Importance Scores
+**Figure 4.** Distribution of Region-to-Gene Importance Scores. This histogram displays the distribution of importance scores assigned to region-gene links, providing insight into the overall strength of cis-regulatory associations detected in the dataset.
 
 ![][image7]
 
-**Figure 5.** CTX Results
+**Figure 5.** CTX Results. Visualization of motif enrichment results from cisTarget, showing the top enriched motifs and their corresponding Normalized Enrichment Scores (NES), identifying key TFs associated with accessible chromatin regions.
 
 ![][image8]
 
-**Figure 6.** DEM Results
+**Figure 6.** DEM Results. Visualization of Differential Enrichment of Motifs (DEM) results, highlighting motifs that are significantly differentially enriched between foreground and background sets, pointing to cell-type-specific regulatory drivers.
 
 [image1]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAsAAAAQCAYAAADAvYV+AAAAS0lEQVR4XmNgYGD4D8T1BPA/BihohDHwAJAGMKC/Yh0gXgjEzAxEKAaBdiBeyYCkhpDiVQxEKoYBopwBA3DFoEgBacCHQWpGAQoAAFwiFzF6wO9JAAAAAElFTkSuQmCC>
 

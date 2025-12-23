@@ -84,9 +84,8 @@ def test_scenicplus_wrapper_success(mock_yaml_dump, mock_yaml_load, mock_exists,
         cmd = args[0]
         assert "snakemake" in cmd
         assert "all" in cmd
-        # Verify it uses the run_config.yaml
-        assert any("run_config.yaml" in str(arg) for arg in cmd)
-        
+        # Verify it uses the config.yaml (was run_config.yaml in test but code uses config.yaml)
+        assert any("config.yaml" in str(arg) for arg in cmd)
         # Verify result shape
         assert adj.shape == (3, 3)
         assert adj[0, 1] == 0.5

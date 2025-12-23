@@ -1,0 +1,92 @@
+bins: 10
+boot: 8
+data_paths:
+  normal: data/{sample}/normal_data.csv
+  shuffled: data/{sample}/shuffled_data.csv
+fdr: 0.05
+init: 64
+input_data:
+  GEX_anndata_fname: /Users/daniel.morgan/Developer/dcolinmorgan/pyGS/results/run_1/input_gex.h5ad
+  cisTopic_obj_fname: /Users/daniel.morgan/Developer/dcolinmorgan/pyGS/dummy.pkl
+  ctx_db_fname: ../../../../scenicplus/data/hg38_screen_v10_clust.regions_vs_motifs.rankings.feather
+  dem_db_fname: ../../../../scenicplus/data/hg38_screen_v10_clust.regions_vs_motifs.scores.feather
+  path_to_motif_annotations: ../../../../scenicplus/data/Motifsv10nrclustnr.tbl
+  region_set_folder: ../../../../scenicplus/data/outs/region_sets
+output_data:
+  AUCell_direct: '{output_dir}/AUCell_direct.h5mu'
+  AUCell_extended: '{output_dir}/AUCell_extended.h5mu'
+  chromsizes: '{output_dir}/chromsizes.tsv'
+  cistromes_direct: '{output_dir}/cistromes_direct.h5ad'
+  cistromes_extended: '{output_dir}/cistromes_extended.h5ad'
+  combined_GEX_ACC_mudata: '{output_dir}/ACC_GEX.h5mu'
+  ctx_result_fname: '{output_dir}/ctx_results.hdf5'
+  dem_result_fname: '{output_dir}/dem_results.hdf5'
+  eRegulons_direct: '{output_dir}/eRegulon_direct.tsv'
+  eRegulons_extended: '{output_dir}/eRegulons_extended.tsv'
+  genome_annotation: '{output_dir}/genome_annotation.tsv'
+  output_fname_ctx_html: '{output_dir}/ctx_results.html'
+  output_fname_dem_html: '{output_dir}/dem_results.html'
+  region_to_gene_adjacencies: '{output_dir}/region_to_gene_adj.tsv'
+  scplus_mdata: '{output_dir}/scplusmdata.h5mu'
+  search_space: '{output_dir}/search_space.tsv'
+  tf_names: '{output_dir}/tf_names.txt'
+  tf_to_gene_adjacencies: '{output_dir}/tf_to_gene_adj.tsv'
+output_dir: nb_fdr_output
+params_data_preparation:
+  bc_transform_func: 'lambda x: x + "-10x_multiome_brain"'
+  biomart_host: http://www.ensembl.org
+  direct_annotation: Direct_annot
+  extended_annotation: Orthology_annot
+  is_multiome: true
+  key_to_group_by: ''
+  nr_cells_per_metacells: 10
+  search_space_downstream: 1000 150000
+  search_space_extend_tss: 10 10
+  search_space_upstream: 1000 150000
+  species: hsapiens
+params_general:
+  n_cpu: 40
+  null_output_dir: null_results/run_{run_id}
+  output_dir: results/run_{run_id}
+  seed: 666
+  temp_dir: fuck
+params_inference:
+  gsea_n_perm: 1000
+  min_regions_per_gene: 0
+  min_target_genes: 10
+  order_TFs_to_genes_by: importance
+  order_regions_to_genes_by: importance
+  quantile_thresholds_region_to_gene: 0.85 0.90 0.95
+  region_to_gene_correlation_method: SR
+  region_to_gene_importance_method: GBM
+  rho_threshold: 0.05
+  tf_to_gene_importance_method: GBM
+  top_n_regionTogenes_per_gene: 5 10 15
+  top_n_regionTogenes_per_region: ''
+params_motif_enrichment:
+  annotation_version: v10nr_clust
+  annotations_to_use: Direct_annot Orthology_annot
+  ctx_auc_threshold: 0.005
+  ctx_nes_threshold: 3.0
+  ctx_rank_threshold: 0.05
+  dem_adj_pval_thr: 0.05
+  dem_balance_number_of_promoters: true
+  dem_log2fc_thr: 1.0
+  dem_max_bg_regions: 500
+  dem_mean_fg_thr: 0.0
+  dem_motif_hit_thr: 3.0
+  dem_promoter_space: 1000
+  fraction_overlap_w_ctx_database: 0.4
+  fraction_overlap_w_dem_database: 0.4
+  motif_similarity_fdr: 0.001
+  orthologous_identity_threshold: 0.0
+  species: homo_sapiens
+samples:
+- sample1
+- sample2
+scenic_plus:
+  enabled: false
+  extract_networks: true
+  n_runs: 64
+  output_dir: scenic_plus_integration
+  scplus_mudata: path/to/scplus_results.h5mu

@@ -84,4 +84,5 @@ def test_network_view(capsys):
     net = Network(np.eye(2))
     net.view()
     captured = capsys.readouterr()
-    assert "not implemented" in captured.out
+    # It falls back to NetworkX if graphistry is not installed
+    assert "Plotting with NetworkX/Matplotlib..." in captured.out or "Opening Graphistry visualization..." in captured.out

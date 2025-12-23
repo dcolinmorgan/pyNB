@@ -38,4 +38,5 @@ scenicplus = { git = "https://github.com/aertslab/scenicplus.git" }
 [dependency-groups]
 dev = [
     "ipykernel>=7.1.0",
+    "pytest>=8.0.0",
 ]
