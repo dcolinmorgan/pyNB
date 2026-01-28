@@ -6,8 +6,8 @@ data_paths:
 fdr: 0.05
 init: 64
 input_data:
-  GEX_anndata_fname: /Users/daniel.morgan/Developer/dcolinmorgan/pyGS/results/run_1/input_gex.h5ad
-  cisTopic_obj_fname: /Users/daniel.morgan/Developer/dcolinmorgan/pyGS/dummy.pkl
+  GEX_anndata_fname: /Users/apple/Developer/dcolinmorgan/pyNB/results/run_1/input_gex.h5ad
+  cisTopic_obj_fname: ../../../../scenicplus/data/outs/cistopic_obj.pkl
   ctx_db_fname: ../../../../scenicplus/data/hg38_screen_v10_clust.regions_vs_motifs.rankings.feather
   dem_db_fname: ../../../../scenicplus/data/hg38_screen_v10_clust.regions_vs_motifs.scores.feather
   path_to_motif_annotations: ../../../../scenicplus/data/Motifsv10nrclustnr.tbl

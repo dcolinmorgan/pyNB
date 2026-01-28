@@ -10,3 +10,4 @@ cvxpy
 snakemake
 PyYAML
 pulp<2.8
+tqdm

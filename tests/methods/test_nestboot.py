@@ -3,8 +3,12 @@ import numpy as np
 import pandas as pd
 from unittest.mock import MagicMock, patch
 from src.methods.nestboot import Nestboot, NetworkResults, AnalysisConfig
+from src.methods.lsco import LSCO
 from src.datastruct.Dataset import Dataset
+from src.datastruct.Network import Network
 from src.analyze.Data import Data
+from src.analyze.CompareModels import CompareModels
+import logging
 
 class TestNestboot:
     @pytest.fixture
@@ -32,10 +36,85 @@ class TestNestboot:
         # Mock Data wrapper
         data = MagicMock(spec=Data)
         data.data = dataset
-        # Do not set Y, P, N, M on data mock directly, as Data object delegates or doesn't have them directly
-        # This ensures nestboot logic picks data.data as ds_obj
         
         return data
+
+    @pytest.fixture
+    def real_data(self):
+        dataset = Data.from_json_url(
+            'https://bitbucket.org/sonnhammergrni/gs-datasets/raw/d2047430263f5ffe473525c74b4318f723c23b0e/N50/Tjarnberg-ID252384-D20151111-N50-E150-SNR100000-IDY252384.json'
+        )
+        true_net = Network.from_json_url(
+            'https://bitbucket.org/sonnhammergrni/gs-networks/raw/0b3a66e67d776eadaa5d68667ad9c8fbac12ef85/random/N50/Tjarnberg-D20150910-random-N50-L158-ID252384.json'
+        )
+        return dataset, true_net
+
+    def test_nestboot_real_data_auroc(self, real_data):
+        """Test Nestboot on real data to ensure AUROC > 0.5"""
+        dataset, true_net = real_data
+        
+        # Verify node alignment
+        data_genes = dataset.data.gene_names
+        net_genes = true_net.names
+        
+        if data_genes != net_genes:
+            print("Note: Dataset and Network gene order mismatch. Aligning Network to Dataset.")
+            # Create mapping
+            # We need to permute true_net.A to match data_genes order
+            if set(data_genes) != set(net_genes):
+                print(f"Gene sets differ! Data: {len(data_genes)}, Net: {len(net_genes)}")
+                # If sets differ, we can't easily compare standard AUROC without intersection
+                # But for this known dataset, they should matches set-wise.
+            
+            # Reorder true_net
+            name_to_idx = {name: i for i, name in enumerate(net_genes)}
+            new_indices = []
+            valid_mask = []
+            
+            for i, name in enumerate(data_genes):
+                if name in name_to_idx:
+                    new_indices.append(name_to_idx[name])
+                    valid_mask.append(True)
+                else:
+                    valid_mask.append(False) # Should not happen for GS benchmark
+            
+            # Permute A
+            # A is (N, N)
+            A = true_net.A
+            # Select rows/cols
+            # If dataset has genes not in net, we assume 0 links?
+            # If net has genes not in dataset, they are ignored.
+            
+            new_A = A[new_indices, :][:, new_indices]
+            true_net = Network(new_A, list(data_genes))
+
+        # Use LSCO with threshold range
+        zetavec = np.logspace(-6, 0, 10) # Smaller range for speed
+        
+        nb = Nestboot()
+        
+        # Run with fewer iterations for speed in test
+        results = nb.run_nestboot(
+            dataset=dataset,
+            inference_method=LSCO,
+            method_params={'threshold_range': zetavec},
+            nest_runs=5, 
+            boot_runs=5,
+            seed=42
+        )
+        
+        # Compare against true network(aligned)
+        M4 = CompareModels(true_net, results.sxnet)
+        
+        # Check max AUROC
+        max_auroc = np.max(M4.AUROC)
+        
+        # Should be significantly better than random (0.5)
+        # Typically > 0.7 or 0.8 for this dataset
+        assert max_auroc > 0.6, f"AUROC {max_auroc} is too low, expected > 0.6"
+        
+        # Also check other metrics to ensure we are getting something
+        assert np.max(M4.F1) > 0.0, "F1 score is 0"
 
     def test_nestboot_init(self):
         nb = Nestboot()

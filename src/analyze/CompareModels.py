@@ -122,11 +122,18 @@ class CompareModels:
 
             # AUROC
             # roc_auc_score requires binary labels and probability scores.
-            # If pred_binary is binary, it works but might be trivial.
-            # If pred_A has weights, we should use them?
-            # Original code used pred_binary.
+            # If pred_A has weights, we should use their absolute values as scores
+            # Original code possibly used pred_binary which leads to 0.5 for sparse networks
+            
             try:
-                self._AUROC[i] = roc_auc_score(ref_binary.flatten(), pred_binary.flatten())
+                # Use absolute edge weights as prediction scores for AUROC
+                # This gives a proper curve instead of a single point
+                scores = np.abs(pred_A).flatten()
+                
+                # If the network is binary (like results.sxnet from nestboot might be effectively binary after thresholding),
+                # roc_auc_score still works but gives trapezoidal area.
+                
+                self._AUROC[i] = roc_auc_score(ref_binary.flatten(), scores)
             except ValueError:
                 # Handle case where only one class is present in y_true
                 self._AUROC[i] = 0.5
