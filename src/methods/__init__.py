@@ -3,7 +3,10 @@ from .lsco import LSCO
 from .clr import CLR
 from .genie3 import GENIE3
 from .tigress import TIGRESS
-from .scenicplus import SCENICPLUS
+try:
+    from .scenicplus import SCENICPLUS
+except ImportError:
+    pass
 
 def run(method, dataset, nested_boot=False, nest_runs=50, boot_runs=50, seed=42, fdr=0.05, **kwargs):
     """

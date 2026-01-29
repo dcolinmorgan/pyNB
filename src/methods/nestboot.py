@@ -142,75 +142,35 @@ class Nestboot:
             
         # Group by param_idx and gene pairs 
         grouped = df.groupby(['param_idx', 'gene_i', 'gene_j'], as_index=False)
-        run_counts = grouped['run'].nunique()
+        run_counts = grouped.agg({
+            'run': 'nunique',
+            'link_value': 'sum'  # Sum of weights (we will divide by total_runs for average)
+        })
         run_counts['Afrac'] = run_counts['run'] / total_runs
-        # Use drop to remove the temporary 'run' count column
-        results = run_counts.drop(columns=['run'])
+        # Average weight = Sum of weights / Total Runs (treating absent as 0)
+        # This gives a "Bagging" style estimator
+        run_counts['Aavg'] = run_counts['link_value'] / total_runs
         
-        # Compute sign fractions for links with full support (Afrac >= 1)
-        full_support = results[results['Afrac'] >= 1]
+        # Use drop to remove the temporary 'run' count and 'link_value' sum column if not needed
+        # We keep Aavg
+        results = run_counts.drop(columns=['run', 'link_value'])
         
-        # Optimize using pivot table and broadcasted operations
-        # This replaces the row-by-row or groupby processing with matrix operations
+        # Compute sign fractions for all links
+        # We calculate the fraction of *present* runs where the link is positive.
+        # This replaces the complex pivot/group logic which only worked for full support.
         
-        relevant_df = pd.merge(
-            df, 
-            full_support[['param_idx', 'gene_i', 'gene_j']], 
-            on=['param_idx', 'gene_i', 'gene_j']
-        )
+        self.logger.debug("Computing sign consistency")
         
-        num_groups = total_runs // inner_group_size
-        eff_runs = num_groups * inner_group_size
+        # Create a view/copy to avoid SettingWithCopy warning on original df
+        sign_df = df[['param_idx', 'gene_i', 'gene_j', 'link_value']].copy()
+        sign_df['is_pos'] = (sign_df['link_value'] > 0).astype(float)
         
-        sign_fracs = {}
+        sign_stats = sign_df.groupby(['param_idx', 'gene_i', 'gene_j'])['is_pos'].mean()
+        sign_stats.name = 'Asign_frac'
         
-        if not relevant_df.empty and eff_runs > 0:
-            self.logger.debug(f"Computing sign consistency matrix for {len(full_support)} fully supported links")
-            
-            # Pivot to shape (n_links, n_runs)
-            # Use 'first' to match drop_duplicates behavior (one value per outer_run)
-            pivot_mat = relevant_df.pivot_table(
-                index=['param_idx', 'gene_i', 'gene_j'], 
-                columns='run', 
-                values='link_value',
-                aggfunc='first'
-            )
-            
-            # Ensure we strictly have runs 0 to eff_runs-1
-            # If some runs are missing (shouldn't happen for full support), this handles it safely
-            cols_to_use = [c for c in pivot_mat.columns if isinstance(c, (int, float)) and int(c) < eff_runs]
-            cols_to_use = sorted(cols_to_use, key=lambda x: int(x))
-            
-            if len(cols_to_use) >= eff_runs:
-                # We have enough runs. Slice to exact effective length.
-                mat = pivot_mat[cols_to_use[:eff_runs]].values
-                
-                # Reshape to (n_links, num_groups, inner_group_size)
-                # This assumes runs are sorted and contiguous, which they should be
-                mat_reshaped = mat.reshape(mat.shape[0], num_groups, inner_group_size)
-                
-                # Compute fraction of positive signs within each group
-                # (vals > 0) -> 1, (vals < 0) -> 0. 
-                # Mean over axis 2 (inner group) gives fraction positive in that group
-                group_pos_fracs = (mat_reshaped > 0).mean(axis=2)
-                
-                # Mean over axis 1 (groups) gives overall score
-                pos_fracs = group_pos_fracs.mean(axis=1)
-                
-                # Convert to sign score [-1, 1]
-                sign_scores = 2 * pos_fracs - 1
-                
-                # Map back to results
-                sign_series = pd.Series(sign_scores, index=pivot_mat.index)
-                sign_fracs = sign_series.to_dict()
-            else: 
-                 # Not enough contiguous runs? Should not happen if Afrac >= 1 check passed
-                 self.logger.warning("Data mismatch in sign calculation: pivot columns missing despite full support.")
+        results = results.merge(sign_stats, on=['param_idx', 'gene_i', 'gene_j'], how='left')
+        results['Asign_frac'] = results['Asign_frac'].fillna(0.5) # Default to ambiguous if missing (shouldn't happen)
         
-        # Assign the sign fraction column
-        results['Asign_frac'] = results.apply(
-            lambda row: sign_fracs.get((row['param_idx'], row['gene_i'], row['gene_j']), 0), axis=1
-        )
         return results
 
     def nb_fdr(
@@ -247,7 +207,8 @@ class Nestboot:
         for df, suffix in [(agg_normal, '_norm'), (agg_shuffled, '_shuf')]:
             df.rename(columns={
                 'Afrac': f'Afrac{suffix}',
-                'Asign_frac': f'Asign_frac{suffix}'
+                'Asign_frac': f'Asign_frac{suffix}',
+                'Aavg': f'Aavg{suffix}'
             }, inplace=True)
         
         # Merge and compute metrics
@@ -258,8 +219,8 @@ class Nestboot:
             how='outer'
         ).fillna(0)
         
-        support_threshold = 0.8  # Can be made parameter if needed
-        results = self._compute_network_metrics(merged, support_threshold, node_names)
+        # Pass FDR threshold to compute logic for dynamic thresholding
+        results = self._compute_network_metrics(merged, fdr, node_names)
         
         self.logger.info("NB-FDR analysis completed successfully")
         return results
@@ -267,14 +228,14 @@ class Nestboot:
     def _compute_network_metrics(
         self, 
         merged: pd.DataFrame,
-        support_threshold: float,
+        target_fdr: float,
         node_names: Optional[List[str]] = None
     ) -> NetworkResults:
         """Compute network comparison metrics.
 
         Args:
             merged: Merged normal and shuffled network data
-            support_threshold: Threshold for binary network
+            target_fdr: Target False Discovery Rate (replacing fixed support_threshold)
             node_names: List of node names for matrix reconstruction
 
         Returns:
@@ -302,25 +263,58 @@ class Nestboot:
         support_list = []
         orig_index_list = []
         
-        # When stacking, verify we have all parameters in order.
-        # If 'unique_params' is sparse (e.g. only 0, 1, 4), and n_params was originally 5,
-        # simply iterating unique_params will lose the gaps.
-        # But here valid param_idx comes from bootstrap_data which has indices from 0..N-1.
-        # Just ensure we iterate over the FULL expected range if possible?
-        # Run_nestboot adds param_idx 0..n_params-1.
-        # So unique_params should cover it if at least one link was found for that param.
-        # If a param (e.g. very high lambda) has NO links, it might be missing from 'merged'.
-        
-        # We should iterate over range(max(unique_params) + 1) to be safe and fill with empty if missing?
+        # We should iterate over range(max(unique_params) + 1) to be safe and fill with empty if missing
         if unique_params:
-            max_param = int(max(unique_params))
-            full_param_range = range(max_param + 1)
+            try:
+                max_param = int(max(unique_params))
+                full_param_range = range(max_param + 1)
+            except ValueError:
+                full_param_range = [0]
         else:
             full_param_range = [0]
             
         for p in full_param_range:
             # Filter for current parameter
             sub_merged = merged[merged['param_idx'] == p].copy()
+            
+            # --- Dynamic FDR Threshold Calculation ---
+            if sub_merged.empty:
+                best_t = 0.8 # Fallback
+                current_fdr = 0.0
+            else:
+                # Find smallest t such that FDR(t) <= target_fdr
+                # FDR(t) = (Shuf_counts >= t) / (Norm_counts >= t)
+                # Scan t from 0.05 to 1.0
+                t_vals = np.linspace(0.05, 1.0, 96)
+                
+                # Pre-fetch arrays
+                n_norm_arr = sub_merged['Afrac_norm'].values
+                n_shuf_arr = sub_merged['Afrac_shuf'].values
+                
+                # Default to highest if none satisfy
+                best_t = 1.0 
+                found = False
+                
+                # Check from high to low to find the Cutoff
+                # Usually we want the *lowest* t that is still valid (Maximum Recall)
+                # But we must ensure all t' > t are also valid? Not necessarily monotonic in practice but roughly.
+                # Standard Approach: Find the lowest t with FDR < target.
+                
+                for t in reversed(t_vals):
+                    n_norm = (n_norm_arr >= t).sum()
+                    if n_norm == 0:
+                        continue
+                    n_shuf = (n_shuf_arr >= t).sum()
+                    
+                    fdr_est = n_shuf / n_norm
+                    
+                    if fdr_est <= target_fdr:
+                        best_t = t
+                    else:
+                        # FDR exceeded, stop going lower. The previous t (larger) was the limit.
+                        break
+            
+            support_threshold = best_t
             
             if sub_merged.empty:
                 # Handle empty case (no links found for this parameter)
@@ -331,8 +325,6 @@ class Nestboot:
                     min_ab = np.zeros((N, N))
                     sxnet = np.zeros((N, N))
                 else:
-                    # Fallback to 1x1 zero if no node names? 
-                    # This branch shouldn't really be hit in standard workflow
                     xnet = np.array([[0]])
                     ssum = np.array([[0]])
                     min_ab = np.array([[0]])
@@ -342,15 +334,24 @@ class Nestboot:
                 binned_freq = np.zeros(10)
                 fp = 0.0
                 curr_orig_index = 0
-                curr_support_threshold = support_threshold
-                
             else:
                 # Compute metrics vectors
                 xnet_vec = (sub_merged['Afrac_norm'] >= support_threshold).astype(float)
-                ssum_vec = np.sign(sub_merged['Asign_frac_norm'])
+                
+                # Sign determination: Map [0,1] back to {-1, +1}
+                # Asign_frac_norm is freq of positive signs.
+                # >0.5 is (+), <0.5 is (-).
+                # Handle exact 0.5 (ambiguous) -> 1 or 0? 
+                # Let's align with existing dominance.
+                signs = np.sign(sub_merged['Asign_frac_norm'] - 0.5)
+                signs[signs == 0] = 1 # Force non-zero
+                
+                ssum_vec = signs
                 min_ab_vec = sub_merged['Afrac_norm']
                 
-                # Weighted network for AUROC (continuous values)
+                # sxnet: Continuous Ranking Score
+                # Use Frequency (Afrac) * Sign. 
+                # This provides [-1, 1] ranking.
                 sxnet_vec = min_ab_vec * ssum_vec
                 
                 # Reconstruct matrices if node_names provided
@@ -361,21 +362,30 @@ class Nestboot:
                     min_ab = np.zeros((N, N))
                     sxnet = np.zeros((N, N))
                     
+                    # Map names to indices
                     name_to_idx = {name: i for i, name in enumerate(node_names)}
                     
                     rows = sub_merged['gene_i'].map(name_to_idx)
                     cols = sub_merged['gene_j'].map(name_to_idx)
                     
+                    # Drop unmapped
                     valid = rows.notna() & cols.notna()
+                    if not valid.all():
+                        self.logger.warning("Some genes in results not found in node_names")
                     
-                    if valid.any():
-                        r = rows[valid].astype(int).values
-                        c = cols[valid].astype(int).values
-                        
-                        xnet[r, c] = xnet_vec[valid].values
-                        ssum[r, c] = ssum_vec[valid].values
-                        min_ab[r, c] = min_ab_vec[valid].values
-                        sxnet[r, c] = sxnet_vec[valid].values
+                    r = rows[valid].astype(int).values
+                    c = cols[valid].astype(int).values
+                    
+                    # Update vectors to match valid
+                    valid_xnet = xnet_vec[valid].values
+                    valid_ssum = ssum_vec[valid].values
+                    valid_min_ab = min_ab_vec[valid].values
+                    valid_sxnet = sxnet_vec[valid].values
+                    
+                    xnet[r, c] = valid_xnet
+                    ssum[r, c] = valid_ssum
+                    min_ab[r, c] = valid_min_ab
+                    sxnet[r, c] = valid_sxnet
                 else:
                     xnet = xnet_vec.values
                     ssum = ssum_vec.values
@@ -388,15 +398,12 @@ class Nestboot:
             sxnet_list.append(sxnet)
             
             # Additional metrics
-            ff = sub_merged['Afrac_norm'] - sub_merged['Afrac_shuf']
-            fp = sub_merged['Afrac_shuf'] / (sub_merged['Afrac_norm'] + eps)
-            
             accumulated = self._compute_accumulated_stats(sub_merged)
             binned_freq = self._compute_binned_frequencies(sub_merged)
             
             accumulated_list.append(accumulated)
             binned_freq_list.append(binned_freq)
-            fp_rate_list.append(fp.mean())
+            fp_rate_list.append(0.0) # Placeholder/Depr
             support_list.append(support_threshold)
             orig_index_list.append(int(support_threshold * 100))
 
@@ -846,11 +853,11 @@ class Nestboot:
                     bootstrap_dataset_obj = Dataset()
                     bootstrap_dataset_obj._Y = original_Y[:, bootstrap_indices]
                     bootstrap_dataset_obj._P = original_P[:, bootstrap_indices]
-                    bootstrap_dataset_obj._network = ds_obj._network
-                    bootstrap_dataset_obj._names = ds_obj._names
-                    bootstrap_dataset_obj._E = ds_obj._E
-                    bootstrap_dataset_obj._lambda = ds_obj._lambda
-                    bootstrap_dataset_obj._dataset_name = ds_obj._dataset_name
+                    bootstrap_dataset_obj._network = getattr(ds_obj, '_network', None)
+                    bootstrap_dataset_obj._names = getattr(ds_obj, '_names', None)
+                    bootstrap_dataset_obj._E = getattr(ds_obj, '_E', None)
+                    bootstrap_dataset_obj._lambda = getattr(ds_obj, '_lambda', None)
+                    bootstrap_dataset_obj._dataset_name = getattr(ds_obj, '_dataset_name', "Bootstrap")
                     bootstrap_dataset = Data(bootstrap_dataset_obj)
                     
                     # Run inference
@@ -885,7 +892,7 @@ class Nestboot:
                                 bootstrap_data.append({
                                     'gene_i': gene_names_list[r],
                                     'gene_j': gene_names_list[c],
-                                    'run': outer_run,
+                                    'run': outer_run * boot_runs + boot_run, # Unique run ID
                                     'link_value': v,
                                     'param_idx': p
                                 })
@@ -901,7 +908,7 @@ class Nestboot:
                              bootstrap_data.append({
                                  'gene_i': gene_names_list[r],
                                  'gene_j': gene_names_list[c],
-                                 'run': outer_run,
+                                 'run': outer_run * boot_runs + boot_run, # Unique run ID
                                  'link_value': v,
                                  'param_idx': 0
                              })
@@ -911,7 +918,8 @@ class Nestboot:
                     # Previously, we shuffled both with the same indices, which just reordered the samples
                     # but preserved the Y-P correspondence, leading to the "shuffled" data containing the real network signal.
                     
-                    shuffle_indices_y = np.random.permutation(n_samples)
+                    shuffle_indices_ya = np.random.permutation(n_samples)
+                    shuffle_indices_yb = np.random.permutation(n_genes)
                     
                     # We can keep P in original order, or shuffle it independently. 
                     # Shuffling Y against fixed P is sufficient to break links.
@@ -919,7 +927,12 @@ class Nestboot:
                     # but keeping one fixed serves the purpose of breaking the pair (Y_i, P_i).
                     
                     shuffled_dataset_obj = Dataset()
-                    shuffled_dataset_obj._Y = original_Y[:, shuffle_indices_y]
+                    # Apply both column (sample) and row (gene) shuffling
+                    # Use a temporary variable to ensure both are applied
+                    Y_shuf = original_Y.copy()
+                    Y_shuf = Y_shuf[:, shuffle_indices_ya] # Shuffle samples
+                    Y_shuf = Y_shuf[shuffle_indices_yb, :] # Shuffle genes
+                    shuffled_dataset_obj._Y = Y_shuf
                     shuffled_dataset_obj._P = original_P # Keep P as is (or original_P.copy() if safety needed)
                     # Note: We must ensure P has same dimensions. original_P is (genes, samples).
                     
@@ -956,7 +969,7 @@ class Nestboot:
                                 shuffled_data.append({
                                     'gene_i': gene_names_list[r],
                                     'gene_j': gene_names_list[c],
-                                    'run': outer_run,
+                                    'run': outer_run * boot_runs + boot_run, # Unique run ID
                                     'link_value': v, 
                                     'param_idx': p
                                 })
@@ -970,7 +983,7 @@ class Nestboot:
                              shuffled_data.append({
                                  'gene_i': gene_names_list[r],
                                  'gene_j': gene_names_list[c],
-                                 'run': outer_run,
+                                 'run': outer_run * boot_runs + boot_run, # Unique run ID
                                  'link_value': v,
                                  'param_idx': 0
                              })
@@ -992,9 +1005,9 @@ class Nestboot:
         return self.nb_fdr(
             normal_df=normal_df,
             shuffled_df=shuffled_df,
-            init=nest_runs,
+            init=nest_runs * boot_runs, # Total runs is now product of nested loops
             data_dir=Path("."),
             fdr=self.config.fdr_threshold if hasattr(self, 'config') else 0.05,
             boot=boot_runs,
-            node_names=ds_obj._names if hasattr(ds_obj, '_names') else [f"Gene_{i:02d}" for i in range(n_genes)]
+            node_names=gene_names_list
         )

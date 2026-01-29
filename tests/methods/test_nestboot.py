@@ -151,6 +151,25 @@ class TestNestboot:
         g2g3 = results[(results['gene_i'] == 'G2') & (results['gene_j'] == 'G3')]
         assert g2g3['Afrac'].values[0] == 0.5
 
+    def test_nestboot_lasso_compatibility(self, synthetic_data):
+        """Test Nestboot works with Lasso and legacy parameter names."""
+        from src.methods.lasso import Lasso
+        
+        zetavec = np.logspace(-6, 0, 5)
+        nb = Nestboot()
+        
+        # Should not raise TypeError: Lasso() got an unexpected keyword argument 'threshold_range'
+        results = nb.run_nestboot(
+            dataset=synthetic_data,
+            inference_method=Lasso,
+            method_params={'threshold_range': zetavec},
+            nest_runs=2,
+            boot_runs=2,
+            seed=42
+        )
+        assert isinstance(results, NetworkResults)
+        assert len(results.sxnet.shape) in [2, 3]
+
     def test_run_nestboot_mock(self, synthetic_data):
         nb = Nestboot({'fdr_threshold': 0.1})
         

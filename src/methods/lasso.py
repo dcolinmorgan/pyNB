@@ -27,7 +27,8 @@ def Lasso(
     cv: int = 5,
     tol: float = 1e-4,
     max_iter: int = 10000,
-    use_covariance: Optional[bool] = None
+    use_covariance: Optional[bool] = None,
+    **kwargs
 ) -> Tuple[np.ndarray, float]:
     """Infer network matrix A using LASSO regression.
     
@@ -43,6 +44,7 @@ def Lasso(
         max_iter: Maximum number of iterations for LASSO
         use_covariance: Whether to use Gram matrix (X'X) formulation. If None, auto-decides
                        based on n_samples vs n_features. True when n_samples > n_features.
+        **kwargs: Additional arguments for compatibility (e.g., threshold_range)
         
     Returns:
         Tuple containing:
@@ -52,6 +54,10 @@ def Lasso(
     Raises:
         ValueError: If Y or P is None or if dimensions don't match
     """
+    # Check compatibility aliases
+    if alpha_range is None and 'threshold_range' in kwargs:
+        alpha_range = kwargs['threshold_range']
+    
     # Handle both Dataset and Data objects
     if hasattr(dataset, 'Y'):
         Y = dataset.Y
