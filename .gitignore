@@ -8,7 +8,7 @@ __pycache__/
 
 # data
 *.gz
-
+src/methods/scenic_workflow/*
 
 # Distribution / packaging
 .Python
