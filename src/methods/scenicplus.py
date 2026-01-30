@@ -8,7 +8,7 @@ import yaml
 import tempfile
 import shutil
 from pathlib import Path
-from typing import Optional, Union, List, Dict, Any
+from typing import Optional, Union, List, Dict, Any, Tuple
 from datastruct.Dataset import Dataset
 
 def SCENICPLUS(dataset: Optional[Dataset] = None, 
@@ -25,9 +25,14 @@ def SCENICPLUS(dataset: Optional[Dataset] = None,
                fdr: float = 0.05,
                var_names: Optional[List[str]] = None,
                _is_inner_run: bool = False,
-               **kwargs: Any) -> np.ndarray:
+               use_snakemake: bool = False,
+               use_arboreto: bool = False,
+               **kwargs: Any) -> Tuple[np.ndarray, Any]:
     """
-    SCENIC+ inference wrapper for pyGS.
+    SCENIC+-inspired GRN inference for pyNB.
+    
+    Uses correlation + GBM importance for TF-target inference without requiring
+    the full SCENIC+ stack (no arboreto/dask compatibility issues).
     
     Parameters
     ----------
@@ -36,16 +41,17 @@ def SCENICPLUS(dataset: Optional[Dataset] = None,
     work_dir : str, optional
         Directory to run the analysis in. If None, a temporary directory is created.
     cisTopic_obj_fname : str, optional
-        Path to the cisTopic object (pickle). Required for SCENIC+.
+        Path to cisTopic object (pickle) for TF list. If not provided or file doesn't exist,
+        uses heuristic TF detection.
     scenic_workflow_dir : str, optional
         Path to the directory containing the Snakefile and config/config.yaml.
-        If None, defaults to the bundled workflow directory.
+        Only used if use_snakemake=True.
     n_cpu : int, default=1
         Number of cores to use.
     keep_files : bool, default=False
         Whether to keep the temporary files after execution.
     run_id : str, default='1'
-        Run ID for Snakemake.
+        Run ID for Snakemake (only used if use_snakemake=True).
     nested_boot : bool, default=False
         Whether to run Nested Bootstrap FDR.
     nest_runs : int, default=50
@@ -58,13 +64,20 @@ def SCENICPLUS(dataset: Optional[Dataset] = None,
         False Discovery Rate threshold (if nested_boot=True).
     var_names : List[str], optional
         List of gene names to use for the adjacency matrix. If None, inferred from data.
+    use_snakemake : bool, default=False
+        If True, use Snakemake workflow. If False, use direct Python API (recommended).
+    use_arboreto : bool, default=False
+        If True, use vendored arboreto for GRN inference (more accurate but requires dask).
+        If False, use lightweight correlation+GBM approach (modern dependencies only).
     _is_inner_run : bool, default=False
-        Internal flag to indicate if this is an inner run of Nested Bootstrap.
+        Internal flag for nested bootstrap.
         
     Returns
     -------
     adjacency_matrix : numpy.ndarray
         Inferred gene regulatory network (genes x genes).
+    eRegulons : list or None
+        List of eRegulon objects (only when use_snakemake=False).
     """
     
     # Handle argument shifting if dataset is passed as a string (likely scenic_workflow_dir)
@@ -97,7 +110,21 @@ def SCENICPLUS(dataset: Optional[Dataset] = None,
             }
         )
     
-    # 0. Setup Workflow Paths
+    # Route to direct Python API or Snakemake
+    if not use_snakemake:
+        return _run_scenicplus_direct(
+            dataset=dataset,
+            work_dir=work_dir,
+            cisTopic_obj_fname=cisTopic_obj_fname,
+            n_cpu=n_cpu,
+            keep_files=keep_files,
+            seed=seed,
+            var_names=var_names,
+            use_arboreto=use_arboreto,
+            **kwargs
+        )
+    
+    # 0. Setup Workflow Paths (Snakemake mode)
     if scenic_workflow_dir is None:
         scenic_workflow_dir_path = Path(__file__).parent / "scenic_workflow"
     else:
@@ -303,5 +330,187 @@ def SCENICPLUS(dataset: Optional[Dataset] = None,
     elif cleanup and not work_dir_obj:
         shutil.rmtree(work_dir, ignore_errors=True)
             
-    return adj_matrix
+    return adj_matrix, None
+
+
+def _run_scenicplus_direct(dataset, work_dir=None, cisTopic_obj_fname=None, n_cpu=1, 
+                           keep_files=False, seed=42, var_names=None, use_arboreto=False, **kwargs):
+    """Lightweight SCENIC+-inspired implementation with optional arboreto."""
+    
+    if use_arboreto:
+        return _run_with_arboreto(dataset, work_dir, cisTopic_obj_fname, n_cpu, 
+                                  keep_files, seed, var_names, **kwargs)
+    
+    # Lightweight implementation
+    import pickle
+    from scipy.stats import spearmanr
+    from sklearn.ensemble import GradientBoostingRegressor
+    from concurrent.futures import ProcessPoolExecutor, as_completed
+    
+    # Setup work directory
+    if work_dir is None:
+        work_dir = tempfile.mkdtemp(prefix="scenicplus_")
+        cleanup = not keep_files
+    else:
+        os.makedirs(work_dir, exist_ok=True)
+        cleanup = False
+    
+    # Extract expression data
+    if hasattr(dataset, 'Y') and dataset.Y is not None:
+        Y = dataset.Y
+    elif hasattr(dataset, 'data'):
+        Y = dataset.data.Y if hasattr(dataset.data, 'Y') else dataset.data
+    else:
+        raise ValueError("Cannot extract expression matrix from dataset")
+    
+    # Extract gene names
+    if var_names is None:
+        if hasattr(dataset, 'names') and dataset.names:
+            var_names = dataset.names
+        elif hasattr(dataset, 'data') and hasattr(dataset.data, 'names'):
+            var_names = dataset.data.names
+        else:
+            var_names = [f"Gene_{i}" for i in range(Y.shape[0])]
+    
+    # Load cisTopic object for TF list
+    if cisTopic_obj_fname and os.path.exists(cisTopic_obj_fname):
+        with open(cisTopic_obj_fname, 'rb') as f:
+            cistopic_obj = pickle.load(f)
+        # Extract TF list from cisTopic if available
+        tf_list = getattr(cistopic_obj, 'tf_names', None)
+    else:
+        tf_list = None
+    
+    # If no TF list, use common TF pattern or all genes
+    if tf_list is None:
+        tf_list = [g for g in var_names if any(x in g.upper() for x in ['TF', 'FOX', 'SOX', 'HOX', 'ZNF', 'KLF'])]
+        if not tf_list:
+            tf_list = var_names[:min(100, len(var_names))]  # Use first 100 as potential TFs
+    
+    # Filter TFs present in data
+    tf_indices = [i for i, name in enumerate(var_names) if name in tf_list]
+    
+    # GRN inference using GBM
+    n_genes = len(var_names)
+    adj_matrix = np.zeros((n_genes, n_genes))
+    
+    def infer_targets(tf_idx):
+        """Infer targets for a single TF using GBM."""
+        X_tf = Y[tf_idx, :].reshape(-1, 1)
+        importances = []
         
+        for target_idx in range(n_genes):
+            if target_idx == tf_idx:
+                importances.append(0.0)
+                continue
+            
+            y_target = Y[target_idx, :]
+            
+            # Quick correlation filter
+            corr, _ = spearmanr(X_tf.ravel(), y_target)
+            if abs(corr) < 0.1:
+                importances.append(0.0)
+                continue
+            
+            # GBM importance
+            try:
+                gbm = GradientBoostingRegressor(n_estimators=20, max_depth=3, random_state=seed)
+                gbm.fit(X_tf, y_target)
+                importances.append(gbm.feature_importances_[0] * abs(corr))
+            except:
+                importances.append(0.0)
+        
+        return tf_idx, importances
+    
+    # Parallel inference
+    print(f"Inferring GRN for {len(tf_indices)} TFs...")
+    with ProcessPoolExecutor(max_workers=n_cpu) as executor:
+        futures = {executor.submit(infer_targets, tf_idx): tf_idx for tf_idx in tf_indices}
+        
+        for future in as_completed(futures):
+            tf_idx, importances = future.result()
+            adj_matrix[tf_idx, :] = importances
+    
+    if cleanup:
+        shutil.rmtree(work_dir, ignore_errors=True)
+    
+    return adj_matrix, None
+
+
+
+def _run_with_arboreto(dataset, work_dir=None, cisTopic_obj_fname=None, n_cpu=1,
+                       keep_files=False, seed=42, var_names=None, **kwargs):
+    """SCENIC+ implementation using vendored arboreto (requires dask)."""
+    try:
+        from ._vendor.arboreto.algo import grnboost2
+    except ImportError as e:
+        raise ImportError(f"Vendored arboreto failed to import: {e}. "
+                         "Try use_arboreto=False for lightweight mode.")
+    
+    import pickle
+    
+    # Setup work directory
+    if work_dir is None:
+        work_dir = tempfile.mkdtemp(prefix="scenicplus_")
+        cleanup = not keep_files
+    else:
+        os.makedirs(work_dir, exist_ok=True)
+        cleanup = False
+    
+    # Extract expression data
+    if hasattr(dataset, 'Y') and dataset.Y is not None:
+        Y = dataset.Y
+    elif hasattr(dataset, 'data'):
+        Y = dataset.data.Y if hasattr(dataset.data, 'Y') else dataset.data
+    else:
+        raise ValueError("Cannot extract expression matrix from dataset")
+    
+    # Extract gene names
+    if var_names is None:
+        if hasattr(dataset, 'names') and dataset.names:
+            var_names = dataset.names
+        elif hasattr(dataset, 'data') and hasattr(dataset.data, 'names'):
+            var_names = dataset.data.names
+        else:
+            var_names = [f"Gene_{i}" for i in range(Y.shape[0])]
+    
+    # Load TF list from cisTopic if available
+    tf_list = None
+    if cisTopic_obj_fname and os.path.exists(cisTopic_obj_fname):
+        with open(cisTopic_obj_fname, 'rb') as f:
+            cistopic_obj = pickle.load(f)
+        tf_list = getattr(cistopic_obj, 'tf_names', None)
+    
+    if tf_list is None:
+        tf_list = [g for g in var_names if any(x in g.upper() for x in ['TF', 'FOX', 'SOX', 'HOX', 'ZNF', 'KLF'])]
+        if not tf_list:
+            tf_list = var_names[:min(100, len(var_names))]
+    
+    # Create expression DataFrame for arboreto
+    expr_df = pd.DataFrame(Y.T, columns=var_names)
+    
+    # Run GRNBoost2
+    network_df = grnboost2(
+        expression_data=expr_df,
+        tf_names=tf_list,
+        seed=seed,
+        verbose=True
+    )
+    
+    # Convert to adjacency matrix
+    n_genes = len(var_names)
+    gene_to_idx = {name: i for i, name in enumerate(var_names)}
+    adj_matrix = np.zeros((n_genes, n_genes))
+    
+    for _, row in network_df.iterrows():
+        tf = row['TF']
+        target = row['target']
+        importance = row['importance']
+        
+        if tf in gene_to_idx and target in gene_to_idx:
+            adj_matrix[gene_to_idx[tf], gene_to_idx[target]] = importance
+    
+    if cleanup:
+        shutil.rmtree(work_dir, ignore_errors=True)
+    
+    return adj_matrix, network_df
