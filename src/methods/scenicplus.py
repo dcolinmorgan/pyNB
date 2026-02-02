@@ -333,6 +333,42 @@ def SCENICPLUS(dataset: Optional[Dataset] = None,
     return adj_matrix, None
 
 
+def _infer_targets_worker(args):
+    """Worker function for inferring targets for a single TF using GBM.
+    
+    Must be defined at module level for multiprocessing pickle compatibility.
+    """
+    tf_idx, Y, n_genes, seed = args
+    from scipy.stats import spearmanr
+    from sklearn.ensemble import GradientBoostingRegressor
+    
+    X_tf = Y[tf_idx, :].reshape(-1, 1)
+    importances = []
+    
+    for target_idx in range(n_genes):
+        if target_idx == tf_idx:
+            importances.append(0.0)
+            continue
+        
+        y_target = Y[target_idx, :]
+        
+        # Quick correlation filter
+        corr, _ = spearmanr(X_tf.ravel(), y_target)
+        if abs(corr) < 0.1:
+            importances.append(0.0)
+            continue
+        
+        # GBM importance
+        try:
+            gbm = GradientBoostingRegressor(n_estimators=20, max_depth=3, random_state=seed)
+            gbm.fit(X_tf, y_target)
+            importances.append(gbm.feature_importances_[0] * abs(corr))
+        except Exception:
+            importances.append(0.0)
+    
+    return tf_idx, importances
+
+
 def _run_scenicplus_direct(dataset, work_dir=None, cisTopic_obj_fname=None, n_cpu=1, 
                            keep_files=False, seed=42, var_names=None, use_arboreto=False, **kwargs):
     """Lightweight SCENIC+-inspired implementation with optional arboreto."""
@@ -343,8 +379,6 @@ def _run_scenicplus_direct(dataset, work_dir=None, cisTopic_obj_fname=None, n_cp
     
     # Lightweight implementation
     import pickle
-    from scipy.stats import spearmanr
-    from sklearn.ensemble import GradientBoostingRegressor
     from concurrent.futures import ProcessPoolExecutor, as_completed
     
     # Setup work directory
@@ -394,41 +428,23 @@ def _run_scenicplus_direct(dataset, work_dir=None, cisTopic_obj_fname=None, n_cp
     n_genes = len(var_names)
     adj_matrix = np.zeros((n_genes, n_genes))
     
-    def infer_targets(tf_idx):
-        """Infer targets for a single TF using GBM."""
-        X_tf = Y[tf_idx, :].reshape(-1, 1)
-        importances = []
-        
-        for target_idx in range(n_genes):
-            if target_idx == tf_idx:
-                importances.append(0.0)
-                continue
-            
-            y_target = Y[target_idx, :]
-            
-            # Quick correlation filter
-            corr, _ = spearmanr(X_tf.ravel(), y_target)
-            if abs(corr) < 0.1:
-                importances.append(0.0)
-                continue
-            
-            # GBM importance
-            try:
-                gbm = GradientBoostingRegressor(n_estimators=20, max_depth=3, random_state=seed)
-                gbm.fit(X_tf, y_target)
-                importances.append(gbm.feature_importances_[0] * abs(corr))
-            except:
-                importances.append(0.0)
-        
-        return tf_idx, importances
-    
     # Parallel inference
     print(f"Inferring GRN for {len(tf_indices)} TFs...")
-    with ProcessPoolExecutor(max_workers=n_cpu) as executor:
-        futures = {executor.submit(infer_targets, tf_idx): tf_idx for tf_idx in tf_indices}
-        
-        for future in as_completed(futures):
-            tf_idx, importances = future.result()
+    
+    # Prepare arguments for workers
+    worker_args = [(tf_idx, Y, n_genes, seed) for tf_idx in tf_indices]
+    
+    if n_cpu > 1:
+        with ProcessPoolExecutor(max_workers=n_cpu) as executor:
+            futures = {executor.submit(_infer_targets_worker, args): args[0] for args in worker_args}
+            
+            for future in as_completed(futures):
+                tf_idx, importances = future.result()
+                adj_matrix[tf_idx, :] = importances
+    else:
+        # Sequential execution for n_cpu=1 (avoids multiprocessing overhead)
+        for args in worker_args:
+            tf_idx, importances = _infer_targets_worker(args)
             adj_matrix[tf_idx, :] = importances
     
     if cleanup:
