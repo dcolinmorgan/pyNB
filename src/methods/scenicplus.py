@@ -8,7 +8,7 @@ import yaml
 import tempfile
 import shutil
 from pathlib import Path
-from typing import Optional, Union, List, Dict, Any, Tuple
+from typing import Optional, List, Any, Tuple
 from datastruct.Dataset import Dataset
 
 def SCENICPLUS(dataset: Optional[Dataset] = None, 
@@ -27,6 +27,7 @@ def SCENICPLUS(dataset: Optional[Dataset] = None,
                _is_inner_run: bool = False,
                use_snakemake: bool = False,
                use_arboreto: bool = False,
+               threshold_range: Optional[np.ndarray] = None,
                **kwargs: Any) -> Tuple[np.ndarray, Any]:
     """
     SCENIC+-inspired GRN inference for pyNB.
@@ -69,15 +70,21 @@ def SCENICPLUS(dataset: Optional[Dataset] = None,
     use_arboreto : bool, default=False
         If True, use vendored arboreto for GRN inference (more accurate but requires dask).
         If False, use lightweight correlation+GBM approach (modern dependencies only).
+    threshold_range : np.ndarray, optional
+        Array of threshold values (normalized 0-1) for sparsity control.
+        If provided, returns 3D array (n_genes × n_genes × n_thresholds).
+        If None, returns unthresholded network.
     _is_inner_run : bool, default=False
         Internal flag for nested bootstrap.
         
     Returns
     -------
     adjacency_matrix : numpy.ndarray
-        Inferred gene regulatory network (genes x genes).
-    eRegulons : list or None
-        List of eRegulon objects (only when use_snakemake=False).
+        Inferred gene regulatory network. If threshold_range provided, 3D array
+        (n_genes × n_genes × n_thresholds). Otherwise, 2D array (n_genes × n_genes).
+    thresholds : np.ndarray or None
+        If threshold_range provided, array of actual threshold values used.
+        Otherwise, None.
     """
     
     # Handle argument shifting if dataset is passed as a string (likely scenic_workflow_dir)
@@ -106,6 +113,7 @@ def SCENICPLUS(dataset: Optional[Dataset] = None,
                 'nested_boot': False, # Prevent recursion
                 '_is_inner_run': True, # Mark as inner run
                 'var_names': var_names,
+                'threshold_range': threshold_range,
                 **kwargs
             }
         )
@@ -121,6 +129,7 @@ def SCENICPLUS(dataset: Optional[Dataset] = None,
             seed=seed,
             var_names=var_names,
             use_arboreto=use_arboreto,
+            threshold_range=threshold_range,
             **kwargs
         )
     
@@ -333,6 +342,51 @@ def SCENICPLUS(dataset: Optional[Dataset] = None,
     return adj_matrix, None
 
 
+def _apply_thresholding(adj_matrix: np.ndarray, threshold_range: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """Apply thresholding to adjacency matrix like LSCO.
+    
+    Parameters
+    ----------
+    adj_matrix : np.ndarray
+        2D adjacency matrix (n_genes × n_genes)
+    threshold_range : np.ndarray
+        Array of normalized threshold values (0-1)
+        
+    Returns
+    -------
+    adj_3d : np.ndarray
+        3D array (n_genes × n_genes × n_thresholds)
+    actual_thresholds : np.ndarray
+        Array of actual threshold values used
+    """
+    # Get non-zero absolute values
+    nonzero_abs = np.abs(adj_matrix[adj_matrix != 0])
+    
+    if len(nonzero_abs) == 0:
+        # All zeros - return zeros for all thresholds
+        n_genes = adj_matrix.shape[0]
+        return np.zeros((n_genes, n_genes, len(threshold_range))), np.array([0.0] * len(threshold_range))
+    
+    # Convert normalized threshold_range [0,1] to actual thresholds
+    zeta_min = np.min(nonzero_abs) - np.finfo(float).eps
+    zeta_max = np.max(nonzero_abs) + 10 * np.finfo(float).eps
+    delta = zeta_max - zeta_min
+    
+    actual_thresholds = threshold_range * delta + zeta_min
+    
+    # Create 3D array: (n_genes, n_genes, n_thresholds)
+    n_genes = adj_matrix.shape[0]
+    adj_3d = np.zeros((n_genes, n_genes, len(actual_thresholds)))
+    
+    for i, threshold in enumerate(actual_thresholds):
+        # Apply threshold: set elements with abs value <= threshold to zero
+        Atmp = adj_matrix.copy()
+        Atmp[np.abs(Atmp) <= threshold] = 0
+        adj_3d[:, :, i] = Atmp
+    
+    return adj_3d, actual_thresholds
+
+
 def _infer_targets_worker(args):
     """Worker function for inferring targets for a single TF using GBM.
     
@@ -370,12 +424,13 @@ def _infer_targets_worker(args):
 
 
 def _run_scenicplus_direct(dataset, work_dir=None, cisTopic_obj_fname=None, n_cpu=1, 
-                           keep_files=False, seed=42, var_names=None, use_arboreto=False, **kwargs):
+                           keep_files=False, seed=42, var_names=None, use_arboreto=False, 
+                           threshold_range=None, **kwargs):
     """Lightweight SCENIC+-inspired implementation with optional arboreto."""
     
     if use_arboreto:
         return _run_with_arboreto(dataset, work_dir, cisTopic_obj_fname, n_cpu, 
-                                  keep_files, seed, var_names, **kwargs)
+                                  keep_files, seed, var_names, threshold_range, **kwargs)
     
     # Lightweight implementation
     import pickle
@@ -450,12 +505,16 @@ def _run_scenicplus_direct(dataset, work_dir=None, cisTopic_obj_fname=None, n_cp
     if cleanup:
         shutil.rmtree(work_dir, ignore_errors=True)
     
+    # Apply thresholding if requested (like LSCO)
+    if threshold_range is not None:
+        return _apply_thresholding(adj_matrix, threshold_range)
+    
     return adj_matrix, None
 
 
 
 def _run_with_arboreto(dataset, work_dir=None, cisTopic_obj_fname=None, n_cpu=1,
-                       keep_files=False, seed=42, var_names=None, **kwargs):
+                       keep_files=False, seed=42, var_names=None, threshold_range=None, **kwargs):
     """SCENIC+ implementation using vendored arboreto (requires dask)."""
     try:
         from ._vendor.arboreto.algo import grnboost2
@@ -528,5 +587,9 @@ def _run_with_arboreto(dataset, work_dir=None, cisTopic_obj_fname=None, n_cpu=1,
     
     if cleanup:
         shutil.rmtree(work_dir, ignore_errors=True)
+    
+    # Apply thresholding if requested
+    if threshold_range is not None:
+        return _apply_thresholding(adj_matrix, threshold_range)
     
     return adj_matrix, network_df
