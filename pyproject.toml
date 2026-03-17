@@ -23,16 +23,28 @@ dependencies = [
 [project.optional-dependencies]
 workflow = [
     "snakemake",
-    "scenicplus @ git+https://github.com/aertslab/scenicplus.git",
 ]
 
 [tool.uv]
 override-dependencies = [
     "tables>=3.10.2",
 ]
+default-groups = ["dev"]
+
+# Pre-declare scenicplus metadata so uv skips cloning/building during resolution.
+# The real transitive deps will be pulled when actually installing with --group scenic.
+dependency-metadata = [
+    { name = "scenicplus", version = "1.0a2", requires-dist = [], requires-python = ">=3.8" },
+]
+
+[tool.uv.sources]
+scenicplus = { git = "https://github.com/aertslab/scenicplus.git" }
 
 [dependency-groups]
 dev = [
     "ipykernel>=7.1.0",
     "pytest>=8.0.0",
+]
+scenic = [
+    "scenicplus",
 ]
