@@ -19,8 +19,13 @@ This package includes implementations of the following network inference methods
 # Navigate to project directory
 cd /path/to/pyNB
 
-# For development with all features
-uv pip install -e ".[dev,workflow]"
+# For development without scenic+ workflow
+uv sync
+```
+
+### For scenic+ many many many dependencies for unix/Ubuntu/Debian
+```bash
+sudo apt-get install bedtools build-essentials g++ python3-dev libhdf5-dev zlib1g-dev libbz2-dev liblzma-dev libcurl14-openssl-dev
 ```
 
 ### Alternative Installation
