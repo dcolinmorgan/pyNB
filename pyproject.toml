@@ -23,21 +23,13 @@ dependencies = [
 [project.optional-dependencies]
 workflow = [
     "snakemake",
-    "scenicplus",
+    "scenicplus @ git+https://github.com/aertslab/scenicplus.git",
 ]
 
 [tool.uv]
 override-dependencies = [
     "tables>=3.10.2",
 ]
-
-[tool.uv.workspace]
-members = [
-    "project",
-]
-
-[tool.uv.sources]
-scenicplus = { git = "https://github.com/aertslab/scenicplus.git" }
 
 [dependency-groups]
 dev = [

@@ -32,8 +32,8 @@ sudo apt-get install bedtools build-essentials g++ python3-dev libhdf5-dev zlib1
 ```bash
 python -m venv venv
 source venv/bin/activate           # Windows: venv\Scripts\activate  
-pip install -e ".[dev]"            # Core functionality + testing
-pip install -e ".[workflow]"       # + Snakemake & SCENIC+ integration
+uv pip install -e ".[dev]"            # Core functionality + testing
+uv pip install -e ".[workflow]"       # + Snakemake & SCENIC+ integration
 ```
 
 ## ⚡ Quick Start: Create a Dataset/Network
