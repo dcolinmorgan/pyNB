@@ -27,3 +27,18 @@ after each iteration and it's included in prompts for context.
   - Registry decorator pattern: class must have `name` attribute set before registration; decorator returns the class unchanged
 ---
 
+
+## 2026-04-11 - US-002
+- What was implemented: LSCO, CLR, Elastic Net, and Ridge methods ported to sparselink with unified `fit(X) -> InferenceResult` interface. All registered via `@registry.register` decorator.
+- Files changed:
+  - `sparselink/src/sparselink/methods/lsco.py` - LSCOMethod (least squares + hard threshold)
+  - `sparselink/src/sparselink/methods/clr.py` - CLRMethod (mutual information + CLR z-score transform)
+  - `sparselink/src/sparselink/methods/elastic_net.py` - ElasticNetMethod and RidgeMethod
+  - `sparselink/src/sparselink/methods/__init__.py` - Updated imports for all new methods
+  - `sparselink/src/sparselink/__init__.py` - Added `import sparselink.methods` to trigger registration
+  - `sparselink/tests/test_methods.py` - 16 tests covering all methods
+- **Learnings:**
+  - Registration trigger: The package `__init__.py` must `import sparselink.methods` to ensure decorators run and methods are discoverable via `get_method()`/`list_methods()`
+  - PYTHONPATH for tests: When running pytest from the sparselink subpackage, use `PYTHONPATH=src` since the parent directory name (`sparselink/`) conflicts with the package namespace
+  - CLR output is symmetric and non-negative by construction (sqrt of sum of squared z-scores)
+---

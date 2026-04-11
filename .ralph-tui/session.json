@@ -3,10 +3,10 @@
   "sessionId": "76a8aec7-dcad-4394-b827-e558e0cead7c",
   "status": "running",
   "startedAt": "2026-04-11T12:26:16.060Z",
-  "updatedAt": "2026-04-11T12:29:13.056Z",
-  "currentIteration": 0,
+  "updatedAt": "2026-04-11T12:32:37.422Z",
+  "currentIteration": 1,
   "maxIterations": 20,
-  "tasksCompleted": 0,
+  "tasksCompleted": 1,
   "isPaused": false,
   "agentPlugin": "kiro",
   "trackerState": {
@@ -17,8 +17,8 @@
       {
         "id": "US-001",
         "title": "Create sparselink repo with unified interface",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-002",
@@ -124,7 +124,18 @@
       }
     ]
   },
-  "iterations": [],
+  "iterations": [
+    {
+      "iteration": 1,
+      "status": "completed",
+      "taskId": "US-001",
+      "taskTitle": "Create sparselink repo with unified interface",
+      "taskCompleted": true,
+      "durationMs": 173837,
+      "startedAt": "2026-04-11T12:26:19.218Z",
+      "endedAt": "2026-04-11T12:29:13.055Z"
+    }
+  ],
   "skippedTaskIds": [],
   "cwd": "/Users/apple/Developer/dcolinmorgan/pyGS",
   "activeTaskIds": [],
