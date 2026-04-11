@@ -3,10 +3,10 @@
   "sessionId": "76a8aec7-dcad-4394-b827-e558e0cead7c",
   "status": "running",
   "startedAt": "2026-04-11T12:26:16.060Z",
-  "updatedAt": "2026-04-11T12:34:56.891Z",
-  "currentIteration": 2,
+  "updatedAt": "2026-04-11T12:36:45.374Z",
+  "currentIteration": 3,
   "maxIterations": 20,
-  "tasksCompleted": 2,
+  "tasksCompleted": 3,
   "isPaused": false,
   "agentPlugin": "kiro",
   "trackerState": {
@@ -29,8 +29,8 @@
       {
         "id": "US-003",
         "title": "Implement correlation/info-theoretic methods",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-004",
@@ -144,6 +144,16 @@
       "durationMs": 203258,
       "startedAt": "2026-04-11T12:29:14.163Z",
       "endedAt": "2026-04-11T12:32:37.421Z"
+    },
+    {
+      "iteration": 3,
+      "status": "completed",
+      "taskId": "US-003",
+      "taskTitle": "Implement correlation/info-theoretic methods",
+      "taskCompleted": true,
+      "durationMs": 138328,
+      "startedAt": "2026-04-11T12:32:38.563Z",
+      "endedAt": "2026-04-11T12:34:56.891Z"
     }
   ],
   "skippedTaskIds": [],

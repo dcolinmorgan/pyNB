@@ -8,6 +8,8 @@ from sparselink.methods.elastic_net import ElasticNetMethod, RidgeMethod
 from sparselink.methods.pcmci import PCMCIMethod
 from sparselink.methods.granger import GrangerCausality
 from sparselink.methods.transfer_entropy import TransferEntropy
+from sparselink.methods.glasso import GraphicalLassoMethod, GLASSOStARS
+from sparselink.methods.neighborhood import NeighborhoodSelection
 
 __all__ = [
     "LassoMethod",
@@ -19,4 +21,7 @@ __all__ = [
     "PCMCIMethod",
     "GrangerCausality",
     "TransferEntropy",
+    "GraphicalLassoMethod",
+    "GLASSOStARS",
+    "NeighborhoodSelection",
 ]

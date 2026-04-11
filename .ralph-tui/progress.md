@@ -57,3 +57,17 @@ after each iteration and it's included in prompts for context.
   - Transfer entropy via binning is simple but effective; `np.digitize` with clipping handles edge cases
   - Granger causality F-stat uses `np.linalg.lstsq` for OLS — no external dependency needed
 ---
+
+
+## 2026-04-11 - US-004
+- What was implemented: Graphical LASSO, GLASSO+StARS, and Neighborhood Selection (Meinshausen-Bühlmann) methods in sparselink with unified `fit(X) -> InferenceResult` interface and `@registry.register` decorator.
+- Files changed:
+  - `sparselink/src/sparselink/methods/glasso.py` - GraphicalLassoMethod and GLASSOStARS implementations
+  - `sparselink/src/sparselink/methods/neighborhood.py` - NeighborhoodSelection implementation
+  - `sparselink/src/sparselink/methods/__init__.py` - Added imports for new methods
+  - `sparselink/tests/test_graphical_methods.py` - 15 tests covering all 3 methods
+- **Learnings:**
+  - sklearn's `GraphicalLasso` returns precision matrix directly; zero diagonal and take abs for adjacency
+  - StARS instability metric: `2 * freq * (1 - freq)` where freq is edge selection frequency across subsamples
+  - Neighborhood Selection produces binary adjacency; symmetrize with "and" (intersection) or "or" (union) rule
+---
