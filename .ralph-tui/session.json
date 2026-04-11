@@ -3,10 +3,10 @@
   "sessionId": "76a8aec7-dcad-4394-b827-e558e0cead7c",
   "status": "running",
   "startedAt": "2026-04-11T12:26:16.060Z",
-  "updatedAt": "2026-04-11T12:32:37.422Z",
-  "currentIteration": 1,
+  "updatedAt": "2026-04-11T12:34:56.891Z",
+  "currentIteration": 2,
   "maxIterations": 20,
-  "tasksCompleted": 1,
+  "tasksCompleted": 2,
   "isPaused": false,
   "agentPlugin": "kiro",
   "trackerState": {
@@ -23,8 +23,8 @@
       {
         "id": "US-002",
         "title": "Port LASSO/LSCO/CLR to sparselink",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-003",
@@ -134,6 +134,16 @@
       "durationMs": 173837,
       "startedAt": "2026-04-11T12:26:19.218Z",
       "endedAt": "2026-04-11T12:29:13.055Z"
+    },
+    {
+      "iteration": 2,
+      "status": "completed",
+      "taskId": "US-002",
+      "taskTitle": "Port LASSO/LSCO/CLR to sparselink",
+      "taskCompleted": true,
+      "durationMs": 203258,
+      "startedAt": "2026-04-11T12:29:14.163Z",
+      "endedAt": "2026-04-11T12:32:37.421Z"
     }
   ],
   "skippedTaskIds": [],

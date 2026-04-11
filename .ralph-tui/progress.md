@@ -42,3 +42,18 @@ after each iteration and it's included in prompts for context.
   - PYTHONPATH for tests: When running pytest from the sparselink subpackage, use `PYTHONPATH=src` since the parent directory name (`sparselink/`) conflicts with the package namespace
   - CLR output is symmetric and non-negative by construction (sqrt of sum of squared z-scores)
 ---
+
+
+## 2026-04-11 - US-003
+- What was implemented: PCMCI, Granger Causality, and Transfer Entropy methods in sparselink (Partial Correlation already existed from US-001). All use unified `fit(X) -> InferenceResult` interface and `@registry.register` decorator.
+- Files changed:
+  - `sparselink/src/sparselink/methods/pcmci.py` - PCMCIMethod (lagged partial correlations)
+  - `sparselink/src/sparselink/methods/granger.py` - GrangerCausality (pairwise F-test on VAR)
+  - `sparselink/src/sparselink/methods/transfer_entropy.py` - TransferEntropy (binning-based conditional entropy)
+  - `sparselink/src/sparselink/methods/__init__.py` - Added imports for new methods
+  - `sparselink/tests/test_causal_methods.py` - 18 tests covering all 4 methods
+- **Learnings:**
+  - Time-series methods need synthetic data with known causal structure for meaningful tests (e.g., x0 -> x1 via lagged coupling)
+  - Transfer entropy via binning is simple but effective; `np.digitize` with clipping handles edge cases
+  - Granger causality F-stat uses `np.linalg.lstsq` for OLS — no external dependency needed
+---
