@@ -102,3 +102,18 @@ after each iteration and it's included in prompts for context.
   - NestBoot FDR control: sweep threshold from 1.0 down, compare real vs null edge counts at each level
   - sklearn lacks py.typed marker so mypy --strict always flags it; acceptable to ignore
 ---
+
+
+## 2026-04-11 - US-009
+- What was implemented: `pyGS.bio` subpackage with four modules covering all acceptance criteria: preprocessing (expression matrices, TF/target gene lists, regulon formatting), wrappers (scenicplus, pyscenic), visualization (network plots with gene annotations), and evaluation (gold standard comparison with AUROC/AUPR/F1/MCC).
+- Files changed:
+  - `src/bio/__init__.py` - Subpackage init with public API exports
+  - `src/bio/preprocessing.py` - load_expression_matrix, filter_tf_targets, format_regulons
+  - `src/bio/wrappers.py` - scenicplus_infer, pyscenic_infer (wrapping existing scenicplus.py)
+  - `src/bio/visualization.py` - plot_grn (networkx-based with TF highlighting), plot_evaluation_summary
+  - `src/bio/evaluation.py` - compare_to_gold_standard, compare_multiple (array-based API over CompareModels)
+- **Learnings:**
+  - The bio subpackage wraps existing src/ modules (methods/scenicplus.py, analyze/CompareModels.py) with cleaner array-based APIs
+  - Keeping wrappers thin avoids code duplication while providing the domain-specific interface
+  - ruff catches unused imports immediately — keep visualization modules lean
+---
