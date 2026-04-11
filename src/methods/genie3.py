@@ -1,40 +1,35 @@
-"""
-GENIE3 (GEne Network Inference with Ensemble of trees) method.
-Based on Huynh-Thu et al. (2010) PLoS ONE.
-
-GENIE3 uses random forests to infer gene regulatory networks.
-"""
+"""GENIE3 network inference — delegates to sparselink."""
 
 import numpy as np
-from sklearn.ensemble import RandomForestRegressor
 from typing import Union, Optional, Tuple, Any, List
 from datastruct.Dataset import Dataset
 from analyze.Data import Data
 
-def GENIE3(dataset: Union[Dataset, Data, Any], 
-           threshold_range: Optional[Union[np.ndarray, List[float]]] = None, 
-           n_estimators: int = 100, 
-           max_features: Union[str, int, float] = 'sqrt', 
-           random_state: int = 42) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    GENIE3 network inference using Random Forest regression.
-    
-    For each gene, train a random forest to predict its expression from all other genes.
-    The importance scores from the random forest indicate regulatory relationships.
-    
+from sparselink import get_method
+
+
+def GENIE3(
+    dataset: Union[Dataset, Data, Any],
+    threshold_range: Optional[Union[np.ndarray, List[float]]] = None,
+    n_estimators: int = 100,
+    max_features: Union[str, int, float] = "sqrt",
+    random_state: int = 42,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """GENIE3 network inference via sparselink.
+
     Parameters
     ----------
     dataset : Dataset or Data object
         Input dataset containing gene expression data
     threshold_range : array-like, optional
-        Range of threshold values for sparsification (default: logspace(-6, 0, 30))
-    n_estimators : int, default=100
+        Range of threshold values for sparsification
+    n_estimators : int
         Number of trees in the random forest
-    max_features : str or int, default='sqrt'
+    max_features : str or int
         Number of features to consider for best split
-    random_state : int, default=42
-        Random seed for reproducibility
-    
+    random_state : int
+        Random seed
+
     Returns
     -------
     Afit : numpy.ndarray
@@ -42,74 +37,58 @@ def GENIE3(dataset: Union[Dataset, Data, Any],
     threshold_range : numpy.ndarray
         Array of threshold values used
     """
-    # Handle both Dataset and Data objects
-    if hasattr(dataset, 'Y') and dataset.Y is not None:
+    # Extract expression matrix Y (genes × samples)
+    if hasattr(dataset, "Y") and dataset.Y is not None:
         Y = dataset.Y
-    elif hasattr(dataset, 'data') and dataset.data is not None:
+    elif hasattr(dataset, "data") and dataset.data is not None:
         data = dataset.data
-        if hasattr(data, 'Y') and data.Y is not None:
+        if hasattr(data, "Y") and data.Y is not None:
             Y = data.Y
-        elif hasattr(data, 'data'):
+        elif hasattr(data, "data"):
             Y = data.data
         else:
             Y = data
     else:
         Y = dataset
-    
+
     if not isinstance(Y, np.ndarray):
         raise ValueError("Could not extract expression matrix Y from dataset")
 
+    # sparselink expects (samples x features)
     n_genes, n_samples = Y.shape
-    
-    # Initialize importance matrix
-    importance_matrix = np.zeros((n_genes, n_genes))
-    
-    # For each gene, train a random forest to predict it from all others
-    for target_gene in range(n_genes):
-        # Get target gene expression
-        target = Y[target_gene, :]
-        
-        # Get predictor genes (all except target)
-        predictor_indices = np.arange(n_genes) != target_gene
-        predictors = Y[predictor_indices, :].T  # samples × (n_genes - 1)
-        
-        # Skip if not enough samples
-        if n_samples < 3:
-            continue
-        
-        # Train random forest
-        rf = RandomForestRegressor(
-            n_estimators=n_estimators,
-            max_features=max_features,
-            random_state=random_state,
-            n_jobs=-1  # Use all CPU cores
-        )
-        
-        rf.fit(predictors, target)
-        
-        # Get feature importances
-        importances = rf.feature_importances_
-        
-        # Assign importances to the importance matrix
-        importance_matrix[predictor_indices, target_gene] = importances
-    
-    # Create threshold range if not provided
+    if n_samples < 3:
+        # Not enough samples to fit — return zeros
+        if threshold_range is None:
+            zeta = np.logspace(-6, 0, 30)
+        else:
+            zeta = np.asarray(threshold_range)
+        return np.zeros((n_genes, n_genes, len(zeta))), zeta
+
+    method = get_method("genie3")(
+        n_estimators=n_estimators,
+        max_features=str(max_features),
+        random_state=random_state,
+    )
+    result = method.fit(Y.T)
+    importance_matrix = result.adjacency_matrix
+
+    # Create threshold range
     if threshold_range is None:
         zeta = np.logspace(-6, 0, 30)
     else:
         zeta = np.asarray(threshold_range)
-    
-    # Scale threshold range based on importance values
+
     pos_vals = importance_matrix[importance_matrix > 0]
     imp_min = np.min(pos_vals) if pos_vals.size > 0 else 0
     imp_max = np.max(importance_matrix)
-    
+
     if imp_max > imp_min:
         threshold_range_scaled = imp_min + zeta * (imp_max - imp_min)
     else:
         threshold_range_scaled = zeta * imp_max
-    
-    # Apply thresholds to create 3D output
-    Afit = importance_matrix[:, :, np.newaxis] * (importance_matrix[:, :, np.newaxis] >= threshold_range_scaled)
-    
+
+    Afit = importance_matrix[:, :, np.newaxis] * (
+        importance_matrix[:, :, np.newaxis] >= threshold_range_scaled
+    )
+
     return Afit, threshold_range_scaled

@@ -117,3 +117,35 @@ after each iteration and it's included in prompts for context.
   - Keeping wrappers thin avoids code duplication while providing the domain-specific interface
   - ruff catches unused imports immediately — keep visualization modules lean
 ---
+
+
+## 2026-04-11 - US-010
+- What was implemented: Replaced all inline inference methods (Lasso, LSCO, CLR, GENIE3, TIGRESS) with thin wrappers that delegate to sparselink. Added `sparselink>=1.0.0` dependency to pyproject.toml. Bumped sparselink to v1.0.0. Preserved all existing pyGS API signatures and return types (3D thresholded arrays). Fixed SCENICPLUS import guard in methods/__init__.py.
+- Files changed:
+  - `src/methods/lasso.py` - Replaced inline implementation with sparselink wrapper
+  - `src/methods/lsco.py` - Replaced inline implementation with sparselink wrapper
+  - `src/methods/clr.py` - Replaced inline implementation with sparselink wrapper (kept helper functions for backward compat)
+  - `src/methods/genie3.py` - Replaced inline implementation with sparselink wrapper
+  - `src/methods/tigress.py` - Replaced inline implementation with sparselink wrapper (kept tigress_single_gene for backward compat)
+  - `src/methods/__init__.py` - Fixed SCENICPLUS None guard in method_map
+  - `pyproject.toml` - Added `sparselink>=1.0.0` to dependencies
+  - `sparselink/pyproject.toml` - Bumped version to 1.0.0
+  - `sparselink/src/sparselink/__init__.py` - Bumped __version__ to 1.0.0
+- **Learnings:**
+  - pyGS methods use (genes × samples) convention; sparselink uses (samples × features) — transpose Y.T when calling sparselink
+  - pyGS returns 3D arrays (n_genes × n_genes × n_thresholds); sparselink returns single adjacency matrix — thresholding logic stays in wrapper
+  - Tests import internal helpers (mutual_information_matrix, clr_transform, tigress_single_gene) — must keep these exported for backward compat
+  - Small-sample guards (n_samples < 3 → zeros) must be preserved in wrappers since sparselink doesn't enforce this
+---
+
+
+## 2026-04-11 - US-014
+- What was implemented: Set up proper PEP 621 packaging with pyproject.toml for both sparselink and pyGS. Both use hatchling backend, src/ layout, and have all 5 optional dependency groups ([dev], [test], [docs], [causal], [deep]). pyGS depends on sparselink>=1.0.0. sparselink installs standalone with no biology deps.
+- Files changed:
+  - `sparselink/pyproject.toml` - Added [test], [docs], [deep] optional dependency groups
+  - `pyproject.toml` - Rewrote with hatchling backend, src/ layout via [tool.hatch.build.targets.wheel], removed biology-heavy deps from core (scanpy, scenicplus, snakemake), added all 5 optional groups
+- **Learnings:**
+  - hatchling `packages = ["src"]` maps the src/ directory as the package root for wheel builds
+  - Keeping biology deps out of core pyGS dependencies means `pip install pyGS` stays lightweight; users opt-in via extras
+  - PEP 621 `[project.optional-dependencies]` replaces the older `[dependency-groups]` pattern used by uv
+---

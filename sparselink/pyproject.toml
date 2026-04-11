@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sparselink"
-version = "0.1.0"
+version = "1.0.0"
 description = "Domain-agnostic sparse network inference from tabular data"
 requires-python = ">=3.10"
 license = "MIT"
@@ -21,6 +21,9 @@ sparselink-bench = "sparselink.bench.cli:main"
 [project.optional-dependencies]
 causal = ["causal-learn"]
 dev = ["pytest", "pytest-cov", "mypy", "ruff"]
+test = ["pytest", "pytest-cov"]
+docs = ["sphinx", "sphinx-rtd-theme", "myst-parser"]
+deep = ["torch>=2.0"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/sparselink"]

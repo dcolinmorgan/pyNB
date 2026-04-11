@@ -202,7 +202,7 @@
         "pip install pyGS pulls in sparselink automatically"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "dependsOn": [
         "US-008",
         "US-009"
@@ -210,7 +210,8 @@
       "labels": [
         "pyGS",
         "migration"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-011",
@@ -285,14 +286,15 @@
         "pip install sparselink works standalone with no biology deps"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "dependsOn": [
         "US-001"
       ],
       "labels": [
         "hardening",
         "packaging"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-015",
@@ -380,6 +382,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-11T12:45:20.927Z"
+    "updatedAt": "2026-04-11T14:53:42.886Z"
   }
 }

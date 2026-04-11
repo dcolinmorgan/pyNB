@@ -6,7 +6,7 @@ from .tigress import TIGRESS
 try:
     from .scenicplus import SCENICPLUS
 except ImportError:
-    pass
+    SCENICPLUS = None  # type: ignore[assignment]
 
 def run(method, dataset, nested_boot=False, nest_runs=50, boot_runs=50, seed=42, fdr=0.05, **kwargs):
     """
@@ -30,8 +30,9 @@ def run(method, dataset, nested_boot=False, nest_runs=50, boot_runs=50, seed=42,
             'clr': CLR,
             'genie3': GENIE3,
             'tigress': TIGRESS,
-            'scenicplus': SCENICPLUS
         }
+        if SCENICPLUS is not None:
+            method_map['scenicplus'] = SCENICPLUS
         if method.lower() not in method_map:
             raise ValueError(f"Unknown method: {method}. Available: {list(method_map.keys())}")
         method = method_map[method.lower()]
