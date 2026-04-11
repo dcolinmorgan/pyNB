@@ -308,3 +308,20 @@ after each iteration and it's included in prompts for context.
   - Deprecation policy of "1 minor version" is simple and predictable for users
   - Both pyproject.toml `version` and `__version__` in code must be kept in sync
 ---
+
+
+## 2026-04-11 - US-018
+- What was implemented: Verified all v1.0.0 release criteria are met. No additional code changes needed — all prerequisites (US-015, US-016, US-017) completed the work.
+- Files changed: None (verification only)
+- **Verification results:**
+  - sparselink v1.0.0: pyproject.toml + __init__.py both at 1.0.0 ✓
+  - pyGS v1.0.0: pyproject.toml + __init__.py both at 1.0.0 ✓
+  - 20 inference algorithms registered (requirement: ≥12) ✓
+  - Docs site: mkdocs.yml + docs/site/ with API reference + quickstart + GitHub Pages deploy workflow ✓
+  - CI/CD: ci.yml (lint + test matrix 3.10/3.11/3.12) + release.yml (tag → PyPI publish) ✓
+  - sparselink tests: 111 passed, 94% coverage ✓
+  - ruff lint: All checks passed ✓
+- **Learnings:**
+  - Release stories that aggregate prerequisites may require no code changes — just verification
+  - The release workflow uses tag-triggered publishing (`on: push: tags: ["v*"]`), so pushing a `v1.0.0` tag triggers both packages to publish
+---

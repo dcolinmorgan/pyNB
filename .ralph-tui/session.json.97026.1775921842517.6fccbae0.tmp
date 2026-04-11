@@ -3,7 +3,7 @@
   "sessionId": "76a8aec7-dcad-4394-b827-e558e0cead7c",
   "status": "running",
   "startedAt": "2026-04-11T12:26:16.060Z",
-  "updatedAt": "2026-04-11T15:36:14.805Z",
+  "updatedAt": "2026-04-11T15:37:22.514Z",
   "currentIteration": 17,
   "maxIterations": 20,
   "tasksCompleted": 17,
@@ -298,8 +298,6 @@
   ],
   "skippedTaskIds": [],
   "cwd": "/Users/apple/Developer/dcolinmorgan/pyGS",
-  "activeTaskIds": [
-    "US-018"
-  ],
+  "activeTaskIds": [],
   "subagentPanelVisible": false
 }

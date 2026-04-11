@@ -378,7 +378,7 @@
         "GitHub Actions green: lint + test + publish pipeline"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "dependsOn": [
         "US-015",
         "US-016",
@@ -386,10 +386,11 @@
       ],
       "labels": [
         "release"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-11T15:36:13.403Z"
+    "updatedAt": "2026-04-11T15:37:22.514Z"
   }
 }
