@@ -314,14 +314,15 @@
         "Published to GitHub Pages"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "dependsOn": [
         "US-011"
       ],
       "labels": [
         "hardening",
         "docs"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-016",
@@ -388,6 +389,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-11T15:29:52.740Z"
+    "updatedAt": "2026-04-11T15:33:16.060Z"
   }
 }

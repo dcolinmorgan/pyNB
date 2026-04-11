@@ -3,10 +3,10 @@
   "sessionId": "76a8aec7-dcad-4394-b827-e558e0cead7c",
   "status": "running",
   "startedAt": "2026-04-11T12:26:16.060Z",
-  "updatedAt": "2026-04-11T15:25:44.346Z",
-  "currentIteration": 14,
+  "updatedAt": "2026-04-11T15:33:16.060Z",
+  "currentIteration": 15,
   "maxIterations": 20,
-  "tasksCompleted": 14,
+  "tasksCompleted": 15,
   "isPaused": false,
   "agentPlugin": "kiro",
   "trackerState": {
@@ -107,8 +107,8 @@
       {
         "id": "US-016",
         "title": "Achieve 80%+ test coverage",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-017",
@@ -264,12 +264,20 @@
       "durationMs": 66416,
       "startedAt": "2026-04-11T15:24:36.573Z",
       "endedAt": "2026-04-11T15:25:42.989Z"
+    },
+    {
+      "iteration": 15,
+      "status": "completed",
+      "taskId": "US-016",
+      "taskTitle": "Achieve 80%+ test coverage",
+      "taskCompleted": true,
+      "durationMs": 248455,
+      "startedAt": "2026-04-11T15:25:44.283Z",
+      "endedAt": "2026-04-11T15:29:52.738Z"
     }
   ],
   "skippedTaskIds": [],
   "cwd": "/Users/apple/Developer/dcolinmorgan/pyGS",
-  "activeTaskIds": [
-    "US-016"
-  ],
+  "activeTaskIds": [],
   "subagentPanelVisible": false
 }

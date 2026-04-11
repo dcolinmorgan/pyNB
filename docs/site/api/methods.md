@@ -1,0 +1,19 @@
+# sparselink.methods
+
+::: sparselink.methods.lasso
+::: sparselink.methods.elastic_net
+::: sparselink.methods.lsco
+::: sparselink.methods.correlation
+::: sparselink.methods.clr
+::: sparselink.methods.genie3
+::: sparselink.methods.tigress
+::: sparselink.methods.glasso
+::: sparselink.methods.neighborhood
+::: sparselink.methods.pcmci
+::: sparselink.methods.granger
+::: sparselink.methods.transfer_entropy
+::: sparselink.methods.pc
+::: sparselink.methods.fci
+::: sparselink.methods.notears
+::: sparselink.methods.dag_gnn
+::: sparselink.methods.bayesian

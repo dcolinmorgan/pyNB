@@ -270,3 +270,24 @@ after each iteration and it's included in prompts for context.
   - The `evaluate()` function uses median of nonzero values as default threshold — zero predictions don't mean zero recall
   - sparselink tests must run from `sparselink/` dir with `PYTHONPATH=src` due to namespace conflict with parent directory
 ---
+
+
+## 2026-04-11 - US-015
+- What was implemented: MkDocs documentation site with Material theme, mkdocstrings for auto-generated API reference, quickstart guide, method comparison table, contributing guide, and GitHub Pages deployment workflow.
+- Files changed:
+  - `mkdocs.yml` - MkDocs configuration with Material theme, mkdocstrings plugin, nav structure
+  - `docs/site/index.md` - Homepage with feature overview and quick links
+  - `docs/site/quickstart.md` - Installation, basic usage, benchmarking, CLI examples
+  - `docs/site/methods.md` - Method comparison table (20 methods) with category details and selection guide
+  - `docs/site/contributing.md` - Dev setup, testing, code quality, adding methods, project structure
+  - `docs/site/api/sparselink.md` - Auto-generated API docs for core sparselink
+  - `docs/site/api/methods.md` - Auto-generated API docs for all inference methods
+  - `docs/site/api/bench.md` - Auto-generated API docs for benchmarking module
+  - `docs/site/api/bio.md` - Auto-generated API docs for biology subpackage
+  - `.github/workflows/docs.yml` - GitHub Actions workflow deploying to GitHub Pages
+  - `pyproject.toml` - Updated docs optional deps to mkdocs-material + mkdocstrings
+- **Learnings:**
+  - mkdocstrings `paths` option in mkdocs.yml must point to source roots (src, sparselink/src) for module resolution
+  - `docs_dir` in mkdocs.yml allows placing source markdown in a subdirectory while keeping mkdocs.yml at project root
+  - GitHub Pages deployment uses actions/deploy-pages@v4 with `pages: write` and `id-token: write` permissions
+---
