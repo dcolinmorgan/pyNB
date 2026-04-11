@@ -35,6 +35,18 @@ strict = true
 module = ["sklearn.*", "scipy.*", "pandas.*", "causallearn.*", "torch.*"]
 ignore_missing_imports = true
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=sparselink --cov-report=term-missing --cov-fail-under=80"
+
+[tool.coverage.run]
+source = ["sparselink"]
+omit = ["*/bench/cli.py"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+
 [tool.ruff]
 target-version = "py310"
 line-length = 88

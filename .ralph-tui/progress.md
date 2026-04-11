@@ -256,3 +256,17 @@ after each iteration and it's included in prompts for context.
   - Matrix strategy with `include` allows mapping package names to directory paths
   - Branch protection must be configured in GitHub repo settings (Settings → Branches → Add rule for `main`), not in workflow files
 ---
+
+
+## 2026-04-11 - US-016
+- What was implemented: Achieved 94% test coverage on sparselink (above 80% target). Added unit tests for bench module (synthetic, metrics, nestboot, runner) and integration tests for the pipeline runner. Configured pytest-cov reporting with `--cov-fail-under=80` in pyproject.toml.
+- Files changed:
+  - `sparselink/tests/test_bench.py` - Unit tests for synthetic data generation, evaluation metrics, NestBoot, and benchmark runner (16 tests)
+  - `sparselink/tests/test_bench_integration.py` - Integration tests for pipeline runner end-to-end flow (4 tests)
+  - `sparselink/pyproject.toml` - Added `[tool.pytest.ini_options]`, `[tool.coverage.run]`, `[tool.coverage.report]` sections
+- **Learnings:**
+  - pytest-cov `--cov-fail-under=80` in pyproject.toml enforces coverage gate in CI without extra config
+  - `[tool.coverage.run] omit` is useful for excluding CLI entry points that are hard to unit test
+  - The `evaluate()` function uses median of nonzero values as default threshold — zero predictions don't mean zero recall
+  - sparselink tests must run from `sparselink/` dir with `PYTHONPATH=src` due to namespace conflict with parent directory
+---
