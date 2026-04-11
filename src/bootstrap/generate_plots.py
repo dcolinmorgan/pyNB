@@ -5,9 +5,10 @@ Script to generate analysis plots.
 This script is called from the Snakemake workflow.
 """
 
-import pandas as pd
 from pathlib import Path
 from typing import Any
+
+import pandas as pd
 from nb_fdr import NetworkBootstrap
 
 snakemake: Any  # noqa: F841 — injected by Snakemake
@@ -32,17 +33,15 @@ normal_df = pd.read_csv(input_normal)
 shuffled_df = pd.read_csv(input_shuffled)
 
 # Rename columns for merging
-normal_df.rename(columns={
-    'Afrac': 'Afrac_norm',
-    'Asign_frac': 'Asign_frac_norm'
-}, inplace=True)
-shuffled_df.rename(columns={
-    'Afrac': 'Afrac_shuf',
-    'Asign_frac': 'Asign_frac_shuf'
-}, inplace=True)
+normal_df.rename(
+    columns={"Afrac": "Afrac_norm", "Asign_frac": "Asign_frac_norm"}, inplace=True
+)
+shuffled_df.rename(
+    columns={"Afrac": "Afrac_shuf", "Asign_frac": "Asign_frac_shuf"}, inplace=True
+)
 
 # Merge datasets
-merged = pd.merge(normal_df, shuffled_df, on=['gene_i', 'gene_j'])
+merged = pd.merge(normal_df, shuffled_df, on=["gene_i", "gene_j"])
 
 # Generate plot
 nb.plot_analysis_results(merged, Path(output_plot), bins=bins)

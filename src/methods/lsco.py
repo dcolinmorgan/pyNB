@@ -2,18 +2,17 @@
 
 import numpy as np
 from numpy import linalg
-from typing import Tuple, Optional
-from datastruct.Dataset import Dataset
 
+from datastruct.Dataset import Dataset
 from sparselink import get_method
 
 
 def LSCO(
     dataset: Dataset,
-    threshold_range: Optional[np.ndarray] = None,
+    threshold_range: np.ndarray | None = None,
     tol: float = 1e-8,
-    rcond: Optional[float] = None,
-) -> Tuple[np.ndarray, np.ndarray]:
+    rcond: float | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
     """Infer network matrix A using least squares with thresholding via sparselink.
 
     Args:

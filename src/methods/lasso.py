@@ -1,21 +1,20 @@
 """LASSO network inference — delegates to sparselink."""
 
 import numpy as np
-from typing import Tuple, Optional
-from datastruct.Dataset import Dataset
 
+from datastruct.Dataset import Dataset
 from sparselink import get_method
 
 
 def Lasso(
     dataset: Dataset,
-    alpha_range: Optional[np.ndarray] = None,
+    alpha_range: np.ndarray | None = None,
     cv: int = 5,
     tol: float = 1e-4,
     max_iter: int = 10000,
-    use_covariance: Optional[bool] = None,
+    use_covariance: bool | None = None,
     **kwargs: object,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Infer network matrix A using LASSO regression via sparselink.
 
     Args:

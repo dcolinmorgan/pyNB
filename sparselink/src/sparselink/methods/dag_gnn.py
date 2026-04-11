@@ -33,8 +33,12 @@ class DAGGNNMethod(InferenceMethod):
         **kwargs: Any,
     ) -> None:
         super().__init__(
-            hidden_dim=hidden_dim, epochs=epochs, lr=lr,
-            lambda1=lambda1, w_threshold=w_threshold, **kwargs
+            hidden_dim=hidden_dim,
+            epochs=epochs,
+            lr=lr,
+            lambda1=lambda1,
+            w_threshold=w_threshold,
+            **kwargs,
         )
         self.hidden_dim = hidden_dim
         self.epochs = epochs
@@ -54,8 +58,7 @@ class DAGGNNMethod(InferenceMethod):
             import torch.nn as nn
         except ImportError as e:
             raise ImportError(
-                "DAG-GNN requires PyTorch. Install with: "
-                "pip install sparselink[deep]"
+                "DAG-GNN requires PyTorch. Install with: pip install sparselink[deep]"
             ) from e
 
         X_arr = self._to_array(X)

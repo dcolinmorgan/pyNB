@@ -7,14 +7,13 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-from typing import Optional, List, Tuple, Union
 
 
 def load_expression_matrix(
-    data: Union[np.ndarray, pd.DataFrame, str],
-    gene_names: Optional[List[str]] = None,
+    data: np.ndarray | pd.DataFrame | str,
+    gene_names: list[str] | None = None,
     transpose: bool = False,
-) -> Tuple[np.ndarray, List[str]]:
+) -> tuple[np.ndarray, list[str]]:
     """Load and normalize an expression matrix for GRN inference.
 
     Parameters
@@ -36,8 +35,13 @@ def load_expression_matrix(
     if isinstance(data, str):
         if data.endswith(".h5ad"):
             import scanpy as sc
+
             adata = sc.read_h5ad(data)
-            matrix = adata.X.toarray() if hasattr(adata.X, "toarray") else np.asarray(adata.X)
+            matrix = (
+                adata.X.toarray()
+                if hasattr(adata.X, "toarray")
+                else np.asarray(adata.X)
+            )
             names = list(adata.var_names)
             # scanpy stores (cells x genes), transpose to (genes x samples)
             return matrix.T, names
@@ -52,7 +56,7 @@ def load_expression_matrix(
     else:
         matrix = np.asarray(data)
         n_genes = matrix.shape[1 if transpose else 0]
-        names = gene_names if gene_names else [f"G{i+1}" for i in range(n_genes)]
+        names = gene_names if gene_names else [f"G{i + 1}" for i in range(n_genes)]
 
     if transpose:
         matrix = matrix.T
@@ -61,10 +65,10 @@ def load_expression_matrix(
 
 
 def filter_tf_targets(
-    gene_names: List[str],
-    tf_list: Optional[List[str]] = None,
-    tf_file: Optional[str] = None,
-) -> Tuple[List[str], List[int]]:
+    gene_names: list[str],
+    tf_list: list[str] | None = None,
+    tf_file: str | None = None,
+) -> tuple[list[str], list[int]]:
     """Filter gene list to known transcription factors.
 
     Parameters
@@ -99,8 +103,8 @@ def filter_tf_targets(
 
 def format_regulons(
     adjacency: np.ndarray,
-    gene_names: List[str],
-    tf_names: List[str],
+    gene_names: list[str],
+    tf_names: list[str],
     threshold: float = 0.0,
 ) -> pd.DataFrame:
     """Convert adjacency matrix to regulon-style edge list.

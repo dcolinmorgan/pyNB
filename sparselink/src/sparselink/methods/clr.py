@@ -18,7 +18,9 @@ class CLRMethod(InferenceMethod):
 
     name = "clr"
 
-    def __init__(self, threshold: float = 0.0, n_bins: int | None = None, **kwargs: Any) -> None:
+    def __init__(
+        self, threshold: float = 0.0, n_bins: int | None = None, **kwargs: Any
+    ) -> None:
         super().__init__(threshold=threshold, n_bins=n_bins, **kwargs)
         self.threshold = threshold
         self.n_bins = n_bins

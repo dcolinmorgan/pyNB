@@ -6,20 +6,21 @@ interface for the pyGS.bio subpackage.
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
-from typing import Optional, List, Tuple, Any
 
 
 def scenicplus_infer(
     expression: np.ndarray,
-    gene_names: List[str],
-    tf_list: Optional[List[str]] = None,
+    gene_names: list[str],
+    tf_list: list[str] | None = None,
     n_cpu: int = 1,
     seed: int = 42,
-    threshold_range: Optional[np.ndarray] = None,
+    threshold_range: np.ndarray | None = None,
     use_arboreto: bool = False,
     **kwargs: Any,
-) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+) -> tuple[np.ndarray, np.ndarray | None]:
     """Run SCENIC+-inspired GRN inference.
 
     Thin wrapper around the existing scenicplus method, accepting raw arrays
@@ -49,9 +50,9 @@ def scenicplus_infer(
     thresholds : np.ndarray or None
         Actual thresholds used, or None.
     """
-    from methods.scenicplus import SCENICPLUS
     from datastruct.Dataset import Dataset
     from datastruct.Network import Network
+    from methods.scenicplus import SCENICPLUS
 
     # Build a minimal Dataset object for the legacy interface
     dataset = Dataset()
@@ -70,10 +71,12 @@ def scenicplus_infer(
         **kwargs,
     )
     return result  # type: ignore[no-any-return]
+
+
 def pyscenic_infer(
     expression: np.ndarray,
-    gene_names: List[str],
-    tf_list: Optional[List[str]] = None,
+    gene_names: list[str],
+    tf_list: list[str] | None = None,
     n_cpu: int = 1,
     seed: int = 42,
 ) -> np.ndarray:

@@ -1,20 +1,21 @@
 """GENIE3 network inference — delegates to sparselink."""
 
-import numpy as np
-from typing import Union, Optional, Tuple, Any, List
-from datastruct.Dataset import Dataset
-from analyze.Data import Data
+from typing import Any
 
+import numpy as np
+
+from analyze.Data import Data
+from datastruct.Dataset import Dataset
 from sparselink import get_method
 
 
 def GENIE3(
-    dataset: Union[Dataset, Data, Any],
-    threshold_range: Optional[Union[np.ndarray, List[float]]] = None,
+    dataset: Dataset | Data | Any,
+    threshold_range: np.ndarray | list[float] | None = None,
     n_estimators: int = 100,
-    max_features: Union[str, int, float] = "sqrt",
+    max_features: str | int | float = "sqrt",
     random_state: int = 42,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """GENIE3 network inference via sparselink.
 
     Parameters

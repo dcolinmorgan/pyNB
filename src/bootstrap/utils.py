@@ -1,4 +1,3 @@
-from typing import Tuple
 import numpy as np
 import numpy.typing as npt
 
@@ -36,7 +35,7 @@ class NetworkUtils:
     def calc_bin_freq(
         matrix: NDArrayFloat,
         init: int,
-    ) -> Tuple[NDArrayFloat, NDArrayFloat]:
+    ) -> tuple[NDArrayFloat, NDArrayFloat]:
         """Calculate binned frequencies of matrix values."""
         bins = np.arange(init + 1) / init
         counts, bin_edges = np.histogram(matrix.flatten(), bins=bins)

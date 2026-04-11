@@ -1,9 +1,11 @@
+import logging
 from dataclasses import dataclass
-from typing import List, Tuple, Dict, Optional, Any, TypeVar, Union
+from pathlib import Path
+from typing import Any, Union
+
 import numpy as np
 import pandas as pd
-import logging
-from pathlib import Path
+
 from bootstrap.utils import NetworkUtils
 
 try:
@@ -18,6 +20,7 @@ except ImportError:
         fdr_threshold: float = 0.05
         epsilon: float = 1e-10
 
+
 @dataclass
 class NetworkData:
     """Data class to hold network analysis data.
@@ -28,10 +31,12 @@ class NetworkData:
         N: Number of nodes
         M: Number of measurements/samples
     """
+
     Y: np.ndarray
-    names: List[str]
+    names: list[str]
     N: int
     M: int
+
 
 @dataclass
 class NetworkResults:
@@ -48,32 +53,38 @@ class NetworkResults:
         fp_rate: False positive rate at crossing (float or list/array)
         support: Support at crossing (float or list/array)
     """
+
     xnet: np.ndarray
     ssum: np.ndarray
     min_ab: np.ndarray
     sxnet: np.ndarray
-    orig_index: Union[int, np.ndarray, List[int]]
-    accumulated: Union[np.ndarray, List[np.ndarray]]
-    binned_freq: Union[np.ndarray, List[np.ndarray]]
-    fp_rate: Union[float, np.ndarray, List[float]]
-    support: Union[float, np.ndarray, List[float]]
-    gene_i: Optional[List[str]] = None
-    gene_j: Optional[List[str]] = None
+    orig_index: int | np.ndarray | list[int]
+    accumulated: np.ndarray | list[np.ndarray]
+    binned_freq: np.ndarray | list[np.ndarray]
+    fp_rate: float | np.ndarray | list[float]
+    support: float | np.ndarray | list[float]
+    gene_i: list[str] | None = None
+    gene_j: list[str] | None = None
+
 
 class Nestboot:
     """Class for performing Network Bootstrap False Discovery Rate analysis.
-    
-    This class implements the NB-FDR algorithm for network inference with 
+
+    This class implements the NB-FDR algorithm for network inference with
     bootstrap-based confidence estimation.
     """
 
-    def __init__(self, param: Optional[Union[logging.Logger, "NetworkData", AnalysisConfig, Dict[str, Any]]] = None) -> None:
+    def __init__(
+        self,
+        param: Union[logging.Logger, "NetworkData", AnalysisConfig, dict[str, Any]]
+        | None = None,
+    ) -> None:
         """Initialize Nestboot analyzer.
 
         Args:
             param: Optional parameter which can be:
                    - logger instance
-                   - NetworkData object  
+                   - NetworkData object
                    - AnalysisConfig object
                    - dict with configuration parameters
                    - None (uses defaults)
@@ -100,8 +111,10 @@ class Nestboot:
             self.logger = logging.getLogger(__name__)
             self.data = None
         else:
-            raise TypeError("Invalid type for parameter. Expected AnalysisConfig, dict, logging.Logger, or NetworkData.")
-        
+            raise TypeError(
+                "Invalid type for parameter. Expected AnalysisConfig, dict, logging.Logger, or NetworkData."
+            )
+
         self._setup_logging()
 
     def _setup_logging(self) -> None:
@@ -109,17 +122,14 @@ class Nestboot:
         if not self.logger.handlers:
             handler = logging.StreamHandler()
             formatter = logging.Formatter(
-                '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
             )
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
             self.logger.setLevel(logging.INFO)
 
     def compute_assign_frac(
-        self, 
-        df: pd.DataFrame, 
-        total_runs: int = 64, 
-        inner_group_size: int = 8
+        self, df: pd.DataFrame, total_runs: int = 64, inner_group_size: int = 8
     ) -> pd.DataFrame:
         """Compute assignment fractions and signs for network links.
 
@@ -132,45 +142,51 @@ class Nestboot:
             DataFrame with computed metrics
         """
         self.logger.debug("Computing assignment fractions")
-        
+
         # Extract run numbers and filter out runs greater than or equal to total_runs
-        df = df[df['run'].astype(int) < total_runs]
-        
+        df = df[df["run"].astype(int) < total_runs]
+
         # Check if param_idx exists, otherwise add it (for backward compatibility)
-        if 'param_idx' not in df.columns:
-            df['param_idx'] = 0
-            
-        # Group by param_idx and gene pairs 
-        grouped = df.groupby(['param_idx', 'gene_i', 'gene_j'], as_index=False)
-        run_counts = grouped.agg({
-            'run': 'nunique',
-            'link_value': 'sum'  # Sum of weights (we will divide by total_runs for average)
-        })
-        run_counts['Afrac'] = run_counts['run'] / total_runs
+        if "param_idx" not in df.columns:
+            df["param_idx"] = 0
+
+        # Group by param_idx and gene pairs
+        grouped = df.groupby(["param_idx", "gene_i", "gene_j"], as_index=False)
+        run_counts = grouped.agg(
+            {
+                "run": "nunique",
+                "link_value": "sum",  # Sum of weights (we will divide by total_runs for average)
+            }
+        )
+        run_counts["Afrac"] = run_counts["run"] / total_runs
         # Average weight = Sum of weights / Total Runs (treating absent as 0)
         # This gives a "Bagging" style estimator
-        run_counts['Aavg'] = run_counts['link_value'] / total_runs
-        
+        run_counts["Aavg"] = run_counts["link_value"] / total_runs
+
         # Use drop to remove the temporary 'run' count and 'link_value' sum column if not needed
         # We keep Aavg
-        results = run_counts.drop(columns=['run', 'link_value'])
-        
+        results = run_counts.drop(columns=["run", "link_value"])
+
         # Compute sign fractions for all links
         # We calculate the fraction of *present* runs where the link is positive.
         # This replaces the complex pivot/group logic which only worked for full support.
-        
+
         self.logger.debug("Computing sign consistency")
-        
+
         # Create a view/copy to avoid SettingWithCopy warning on original df
-        sign_df = df[['param_idx', 'gene_i', 'gene_j', 'link_value']].copy()
-        sign_df['is_pos'] = (sign_df['link_value'] > 0).astype(float)
-        
-        sign_stats = sign_df.groupby(['param_idx', 'gene_i', 'gene_j'])['is_pos'].mean()
-        sign_stats.name = 'Asign_frac'
-        
-        results = results.merge(sign_stats, on=['param_idx', 'gene_i', 'gene_j'], how='left')
-        results['Asign_frac'] = results['Asign_frac'].fillna(0.5) # Default to ambiguous if missing (shouldn't happen)
-        
+        sign_df = df[["param_idx", "gene_i", "gene_j", "link_value"]].copy()
+        sign_df["is_pos"] = (sign_df["link_value"] > 0).astype(float)
+
+        sign_stats = sign_df.groupby(["param_idx", "gene_i", "gene_j"])["is_pos"].mean()
+        sign_stats.name = "Asign_frac"
+
+        results = results.merge(
+            sign_stats, on=["param_idx", "gene_i", "gene_j"], how="left"
+        )
+        results["Asign_frac"] = results["Asign_frac"].fillna(
+            0.5
+        )  # Default to ambiguous if missing (shouldn't happen)
+
         return results
 
     def nb_fdr(
@@ -181,7 +197,7 @@ class Nestboot:
         data_dir: Path,
         fdr: float,
         boot: int,
-        node_names: Optional[List[str]] = None
+        node_names: list[str] | None = None,
     ) -> NetworkResults:
         """Perform Network Bootstrap FDR analysis.
 
@@ -198,38 +214,39 @@ class Nestboot:
             NetworkResults object containing analysis results
         """
         self.logger.info("Starting NB-FDR analysis")
-        
-        # Compute assignment fractions 
+
+        # Compute assignment fractions
         agg_normal = self.compute_assign_frac(normal_df, init, boot)
         agg_shuffled = self.compute_assign_frac(shuffled_df, init, boot)
-        
+
         # Rename columns for merging
-        for df, suffix in [(agg_normal, '_norm'), (agg_shuffled, '_shuf')]:
-            df.rename(columns={
-                'Afrac': f'Afrac{suffix}',
-                'Asign_frac': f'Asign_frac{suffix}',
-                'Aavg': f'Aavg{suffix}'
-            }, inplace=True)
-        
+        for df, suffix in [(agg_normal, "_norm"), (agg_shuffled, "_shuf")]:
+            df.rename(
+                columns={
+                    "Afrac": f"Afrac{suffix}",
+                    "Asign_frac": f"Asign_frac{suffix}",
+                    "Aavg": f"Aavg{suffix}",
+                },
+                inplace=True,
+            )
+
         # Merge and compute metrics
         # Merging on param_idx too
         merged = pd.merge(
-            agg_normal, agg_shuffled,
-            on=['param_idx', 'gene_i', 'gene_j'],
-            how='outer'
+            agg_normal, agg_shuffled, on=["param_idx", "gene_i", "gene_j"], how="outer"
         ).fillna(0)
-        
+
         # Pass FDR threshold to compute logic for dynamic thresholding
         results = self._compute_network_metrics(merged, fdr, node_names)
-        
+
         self.logger.info("NB-FDR analysis completed successfully")
         return results
 
     def _compute_network_metrics(
-        self, 
+        self,
         merged: pd.DataFrame,
         target_fdr: float,
-        node_names: Optional[List[str]] = None
+        node_names: list[str] | None = None,
     ) -> NetworkResults:
         """Compute network comparison metrics.
 
@@ -241,17 +258,15 @@ class Nestboot:
         Returns:
             NetworkResults object
         """
-        eps = 1e-6  # Small value to prevent division by zero
-        
         # Determine unique parameters
-        if 'param_idx' in merged.columns:
-            unique_params = sorted(merged['param_idx'].unique())
+        if "param_idx" in merged.columns:
+            unique_params = sorted(merged["param_idx"].unique())
         else:
             unique_params = [0]
-            merged['param_idx'] = 0
-            
+            merged["param_idx"] = 0
+
         n_params = len(unique_params)
-        
+
         # Prepare lists to collect results per parameter
         xnet_list = []
         ssum_list = []
@@ -262,60 +277,58 @@ class Nestboot:
         fp_rate_list = []
         support_list = []
         orig_index_list = []
-        
+
         # We should iterate over range(max(unique_params) + 1) to be safe and fill with empty if missing
         if unique_params:
             try:
                 max_param = int(max(unique_params))
-                full_param_range: Union[range, list[int]] = range(max_param + 1)
+                full_param_range: range | list[int] = range(max_param + 1)
             except ValueError:
                 full_param_range = [0]
         else:
             full_param_range = [0]
-            
+
         for p in full_param_range:
             # Filter for current parameter
-            sub_merged = merged[merged['param_idx'] == p].copy()
-            
+            sub_merged = merged[merged["param_idx"] == p].copy()
+
             # --- Dynamic FDR Threshold Calculation ---
             if sub_merged.empty:
-                best_t = 0.8 # Fallback
-                current_fdr = 0.0
+                best_t = 0.8  # Fallback
             else:
                 # Find smallest t such that FDR(t) <= target_fdr
                 # FDR(t) = (Shuf_counts >= t) / (Norm_counts >= t)
                 # Scan t from 0.05 to 1.0
                 t_vals = np.linspace(0.05, 1.0, 96)
-                
+
                 # Pre-fetch arrays
-                n_norm_arr = sub_merged['Afrac_norm'].values
-                n_shuf_arr = sub_merged['Afrac_shuf'].values
-                
+                n_norm_arr = sub_merged["Afrac_norm"].values
+                n_shuf_arr = sub_merged["Afrac_shuf"].values
+
                 # Default to highest if none satisfy
-                best_t = 1.0 
-                found = False
-                
+                best_t = 1.0
+
                 # Check from high to low to find the Cutoff
                 # Usually we want the *lowest* t that is still valid (Maximum Recall)
                 # But we must ensure all t' > t are also valid? Not necessarily monotonic in practice but roughly.
                 # Standard Approach: Find the lowest t with FDR < target.
-                
+
                 for t in reversed(t_vals):
                     n_norm = (n_norm_arr >= t).sum()
                     if n_norm == 0:
                         continue
                     n_shuf = (n_shuf_arr >= t).sum()
-                    
+
                     fdr_est = n_shuf / n_norm
-                    
+
                     if fdr_est <= target_fdr:
                         best_t = t
                     else:
                         # FDR exceeded, stop going lower. The previous t (larger) was the limit.
                         break
-            
+
             support_threshold = best_t
-            
+
             if sub_merged.empty:
                 # Handle empty case (no links found for this parameter)
                 if node_names:
@@ -329,31 +342,29 @@ class Nestboot:
                     ssum = np.array([[0]])
                     min_ab = np.array([[0]])
                     sxnet = np.array([[0]])
-                
+
                 accumulated = np.zeros((1, 2))
                 binned_freq = np.zeros(10)
-                fp = 0.0
-                curr_orig_index = 0
             else:
                 # Compute metrics vectors
-                xnet_vec = (sub_merged['Afrac_norm'] >= support_threshold).astype(float)
-                
+                xnet_vec = (sub_merged["Afrac_norm"] >= support_threshold).astype(float)
+
                 # Sign determination: Map [0,1] back to {-1, +1}
                 # Asign_frac_norm is freq of positive signs.
                 # >0.5 is (+), <0.5 is (-).
-                # Handle exact 0.5 (ambiguous) -> 1 or 0? 
+                # Handle exact 0.5 (ambiguous) -> 1 or 0?
                 # Let's align with existing dominance.
-                signs = np.sign(sub_merged['Asign_frac_norm'] - 0.5)
-                signs[signs == 0] = 1 # Force non-zero
-                
+                signs = np.sign(sub_merged["Asign_frac_norm"] - 0.5)
+                signs[signs == 0] = 1  # Force non-zero
+
                 ssum_vec = signs
-                min_ab_vec = sub_merged['Afrac_norm']
-                
+                min_ab_vec = sub_merged["Afrac_norm"]
+
                 # sxnet: Continuous Ranking Score
-                # Use Frequency (Afrac) * Sign. 
+                # Use Frequency (Afrac) * Sign.
                 # This provides [-1, 1] ranking.
                 sxnet_vec = min_ab_vec * ssum_vec
-                
+
                 # Reconstruct matrices if node_names provided
                 if node_names:
                     N = len(node_names)
@@ -361,27 +372,29 @@ class Nestboot:
                     ssum = np.zeros((N, N))
                     min_ab = np.zeros((N, N))
                     sxnet = np.zeros((N, N))
-                    
+
                     # Map names to indices
                     name_to_idx = {name: i for i, name in enumerate(node_names)}
-                    
-                    rows = sub_merged['gene_i'].map(name_to_idx)
-                    cols = sub_merged['gene_j'].map(name_to_idx)
-                    
+
+                    rows = sub_merged["gene_i"].map(name_to_idx)
+                    cols = sub_merged["gene_j"].map(name_to_idx)
+
                     # Drop unmapped
                     valid = rows.notna() & cols.notna()
                     if not valid.all():
-                        self.logger.warning("Some genes in results not found in node_names")
-                    
+                        self.logger.warning(
+                            "Some genes in results not found in node_names"
+                        )
+
                     r = rows[valid].astype(int).values
                     c = cols[valid].astype(int).values
-                    
+
                     # Update vectors to match valid
                     valid_xnet = xnet_vec[valid].values
                     valid_ssum = ssum_vec[valid].values
                     valid_min_ab = min_ab_vec[valid].values
                     valid_sxnet = sxnet_vec[valid].values
-                    
+
                     xnet[r, c] = valid_xnet
                     ssum[r, c] = valid_ssum
                     min_ab[r, c] = valid_min_ab
@@ -391,19 +404,19 @@ class Nestboot:
                     ssum = ssum_vec.values
                     min_ab = min_ab_vec.values
                     sxnet = sxnet_vec.values
-                
+
             xnet_list.append(xnet)
             ssum_list.append(ssum)
             min_ab_list.append(min_ab)
             sxnet_list.append(sxnet)
-            
+
             # Additional metrics
             accumulated = self._compute_accumulated_stats(sub_merged)
             binned_freq = self._compute_binned_frequencies(sub_merged)
-            
+
             accumulated_list.append(accumulated)
             binned_freq_list.append(binned_freq)
-            fp_rate_list.append(0.0) # Placeholder/Depr
+            fp_rate_list.append(0.0)  # Placeholder/Depr
             support_list.append(support_threshold)
             orig_index_list.append(int(support_threshold * 100))
 
@@ -419,8 +432,8 @@ class Nestboot:
                 binned_freq=binned_freq_list[0],
                 fp_rate=fp_rate_list[0],
                 support=support_list[0],
-                gene_i=merged['gene_i'].tolist(),
-                gene_j=merged['gene_j'].tolist()
+                gene_i=merged["gene_i"].tolist(),
+                gene_j=merged["gene_j"].tolist(),
             )
         else:
             # Stack arrays along 3rd dimension: (N, N, n_params)
@@ -453,17 +466,16 @@ class Nestboot:
                 binned_freq=binned_freq_list,
                 fp_rate=fp_rate_list,
                 support=support_list,
-                gene_i=merged['gene_i'].tolist(),
-                gene_j=merged['gene_j'].tolist()
+                gene_i=merged["gene_i"].tolist(),
+                gene_j=merged["gene_j"].tolist(),
             )
 
     def _accumulate(
         self,
-        boo_alink: List[np.ndarray],
-        boo_shuffle_alink: List[np.ndarray],
-        init: int
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, 
-               np.ndarray, np.ndarray, np.ndarray]:
+        boo_alink: list[np.ndarray],
+        boo_shuffle_alink: list[np.ndarray],
+        init: int,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """Accumulate network statistics from bootstrap samples.
 
         Args:
@@ -481,11 +493,11 @@ class Nestboot:
             - freq: Frequency statistics
         """
         self.logger.debug("Accumulating network statistics")
-        
-        estimated_support_net: List[np.ndarray] = []
-        estimated_shuffle_net: List[np.ndarray] = []
-        overlaps_support: List[np.ndarray] = []
-        overlaps_shuffle: List[np.ndarray] = []
+
+        estimated_support_net: list[np.ndarray] = []
+        estimated_shuffle_net: list[np.ndarray] = []
+        overlaps_support: list[np.ndarray] = []
+        overlaps_shuffle: list[np.ndarray] = []
 
         for i in range(len(boo_alink)):
             est_net, ovr_sup = self._structure_boot(
@@ -494,7 +506,7 @@ class Nestboot:
             est_shuf, ovr_shuf = self._structure_boot(
                 boo_shuffle_alink, i, estimated_shuffle_net, init
             )
-            
+
             estimated_support_net.extend(est_net)
             overlaps_support.extend(ovr_sup)
             estimated_shuffle_net.extend(est_shuf)
@@ -512,19 +524,25 @@ class Nestboot:
         # Replace NaN values with 0
         sup_over = np.nan_to_num(sup_over)
         shu_over = np.nan_to_num(shu_over)
-        
+
         accumulated = np.column_stack([sup_over, shu_over])
-        
-        return accumulated, sup_over, shu_over, np.array(overlaps_support), \
-               np.array(overlaps_shuffle), freq
+
+        return (
+            accumulated,
+            sup_over,
+            shu_over,
+            np.array(overlaps_support),
+            np.array(overlaps_shuffle),
+            freq,
+        )
 
     def _structure_boot(
         self,
-        boot_links: List[np.ndarray],
+        boot_links: list[np.ndarray],
         idx: int,
-        estimated_net: List[np.ndarray],
-        init: int
-    ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
+        estimated_net: list[np.ndarray],
+        init: int,
+    ) -> tuple[list[np.ndarray], list[np.ndarray]]:
         """Process bootstrap samples for network structure.
 
         Args:
@@ -542,10 +560,7 @@ class Nestboot:
         return estimated_net, overlaps
 
     def _structure_support(
-        self,
-        overlaps: List[np.ndarray],
-        k: int,
-        init: int
+        self, overlaps: list[np.ndarray], k: int, init: int
     ) -> float:
         """Calculate structure support statistics.
 
@@ -564,10 +579,7 @@ class Nestboot:
         return intersect / union if union != 0 else 0.0
 
     def _find_fdr_cutoff(
-        self,
-        binned_freq: np.ndarray,
-        accumulated: np.ndarray,
-        fdr: float
+        self, binned_freq: np.ndarray, accumulated: np.ndarray, fdr: float
     ) -> int:
         """Find the index where FDR threshold is crossed.
 
@@ -582,7 +594,11 @@ class Nestboot:
         # Simple implementation: find first index where FP rate <= FDR
         for i in range(len(binned_freq)):
             if i < len(accumulated):
-                fp_rate = accumulated[i, 1] / accumulated[i, 0] if accumulated[i, 0] > 0 else 0.0
+                fp_rate = (
+                    accumulated[i, 1] / accumulated[i, 0]
+                    if accumulated[i, 0] > 0
+                    else 0.0
+                )
                 if fp_rate <= fdr:
                     return i
         return len(binned_freq) - 1  # Return last index if no cutoff found
@@ -593,9 +609,8 @@ class Nestboot:
         init: int,
         accumulated: np.ndarray,
         overlaps_support: np.ndarray,
-        fdr: float
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray,
-               float, float, int]:
+        fdr: float,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, float, float, int]:
         """Generate plottable results from analysis.
 
         Args:
@@ -612,48 +627,57 @@ class Nestboot:
         y_range = np.array([0, 1])  # Placeholder for actual y-range calculation
 
         orig_index = self._find_fdr_cutoff(binned_freq, accumulated, fdr)
-        
+
         support_threshold = (orig_index - 1) / init
         final_net = NetworkUtils.matrix_and(overlaps_support >= support_threshold)
-        
+
         overlap_100 = accumulated[-1, :]
         overlap_cross = accumulated[orig_index, :]
         support_cross = support_threshold
-        
+
         tmp_sum = np.sum(binned_freq[orig_index:], axis=0)
         fp_rate_cross = tmp_sum[1] / tmp_sum[0] if tmp_sum[0] != 0 else 0.0
 
-        return (y_range, overlap_100, final_net, overlap_cross,
-                support_cross, fp_rate_cross, orig_index)
+        return (
+            y_range,
+            overlap_100,
+            final_net,
+            overlap_cross,
+            support_cross,
+            fp_rate_cross,
+            orig_index,
+        )
 
     def _compute_accumulated_stats(self, merged: pd.DataFrame) -> np.ndarray:
         """Compute accumulated statistics from merged results.
-        
+
         This implementation computes cumulative sums of 'Afrac_norm' and 'Afrac_shuf'
         in the merged DataFrame after sorting by 'Afrac_norm'.
-        
+
         Args:
             merged: Merged DataFrame containing 'Afrac_norm' and 'Afrac_shuf' columns.
-        
+
         Returns:
             A 2D numpy array containing the accumulated stats.
         """
-        sorted_df = merged.sort_values('Afrac_norm')
-        cum_sum_norm = sorted_df['Afrac_norm'].cumsum().to_numpy()
-        cum_sum_shuf = sorted_df['Afrac_shuf'].cumsum().to_numpy()
+        sorted_df = merged.sort_values("Afrac_norm")
+        cum_sum_norm = sorted_df["Afrac_norm"].cumsum().to_numpy()
+        cum_sum_shuf = sorted_df["Afrac_shuf"].cumsum().to_numpy()
         return np.column_stack((cum_sum_norm, cum_sum_shuf))
-    
-    def _compute_binned_frequencies(self, merged: pd.DataFrame, bins: int = 10) -> np.ndarray:
+
+    def _compute_binned_frequencies(
+        self, merged: pd.DataFrame, bins: int = 10
+    ) -> np.ndarray:
         """Compute binned frequencies for the 'Afrac_norm' values.
-        
+
         Args:
             merged: Merged DataFrame from which to compute the histogram.
             bins: Number of bins to use.
-        
+
         Returns:
             A normalized frequency histogram as a numpy array.
         """
-        hist, _ = np.histogram(merged['Afrac_norm'], bins=bins, range=(0, 1))
+        hist, _ = np.histogram(merged["Afrac_norm"], bins=bins, range=(0, 1))
         if hist.sum() > 0:
             result: np.ndarray = hist.astype(float) / hist.sum()
             return result
@@ -667,9 +691,9 @@ class Nestboot:
             results: NetworkResults object
             txt_file: Path to the text file to be written
         """
-        with open(txt_file, 'w') as f:
+        with open(txt_file, "w") as f:
             f.write("Network Bootstrap FDR Analysis Results\n")
-            f.write("="*40 + "\n")
+            f.write("=" * 40 + "\n")
             f.write(f"Orig Index: {results.orig_index}\n")
             f.write(f"FP Rate: {results.fp_rate:.3f}\n")
             f.write(f"Support Threshold: {results.support:.3f}\n")
@@ -678,11 +702,13 @@ class Nestboot:
             f.write(f"min_ab shape: {results.min_ab.shape}\n")
             f.write(f"sxnet shape: {results.sxnet.shape}\n")
             f.write("Accumulated (first 5 rows):\n")
-            np.savetxt(f, results.accumulated[:5], fmt='%.4f')
+            np.savetxt(f, results.accumulated[:5], fmt="%.4f")
             f.write("\nBinned frequencies:\n")
-            np.savetxt(f, np.asarray(results.binned_freq)[np.newaxis, :], fmt='%.4f')
-    
-    def plot_analysis_results(self, merged: pd.DataFrame, plot_file: Path, bins: int = 10) -> None:
+            np.savetxt(f, np.asarray(results.binned_freq)[np.newaxis, :], fmt="%.4f")
+
+    def plot_analysis_results(
+        self, merged: pd.DataFrame, plot_file: Path, bins: int = 10
+    ) -> None:
         """Plot analysis results with link frequencies for normal and shuffled data.
 
         Args:
@@ -693,47 +719,82 @@ class Nestboot:
         # Bin data
         support_bins = np.linspace(0, 1, bins + 1)
         bin_centers = (support_bins[:-1] + support_bins[1:]) / 2
-        counts_norm, _ = np.histogram(merged['Afrac_norm'], bins=support_bins)
-        counts_shuf, _ = np.histogram(merged['Afrac_shuf'], bins=support_bins)
-        freq_norm = counts_norm.astype(float) / counts_norm.sum() if counts_norm.sum() > 0 else counts_norm.astype(float)
-        freq_shuf = counts_shuf.astype(float) / counts_shuf.sum() if counts_shuf.sum() > 0 else counts_shuf.astype(float)
+        counts_norm, _ = np.histogram(merged["Afrac_norm"], bins=support_bins)
+        counts_shuf, _ = np.histogram(merged["Afrac_shuf"], bins=support_bins)
+        freq_norm = (
+            counts_norm.astype(float) / counts_norm.sum()
+            if counts_norm.sum() > 0
+            else counts_norm.astype(float)
+        )
+        freq_shuf = (
+            counts_shuf.astype(float) / counts_shuf.sum()
+            if counts_shuf.sum() > 0
+            else counts_shuf.astype(float)
+        )
 
         import matplotlib.pyplot as plt
+
         fig, ax = plt.subplots(figsize=(10, 6))
 
         # Line plots with distinct styles
-        ax.plot(bin_centers, freq_norm, color='#1b9e77', marker='o', linestyle='-', linewidth=2, label='Normal Data')
-        ax.plot(bin_centers, freq_shuf, color='#d95f02', marker='^', linestyle='--', linewidth=2, label='Shuffled Data')
+        ax.plot(
+            bin_centers,
+            freq_norm,
+            color="#1b9e77",
+            marker="o",
+            linestyle="-",
+            linewidth=2,
+            label="Normal Data",
+        )
+        ax.plot(
+            bin_centers,
+            freq_shuf,
+            color="#d95f02",
+            marker="^",
+            linestyle="--",
+            linewidth=2,
+            label="Shuffled Data",
+        )
 
         # Aesthetics and readability
-        ax.set_xlabel('Support', fontsize=12)
-        ax.set_ylabel('Link Frequency', fontsize=12)
-        ax.tick_params(axis='both', labelsize=10)
-        ax.grid(True, linestyle='--', alpha=0.3)  # Light grid
+        ax.set_xlabel("Support", fontsize=12)
+        ax.set_ylabel("Link Frequency", fontsize=12)
+        ax.tick_params(axis="both", labelsize=10)
+        ax.grid(True, linestyle="--", alpha=0.3)  # Light grid
 
         # Highlight max difference
         diff = freq_norm - freq_shuf
         max_diff_idx = np.argmax(np.abs(diff))
         ax.annotate(
-            f'Max Diff: {diff[max_diff_idx]:.2f}',
-            xy=(bin_centers[max_diff_idx], max(freq_norm[max_diff_idx], freq_shuf[max_diff_idx])),
-            xytext=(0, 10), textcoords='offset points', ha='center', fontsize=10,
-            arrowprops=dict(arrowstyle='->', color='gray')
+            f"Max Diff: {diff[max_diff_idx]:.2f}",
+            xy=(
+                bin_centers[max_diff_idx],
+                max(freq_norm[max_diff_idx], freq_shuf[max_diff_idx]),
+            ),
+            xytext=(0, 10),
+            textcoords="offset points",
+            ha="center",
+            fontsize=10,
+            arrowprops=dict(arrowstyle="->", color="gray"),
         )
 
         # Legend with title
-        ax.legend(title='Data Type', loc='upper right', fontsize=10, title_fontsize=12)
+        ax.legend(title="Data Type", loc="upper right", fontsize=10, title_fontsize=12)
 
         # Optional: Add support threshold (e.g., 0.8 from your code)
-        ax.axvline(x=0.8, color='gray', linestyle='--', alpha=0.5, label='Threshold (0.8)')
+        ax.axvline(
+            x=0.8, color="gray", linestyle="--", alpha=0.5, label="Threshold (0.8)"
+        )
         # if 'Threshold (0.8)' not in [l.get_label() for l in ax.get_legend_handlers_labels()[1]]:
-            # ax.legend(title='Data Type', loc='upper right', fontsize=10, title_fontsize=12)
+        # ax.legend(title='Data Type', loc='upper right', fontsize=10, title_fontsize=12)
 
         fig.tight_layout()
-        plt.savefig(plot_file, dpi=300, bbox_inches='tight')  # Ensure annotations fit
+        plt.savefig(plot_file, dpi=300, bbox_inches="tight")  # Ensure annotations fit
         plt.close()
 
-    def compute_network_density(self, df: pd.DataFrame, threshold: float = 0.0) -> pd.DataFrame:
+    def compute_network_density(
+        self, df: pd.DataFrame, threshold: float = 0.0
+    ) -> pd.DataFrame:
         """Compute network density per run.
 
         Network density is calculated as the number of links (edges) between gene_i and gene_j
@@ -750,10 +811,12 @@ class Nestboot:
         self.logger.debug("Computing network density per run")
 
         # Filter links by threshold and ensure unique links per run
-        df_filtered = df[df['link_value'].abs() > threshold].drop_duplicates(subset=['gene_i', 'gene_j', 'run'])
+        df_filtered = df[df["link_value"].abs() > threshold].drop_duplicates(
+            subset=["gene_i", "gene_j", "run"]
+        )
 
         # Group by run
-        grouped = df_filtered.groupby('run')
+        grouped = df_filtered.groupby("run")
 
         # Compute metrics per run
         results = []
@@ -762,7 +825,7 @@ class Nestboot:
             num_links = len(group)
 
             # Unique nodes (union of gene_i and gene_j)
-            nodes = set(group['gene_i']).union(group['gene_j'])
+            nodes = set(group["gene_i"]).union(group["gene_j"])
             num_nodes = len(nodes)
 
             # Simple density: links / nodes
@@ -773,13 +836,15 @@ class Nestboot:
             possible_edges = num_nodes * (num_nodes - 1) if num_nodes > 1 else 1
             density = num_links / possible_edges if possible_edges > 0 else 0.0
 
-            results.append({
-                'run': run,
-                'num_links': num_links,
-                'num_nodes': num_nodes,
-                'density_simple': density_simple,
-                'density': density
-            })
+            results.append(
+                {
+                    "run": run,
+                    "num_links": num_links,
+                    "num_nodes": num_nodes,
+                    "density_simple": density_simple,
+                    "density": density,
+                }
+            )
 
         # Convert to DataFrame
         result_df = pd.DataFrame(results)
@@ -793,11 +858,11 @@ class Nestboot:
         nest_runs: int = 50,
         boot_runs: int = 50,
         seed: int = 42,
-        method_kwargs: Optional[Dict[str, Any]] = None,
-        method_params: Optional[Dict[str, Any]] = None
+        method_kwargs: dict[str, Any] | None = None,
+        method_params: dict[str, Any] | None = None,
     ) -> NetworkResults:
         """Run NestBoot analysis with bootstrapping and network inference.
-        
+
         Args:
             dataset: Data object containing the dataset
             inference_method: Inference method - can be:
@@ -808,78 +873,89 @@ class Nestboot:
             seed: Random seed
             method_kwargs: Additional arguments for callable inference_method
             method_params: Parameters to pass to inference method class (e.g., {'alpha_range': zetavec})
-            
+
         Returns:
             NetworkResults object
         """
-        import copy
         from analyze.Data import Data
-        
+
         if method_kwargs is None:
             method_kwargs = {}
         if method_params is None:
             method_params = {}
-            
+
         np.random.seed(seed)
-        
+
         bootstrap_data = []
         shuffled_data = []
-        
+
         # Access underlying Dataset object
-        if hasattr(dataset, 'Y') and dataset.Y is not None:
+        if hasattr(dataset, "Y") and dataset.Y is not None:
             ds_obj = dataset
-        elif hasattr(dataset, 'data') and dataset.data is not None:
+        elif hasattr(dataset, "data") and dataset.data is not None:
             ds_obj = dataset.data
         else:
             ds_obj = dataset
-            
+
         n_genes = ds_obj.N
         n_samples = ds_obj.M
-        
-        gene_names_list = ds_obj.gene_names if hasattr(ds_obj, 'gene_names') and ds_obj.gene_names else [f"Gene_{i:02d}" for i in range(n_genes)]
-        
+
+        gene_names_list = (
+            ds_obj.gene_names
+            if hasattr(ds_obj, "gene_names") and ds_obj.gene_names
+            else [f"Gene_{i:02d}" for i in range(n_genes)]
+        )
+
         # Keep clean copies of the original data for bootstrapping
         original_Y = ds_obj.Y.copy()
         original_P = ds_obj.P.copy()
-        
+
         for outer_run in range(nest_runs):
             self.logger.info(f"NestBoot outer run {outer_run + 1}/{nest_runs}")
-            
+
             for boot_run in range(boot_runs):
                 try:
                     # Bootstrap
-                    bootstrap_indices = np.random.choice(n_samples, size=n_samples, replace=True)
-                    
+                    bootstrap_indices = np.random.choice(
+                        n_samples, size=n_samples, replace=True
+                    )
+
                     # Create a new Dataset object with bootstrapped data
                     from datastruct.Dataset import Dataset
+
                     bootstrap_dataset_obj = Dataset()
                     bootstrap_dataset_obj._Y = original_Y[:, bootstrap_indices]
                     bootstrap_dataset_obj._P = original_P[:, bootstrap_indices]
-                    bootstrap_dataset_obj._network = getattr(ds_obj, '_network', None)
-                    bootstrap_dataset_obj._names = getattr(ds_obj, '_names', None)
-                    bootstrap_dataset_obj._E = getattr(ds_obj, '_E', None)
-                    bootstrap_dataset_obj._lambda = getattr(ds_obj, '_lambda', None)
-                    bootstrap_dataset_obj._dataset_name = getattr(ds_obj, '_dataset_name', "Bootstrap")
+                    bootstrap_dataset_obj._network = getattr(ds_obj, "_network", None)
+                    bootstrap_dataset_obj._names = getattr(ds_obj, "_names", None)
+                    bootstrap_dataset_obj._E = getattr(ds_obj, "_E", None)
+                    bootstrap_dataset_obj._lambda = getattr(ds_obj, "_lambda", None)
+                    bootstrap_dataset_obj._dataset_name = getattr(
+                        ds_obj, "_dataset_name", "Bootstrap"
+                    )
                     bootstrap_dataset = Data(bootstrap_dataset_obj)
-                    
+
                     # Run inference
                     if callable(inference_method) and method_params:
                         # Method is a class/function, call it with method_params
-                        network_result = inference_method(bootstrap_dataset, **method_params)
+                        network_result = inference_method(
+                            bootstrap_dataset, **method_params
+                        )
                     else:
                         # Method is a callable function, call it with method_kwargs
-                        network_result = inference_method(bootstrap_dataset, **method_kwargs)
-                    
+                        network_result = inference_method(
+                            bootstrap_dataset, **method_kwargs
+                        )
+
                     # Handle different return types (tuple or just network)
                     if isinstance(network_result, tuple):
                         network_matrix = network_result[0]
                     else:
                         network_matrix = network_result
-                        
+
                     # Handle 3D array or 2D array and extract links
-                    param_list: list[Any] = []
-                    
-                    if hasattr(network_matrix, 'ndim') and network_matrix.ndim == 3:
+
+                    if hasattr(network_matrix, "ndim") and network_matrix.ndim == 3:
                         # 3D array: (genes, genes, params)
                         n_params = network_matrix.shape[2]
                         for p in range(n_params):
@@ -889,77 +965,87 @@ class Nestboot:
                             mask = rows != cols
                             rows, cols = rows[mask], cols[mask]
                             vals = mat[rows, cols]
-                            
+
                             for r, c, v in zip(rows, cols, vals):
-                                bootstrap_data.append({
-                                    'gene_i': gene_names_list[r],
-                                    'gene_j': gene_names_list[c],
-                                    'run': outer_run * boot_runs + boot_run, # Unique run ID
-                                    'link_value': v,
-                                    'param_idx': p
-                                })
+                                bootstrap_data.append(
+                                    {
+                                        "gene_i": gene_names_list[r],
+                                        "gene_j": gene_names_list[c],
+                                        "run": outer_run * boot_runs
+                                        + boot_run,  # Unique run ID
+                                        "link_value": v,
+                                        "param_idx": p,
+                                    }
+                                )
                     else:
                         # 2D case
-                         mat = network_matrix
-                         rows, cols = np.where(np.abs(mat) > 1e-6)
-                         mask = rows != cols
-                         rows, cols = rows[mask], cols[mask]
-                         vals = mat[rows, cols]
-                         
-                         for r, c, v in zip(rows, cols, vals):
-                             bootstrap_data.append({
-                                 'gene_i': gene_names_list[r],
-                                 'gene_j': gene_names_list[c],
-                                 'run': outer_run * boot_runs + boot_run, # Unique run ID
-                                 'link_value': v,
-                                 'param_idx': 0
-                             })
-                    
+                        mat = network_matrix
+                        rows, cols = np.where(np.abs(mat) > 1e-6)
+                        mask = rows != cols
+                        rows, cols = rows[mask], cols[mask]
+                        vals = mat[rows, cols]
+
+                        for r, c, v in zip(rows, cols, vals):
+                            bootstrap_data.append(
+                                {
+                                    "gene_i": gene_names_list[r],
+                                    "gene_j": gene_names_list[c],
+                                    "run": outer_run * boot_runs
+                                    + boot_run,  # Unique run ID
+                                    "link_value": v,
+                                    "param_idx": 0,
+                                }
+                            )
+
                     # Shuffle
                     # CRITICAL FIX: We must break the relationship between Y and P.
                     # Previously, we shuffled both with the same indices, which just reordered the samples
                     # but preserved the Y-P correspondence, leading to the "shuffled" data containing the real network signal.
-                    
+
                     shuffle_indices_ya = np.random.permutation(n_samples)
                     shuffle_indices_yb = np.random.permutation(n_genes)
-                    
-                    # We can keep P in original order, or shuffle it independently. 
+
+                    # We can keep P in original order, or shuffle it independently.
                     # Shuffling Y against fixed P is sufficient to break links.
-                    # If we really want to be random, we can shuffle P independently too, 
+                    # If we really want to be random, we can shuffle P independently too,
                     # but keeping one fixed serves the purpose of breaking the pair (Y_i, P_i).
-                    
+
                     shuffled_dataset_obj = Dataset()
                     # Apply both column (sample) and row (gene) shuffling
                     # Use a temporary variable to ensure both are applied
                     Y_shuf = original_Y.copy()
-                    Y_shuf = Y_shuf[:, shuffle_indices_ya] # Shuffle samples
-                    Y_shuf = Y_shuf[shuffle_indices_yb, :] # Shuffle genes
+                    Y_shuf = Y_shuf[:, shuffle_indices_ya]  # Shuffle samples
+                    Y_shuf = Y_shuf[shuffle_indices_yb, :]  # Shuffle genes
                     shuffled_dataset_obj._Y = Y_shuf
-                    shuffled_dataset_obj._P = original_P # Keep P as is (or original_P.copy() if safety needed)
+                    shuffled_dataset_obj._P = original_P  # Keep P as is (or original_P.copy() if safety needed)
                     # Note: We must ensure P has same dimensions. original_P is (genes, samples).
-                    
+
                     shuffled_dataset_obj._network = ds_obj._network
                     shuffled_dataset_obj._names = ds_obj._names
                     shuffled_dataset_obj._E = ds_obj._E
                     shuffled_dataset_obj._lambda = ds_obj._lambda
                     shuffled_dataset_obj._dataset_name = ds_obj._dataset_name
                     shuffled_dataset = Data(shuffled_dataset_obj)
-                    
+
                     # Run inference on shuffled data
                     if callable(inference_method) and method_params:
                         # Method is a class/function, call it with method_params
-                        shuffled_result = inference_method(shuffled_dataset, **method_params)
+                        shuffled_result = inference_method(
+                            shuffled_dataset, **method_params
+                        )
                     else:
                         # Method is a callable function, call it with method_kwargs
-                        shuffled_result = inference_method(shuffled_dataset, **method_kwargs)
-                        
+                        shuffled_result = inference_method(
+                            shuffled_dataset, **method_kwargs
+                        )
+
                     if isinstance(shuffled_result, tuple):
                         shuffled_network = shuffled_result[0]
                     else:
                         shuffled_network = shuffled_result
-                    
+
                     # Store shuffled links
-                    if hasattr(shuffled_network, 'ndim') and shuffled_network.ndim == 3:
+                    if hasattr(shuffled_network, "ndim") and shuffled_network.ndim == 3:
                         n_params = shuffled_network.shape[2]
                         for p in range(n_params):
                             mat = shuffled_network[:, :, p]
@@ -968,13 +1054,16 @@ class Nestboot:
                             rows, cols = rows[mask], cols[mask]
                             vals = mat[rows, cols]
                             for r, c, v in zip(rows, cols, vals):
-                                shuffled_data.append({
-                                    'gene_i': gene_names_list[r],
-                                    'gene_j': gene_names_list[c],
-                                    'run': outer_run * boot_runs + boot_run, # Unique run ID
-                                    'link_value': v, 
-                                    'param_idx': p
-                                })
+                                shuffled_data.append(
+                                    {
+                                        "gene_i": gene_names_list[r],
+                                        "gene_j": gene_names_list[c],
+                                        "run": outer_run * boot_runs
+                                        + boot_run,  # Unique run ID
+                                        "link_value": v,
+                                        "param_idx": p,
+                                    }
+                                )
                     else:
                         mat = shuffled_network
                         rows, cols = np.where(np.abs(mat) > 1e-6)
@@ -982,34 +1071,38 @@ class Nestboot:
                         rows, cols = rows[mask], cols[mask]
                         vals = mat[rows, cols]
                         for r, c, v in zip(rows, cols, vals):
-                             shuffled_data.append({
-                                 'gene_i': gene_names_list[r],
-                                 'gene_j': gene_names_list[c],
-                                 'run': outer_run * boot_runs + boot_run, # Unique run ID
-                                 'link_value': v,
-                                 'param_idx': 0
-                             })
-                                
+                            shuffled_data.append(
+                                {
+                                    "gene_i": gene_names_list[r],
+                                    "gene_j": gene_names_list[c],
+                                    "run": outer_run * boot_runs
+                                    + boot_run,  # Unique run ID
+                                    "link_value": v,
+                                    "param_idx": 0,
+                                }
+                            )
+
                 except Exception as e:
                     self.logger.error(f"Bootstrap iteration failed: {e}")
                     import traceback
+
                     traceback.print_exc()
                     continue
-                    
+
         # Convert to DataFrames
         normal_df = pd.DataFrame(bootstrap_data)
         shuffled_df = pd.DataFrame(shuffled_data)
-        
+
         if len(normal_df) == 0:
             raise ValueError("No bootstrap data generated")
-            
+
         # Run NB-FDR analysis
         return self.nb_fdr(
             normal_df=normal_df,
             shuffled_df=shuffled_df,
-            init=nest_runs * boot_runs, # Total runs is now product of nested loops
+            init=nest_runs * boot_runs,  # Total runs is now product of nested loops
             data_dir=Path("."),
-            fdr=self.config.fdr_threshold if hasattr(self, 'config') else 0.05,
+            fdr=self.config.fdr_threshold if hasattr(self, "config") else 0.05,
             boot=boot_runs,
-            node_names=gene_names_list
+            node_names=gene_names_list,
         )

@@ -1,11 +1,12 @@
 """Context Likelihood of Relatedness (CLR) — delegates to sparselink."""
 
+from typing import Any
+
 import numpy as np
 from sklearn.metrics import mutual_info_score
-from typing import Union, Optional, Tuple, Any, List
-from datastruct.Dataset import Dataset
-from analyze.Data import Data
 
+from analyze.Data import Data
+from datastruct.Dataset import Dataset
 from sparselink import get_method
 
 
@@ -70,9 +71,9 @@ def clr_transform(mi_matrix: np.ndarray) -> np.ndarray:
 
 
 def CLR(
-    dataset: Union[Dataset, Data, Any],
-    threshold_range: Optional[Union[np.ndarray, List[float]]] = None,
-) -> Tuple[np.ndarray, np.ndarray]:
+    dataset: Dataset | Data | Any,
+    threshold_range: np.ndarray | list[float] | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
     """CLR network inference via sparselink.
 
     Parameters

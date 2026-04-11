@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.sparse import random as sprandn
 
+
 def randomNet(N: int, n: float) -> "np.ndarray":
     """
     Creates a random undirected network with N nodes and specific sparseness with no self loops.
@@ -23,11 +24,13 @@ def randomNet(N: int, n: float) -> "np.ndarray":
     A = np.zeros((N, N))
 
     # Generate sparse random matrix (equivalent to sprandn)
-    tmp = (1 + np.random.rand() * 9) * sprandn(N, N-1, density=tspar, data_rvs=np.random.randn).toarray()
+    tmp = (1 + np.random.rand() * 9) * sprandn(
+        N, N - 1, density=tspar, data_rvs=np.random.randn
+    ).toarray()
 
     # Fill upper triangle
     for i in range(N):
-        A[i, i+1:] = tmp[i, i:]
+        A[i, i + 1 :] = tmp[i, i:]
 
     # Fill lower triangle to make undirected (symmetric)
     for i in range(1, N):

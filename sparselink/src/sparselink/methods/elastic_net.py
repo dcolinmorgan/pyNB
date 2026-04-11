@@ -18,7 +18,9 @@ class ElasticNetMethod(InferenceMethod):
 
     name = "elastic_net"
 
-    def __init__(self, alpha: float = 0.01, l1_ratio: float = 0.5, **kwargs: Any) -> None:
+    def __init__(
+        self, alpha: float = 0.01, l1_ratio: float = 0.5, **kwargs: Any
+    ) -> None:
         super().__init__(alpha=alpha, l1_ratio=l1_ratio, **kwargs)
         self.alpha = alpha
         self.l1_ratio = l1_ratio
@@ -37,7 +39,10 @@ class ElasticNetMethod(InferenceMethod):
 
         for i in range(n_features):
             model = ElasticNet(
-                alpha=self.alpha, l1_ratio=self.l1_ratio, fit_intercept=False, max_iter=10000
+                alpha=self.alpha,
+                l1_ratio=self.l1_ratio,
+                fit_intercept=False,
+                max_iter=10000,
             )
             model.fit(X_arr, targets[:, i])
             A[i, :] = model.coef_

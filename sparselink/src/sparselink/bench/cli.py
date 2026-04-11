@@ -21,14 +21,20 @@ def main(argv: list[str] | None = None) -> None:
         default=None,
         help="Method names to benchmark (default: all registered).",
     )
-    parser.add_argument("--n-datasets", type=int, default=5, help="Number of synthetic datasets.")
+    parser.add_argument(
+        "--n-datasets", type=int, default=5, help="Number of synthetic datasets."
+    )
     parser.add_argument("--n-genes", type=int, default=20, help="Genes per dataset.")
-    parser.add_argument("--n-samples", type=int, default=100, help="Samples per dataset.")
+    parser.add_argument(
+        "--n-samples", type=int, default=100, help="Samples per dataset."
+    )
     parser.add_argument("--topology", default="random", choices=["random", "scalefree"])
     parser.add_argument("--sparsity", type=float, default=0.2)
     parser.add_argument("--snr", type=float, default=10.0)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--output", "-o", default=None, help="Output JSON file (default: stdout).")
+    parser.add_argument(
+        "--output", "-o", default=None, help="Output JSON file (default: stdout)."
+    )
 
     args = parser.parse_args(argv)
 

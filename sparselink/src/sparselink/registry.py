@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Type
-
 from sparselink.base import InferenceMethod
 
 
@@ -11,15 +9,15 @@ class Registry:
     """Registry for inference method classes."""
 
     def __init__(self) -> None:
-        self._methods: dict[str, Type[InferenceMethod]] = {}
+        self._methods: dict[str, type[InferenceMethod]] = {}
 
-    def register(self, cls: Type[InferenceMethod]) -> Type[InferenceMethod]:
+    def register(self, cls: type[InferenceMethod]) -> type[InferenceMethod]:
         """Register a method class. Use as decorator."""
         name = cls.name or cls.__name__.lower()
         self._methods[name] = cls
         return cls
 
-    def get(self, name: str) -> Type[InferenceMethod]:
+    def get(self, name: str) -> type[InferenceMethod]:
         """Get a registered method by name."""
         if name not in self._methods:
             raise KeyError(f"Unknown method '{name}'. Available: {list(self._methods)}")
@@ -33,7 +31,7 @@ class Registry:
 registry = Registry()
 
 
-def get_method(name: str) -> Type[InferenceMethod]:
+def get_method(name: str) -> type[InferenceMethod]:
     """Get a registered inference method by name."""
     return registry.get(name)
 

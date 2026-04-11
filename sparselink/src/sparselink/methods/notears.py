@@ -33,8 +33,11 @@ class NOTEARSMethod(InferenceMethod):
         **kwargs: Any,
     ) -> None:
         super().__init__(
-            lambda1=lambda1, max_iter=max_iter, h_tol=h_tol,
-            w_threshold=w_threshold, **kwargs
+            lambda1=lambda1,
+            max_iter=max_iter,
+            h_tol=h_tol,
+            w_threshold=w_threshold,
+            **kwargs,
         )
         self.lambda1 = lambda1
         self.max_iter = max_iter
@@ -76,8 +79,7 @@ class NOTEARSMethod(InferenceMethod):
         return W
 
     def _minimize(
-        self, W: np.ndarray, X: np.ndarray, rho: float, alpha: float,
-        d: int, n: int
+        self, W: np.ndarray, X: np.ndarray, rho: float, alpha: float, d: int, n: int
     ) -> np.ndarray:
         """Proximal gradient step."""
         lr = 1e-3
@@ -88,9 +90,7 @@ class NOTEARSMethod(InferenceMethod):
             grad = loss_grad + (rho * self._h(W) + alpha) * h_grad
             W_new = W - lr * grad
             # Soft threshold for L1
-            W_new = np.sign(W_new) * np.maximum(
-                np.abs(W_new) - lr * self.lambda1, 0.0
-            )
+            W_new = np.sign(W_new) * np.maximum(np.abs(W_new) - lr * self.lambda1, 0.0)
             np.fill_diagonal(W_new, 0.0)
             W = W_new
         return W

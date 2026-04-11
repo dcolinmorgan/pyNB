@@ -42,7 +42,10 @@ class GrangerCausality(InferenceMethod):
             Y = X_arr[self.max_lag :, j]
             n_obs = len(Y)
             Z_restricted = np.column_stack(
-                [X_arr[self.max_lag - lag : T - lag, j] for lag in range(1, self.max_lag + 1)]
+                [
+                    X_arr[self.max_lag - lag : T - lag, j]
+                    for lag in range(1, self.max_lag + 1)
+                ]
             )
             # Restricted RSS
             rss_r = self._ols_rss(Z_restricted, Y)
@@ -54,7 +57,10 @@ class GrangerCausality(InferenceMethod):
                 Z_unrestricted = np.column_stack(
                     [
                         Z_restricted,
-                        *[X_arr[self.max_lag - lag : T - lag, i : i + 1] for lag in range(1, self.max_lag + 1)],
+                        *[
+                            X_arr[self.max_lag - lag : T - lag, i : i + 1]
+                            for lag in range(1, self.max_lag + 1)
+                        ],
                     ]
                 )
                 rss_u = self._ols_rss(Z_unrestricted, Y)

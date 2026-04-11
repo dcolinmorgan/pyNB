@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Union
 
 import numpy as np
 import numpy.typing as npt
@@ -33,4 +32,4 @@ class InferenceResult:
 
 
 # Input type accepted by all methods
-InputData = Union[npt.NDArray[np.floating], pd.DataFrame]
+InputData = npt.NDArray[np.floating] | pd.DataFrame

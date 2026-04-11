@@ -3,13 +3,17 @@ Core functional building blocks, composed in a Dask graph for distributed comput
 Updated for modern dask (2024+) compatibility.
 """
 
-import numpy as np
-import pandas as pd
 import logging
 
+import numpy as np
+import pandas as pd
 import scipy
-from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor, ExtraTreesRegressor
 from dask import delayed
+from sklearn.ensemble import (
+    ExtraTreesRegressor,
+    GradientBoostingRegressor,
+    RandomForestRegressor,
+)
 
 # Modern dask compatibility
 try:
@@ -18,6 +22,7 @@ try:
 except ImportError:
     # Fallback for older dask
     from dask.dataframe import from_delayed
+
     make_meta = None
 
 logger = logging.getLogger(__name__)
@@ -27,38 +32,26 @@ ANGEL_SEED = 777
 EARLY_STOP_WINDOW_LENGTH = 25
 
 SKLEARN_REGRESSOR_FACTORY = {
-    'RF': RandomForestRegressor,
-    'ET': ExtraTreesRegressor,
-    'GBM': GradientBoostingRegressor
+    "RF": RandomForestRegressor,
+    "ET": ExtraTreesRegressor,
+    "GBM": GradientBoostingRegressor,
 }
 
 # scikit-learn random forest regressor
-RF_KWARGS = {
-    'n_jobs': 1,
-    'n_estimators': 1000,
-    'max_features': 'sqrt'
-}
+RF_KWARGS = {"n_jobs": 1, "n_estimators": 1000, "max_features": "sqrt"}
 
 # scikit-learn extra-trees regressor
-ET_KWARGS = {
-    'n_jobs': 1,
-    'n_estimators': 1000,
-    'max_features': 'sqrt'
-}
+ET_KWARGS = {"n_jobs": 1, "n_estimators": 1000, "max_features": "sqrt"}
 
 # scikit-learn gradient boosting regressor
-GBM_KWARGS = {
-    'learning_rate': 0.01,
-    'n_estimators': 500,
-    'max_features': 0.1
-}
+GBM_KWARGS = {"learning_rate": 0.01, "n_estimators": 500, "max_features": 0.1}
 
 # scikit-learn stochastic gradient boosting regressor
 SGBM_KWARGS = {
-    'learning_rate': 0.01,
-    'n_estimators': 5000,  # can be arbitrarily large
-    'max_features': 0.1,
-    'subsample': 0.9
+    "learning_rate": 0.01,
+    "n_estimators": 5000,  # can be arbitrarily large
+    "max_features": 0.1,
+    "subsample": 0.9,
 }
 
 
@@ -75,7 +68,7 @@ def is_xgboost_regressor(regressor_type):
     :param regressor_type: string. Case insensitive.
     :return: boolean indicating whether the regressor type is the xgboost regressor.
     """
-    return regressor_type.upper() == 'XGB'
+    return regressor_type.upper() == "XGB"
 
 
 def is_oob_heuristic_supported(regressor_type, regressor_kwargs):
@@ -85,15 +78,14 @@ def is_oob_heuristic_supported(regressor_type, regressor_kwargs):
     :return: whether early stopping heuristic based on out-of-bag improvement is supported.
 
     """
-    return \
-        regressor_type.upper() == 'GBM' and \
-        'subsample' in regressor_kwargs and \
-        regressor_kwargs['subsample'] < 1.0
+    return (
+        regressor_type.upper() == "GBM"
+        and "subsample" in regressor_kwargs
+        and regressor_kwargs["subsample"] < 1.0
+    )
 
 
-def to_tf_matrix(expression_matrix,
-                 gene_names,
-                 tf_names):
+def to_tf_matrix(expression_matrix, gene_names, tf_names):
     """
     :param expression_matrix: numpy matrix. Rows are observations and columns are genes.
     :param gene_names: a list of gene names. Each entry corresponds to the expression_matrix column with same index.
@@ -103,7 +95,9 @@ def to_tf_matrix(expression_matrix,
              1: The gene names corresponding to the columns in the predictor matrix.
     """
 
-    tuples = [(index, gene) for index, gene in enumerate(gene_names) if gene in tf_names]
+    tuples = [
+        (index, gene) for index, gene in enumerate(gene_names) if gene in tf_names
+    ]
 
     tf_indices = [t[0] for t in tuples]
     tf_matrix_names = [t[1] for t in tuples]
@@ -111,12 +105,14 @@ def to_tf_matrix(expression_matrix,
     return expression_matrix[:, tf_indices], tf_matrix_names
 
 
-def fit_model(regressor_type,
-              regressor_kwargs,
-              tf_matrix,
-              target_gene_expression,
-              early_stop_window_length=EARLY_STOP_WINDOW_LENGTH,
-              seed=DEMON_SEED):
+def fit_model(
+    regressor_type,
+    regressor_kwargs,
+    tf_matrix,
+    target_gene_expression,
+    early_stop_window_length=EARLY_STOP_WINDOW_LENGTH,
+    seed=DEMON_SEED,
+):
     """
     :param regressor_type: string. Case insensitive.
     :param regressor_kwargs: a dictionary of key-value pairs that configures the regressor.
@@ -128,20 +124,26 @@ def fit_model(regressor_type,
     """
     regressor_type = regressor_type.upper()
 
-
     if isinstance(target_gene_expression, scipy.sparse.spmatrix):
         target_gene_expression = target_gene_expression.A.flatten()
 
     assert tf_matrix.shape[0] == target_gene_expression.shape[0]
 
-
     def do_sklearn_regression():
-        regressor = SKLEARN_REGRESSOR_FACTORY[regressor_type](random_state=seed, **regressor_kwargs)
+        regressor = SKLEARN_REGRESSOR_FACTORY[regressor_type](
+            random_state=seed, **regressor_kwargs
+        )
 
-        with_early_stopping = is_oob_heuristic_supported(regressor_type, regressor_kwargs)
+        with_early_stopping = is_oob_heuristic_supported(
+            regressor_type, regressor_kwargs
+        )
 
         if with_early_stopping:
-            regressor.fit(tf_matrix, target_gene_expression, monitor=EarlyStopMonitor(early_stop_window_length))
+            regressor.fit(
+                tf_matrix,
+                target_gene_expression,
+                monitor=EarlyStopMonitor(early_stop_window_length),
+            )
         else:
             regressor.fit(tf_matrix, target_gene_expression)
 
@@ -152,12 +154,10 @@ def fit_model(regressor_type,
     # elif is_xgboost_regressor(regressor_type):
     #     raise ValueError('XGB regressor not yet supported')
     else:
-        raise ValueError('Unsupported regressor type: {0}'.format(regressor_type))
+        raise ValueError(f"Unsupported regressor type: {regressor_type}")
 
 
-def to_feature_importances(regressor_type,
-                           regressor_kwargs,
-                           trained_regressor):
+def to_feature_importances(regressor_type, regressor_kwargs, trained_regressor):
     """
     Motivation: when the out-of-bag improvement heuristic is used, we cancel the effect of normalization by dividing
     by the number of trees in the regression ensemble by multiplying again by the number of trees used.
@@ -180,8 +180,7 @@ def to_feature_importances(regressor_type,
         return trained_regressor.feature_importances_
 
 
-def to_meta_df(trained_regressor,
-               target_gene_name):
+def to_meta_df(trained_regressor, target_gene_name):
     """
     :param trained_regressor: the trained model from which to extract the meta information.
     :param target_gene_name: the name of the target gene.
@@ -189,14 +188,16 @@ def to_meta_df(trained_regressor,
     """
     n_estimators = len(trained_regressor.estimators_)
 
-    return pd.DataFrame({'target': [target_gene_name], 'n_estimators': [n_estimators]})
+    return pd.DataFrame({"target": [target_gene_name], "n_estimators": [n_estimators]})
 
 
-def to_links_df(regressor_type,
-                regressor_kwargs,
-                trained_regressor,
-                tf_matrix_gene_names,
-                target_gene_name):
+def to_links_df(
+    regressor_type,
+    regressor_kwargs,
+    trained_regressor,
+    tf_matrix_gene_names,
+    target_gene_name,
+):
     """
     :param regressor_type: string. Case insensitive.
     :param regressor_kwargs: dict of key-value pairs that configures the regressor.
@@ -209,26 +210,30 @@ def to_links_df(regressor_type,
 
     def pythonic():
         # feature_importances = trained_regressor.feature_importances_
-        feature_importances = to_feature_importances(regressor_type, regressor_kwargs, trained_regressor)
+        feature_importances = to_feature_importances(
+            regressor_type, regressor_kwargs, trained_regressor
+        )
 
-        links_df = pd.DataFrame({'TF': tf_matrix_gene_names, 'importance': feature_importances})
-        links_df['target'] = target_gene_name
+        links_df = pd.DataFrame(
+            {"TF": tf_matrix_gene_names, "importance": feature_importances}
+        )
+        links_df["target"] = target_gene_name
 
-        clean_links_df = links_df[links_df.importance > 0].sort_values(by='importance', ascending=False)
+        clean_links_df = links_df[links_df.importance > 0].sort_values(
+            by="importance", ascending=False
+        )
 
-        return clean_links_df[['TF', 'target', 'importance']]
+        return clean_links_df[["TF", "target", "importance"]]
 
     if is_sklearn_regressor(regressor_type):
         return pythonic()
     elif is_xgboost_regressor(regressor_type):
-        raise ValueError('XGB regressor not yet supported')
+        raise ValueError("XGB regressor not yet supported")
     else:
-        raise ValueError('Unsupported regressor type: ' + regressor_type)
+        raise ValueError("Unsupported regressor type: " + regressor_type)
 
 
-def clean(tf_matrix,
-          tf_matrix_gene_names,
-          target_gene_name):
+def clean(tf_matrix, tf_matrix_gene_names, target_gene_name):
     """
     :param tf_matrix: numpy array. The full transcription factor matrix.
     :param tf_matrix_gene_names: the full list of transcription factor names, corresponding to the tf_matrix columns.
@@ -242,8 +247,9 @@ def clean(tf_matrix,
     else:
         ix = tf_matrix_gene_names.index(target_gene_name)
         if isinstance(tf_matrix, scipy.sparse.spmatrix):
-            clean_tf_matrix = scipy.sparse.hstack([tf_matrix[:, :ix],
-                                                   tf_matrix[:, ix+1:]])
+            clean_tf_matrix = scipy.sparse.hstack(
+                [tf_matrix[:, :ix], tf_matrix[:, ix + 1 :]]
+            )
         else:
             clean_tf_matrix = np.delete(tf_matrix, ix, 1)
 
@@ -276,8 +282,10 @@ def retry(fn, max_retries=10, warning_msg=None, fallback_result=None):
         except Exception as cause:
             nr_retries += 1
 
-            msg_head = '' if warning_msg is None else repr(warning_msg) + ' '
-            msg_tail = "Retry ({1}/{2}). Failure caused by {0}.".format(repr(cause), nr_retries, max_retries)
+            msg_head = "" if warning_msg is None else repr(warning_msg) + " "
+            msg_tail = (
+                f"Retry ({nr_retries}/{max_retries}). Failure caused by {repr(cause)}."
+            )
 
             logger.warning(msg_head + msg_tail)
         else:
@@ -286,15 +294,17 @@ def retry(fn, max_retries=10, warning_msg=None, fallback_result=None):
     return result
 
 
-def infer_partial_network(regressor_type,
-                          regressor_kwargs,
-                          tf_matrix,
-                          tf_matrix_gene_names,
-                          target_gene_name,
-                          target_gene_expression,
-                          include_meta=False,
-                          early_stop_window_length=EARLY_STOP_WINDOW_LENGTH,
-                          seed=DEMON_SEED):
+def infer_partial_network(
+    regressor_type,
+    regressor_kwargs,
+    tf_matrix,
+    tf_matrix_gene_names,
+    target_gene_name,
+    target_gene_expression,
+    include_meta=False,
+    early_stop_window_length=EARLY_STOP_WINDOW_LENGTH,
+    seed=DEMON_SEED,
+):
     """
     Ties together regressor model training with regulatory links and meta data extraction.
 
@@ -316,22 +326,40 @@ def infer_partial_network(regressor_type,
              meta_df: a Pandas DataFrame['target', 'meta', 'value'] containing meta information regarding the trained
              regression model.
     """
+
     def fn():
-        (clean_tf_matrix, clean_tf_matrix_gene_names) = clean(tf_matrix, tf_matrix_gene_names, target_gene_name)
+        (clean_tf_matrix, clean_tf_matrix_gene_names) = clean(
+            tf_matrix, tf_matrix_gene_names, target_gene_name
+        )
 
         # special case in which only a single TF is passed and the target gene
         # here is the same as the TF (clean_tf_matrix is empty after cleaning):
-        if clean_tf_matrix.size==0:
-            raise ValueError("Cleaned TF matrix is empty, skipping inference of target {}.".format(target_gene_name))
+        if clean_tf_matrix.size == 0:
+            raise ValueError(
+                f"Cleaned TF matrix is empty, skipping inference of target {target_gene_name}."
+            )
 
         try:
-            trained_regressor = fit_model(regressor_type, regressor_kwargs, clean_tf_matrix, target_gene_expression,
-                                          early_stop_window_length, seed)
+            trained_regressor = fit_model(
+                regressor_type,
+                regressor_kwargs,
+                clean_tf_matrix,
+                target_gene_expression,
+                early_stop_window_length,
+                seed,
+            )
         except ValueError as e:
-            raise ValueError("Regression for target gene {0} failed. Cause {1}.".format(target_gene_name, repr(e)))
+            raise ValueError(
+                f"Regression for target gene {target_gene_name} failed. Cause {repr(e)}."
+            )
 
-        links_df = to_links_df(regressor_type, regressor_kwargs, trained_regressor, clean_tf_matrix_gene_names,
-                               target_gene_name)
+        links_df = to_links_df(
+            regressor_type,
+            regressor_kwargs,
+            trained_regressor,
+            clean_tf_matrix_gene_names,
+            target_gene_name,
+        )
 
         if include_meta:
             meta_df = to_meta_df(trained_regressor, target_gene_name)
@@ -342,13 +370,14 @@ def infer_partial_network(regressor_type,
 
     fallback_result = (_GRN_SCHEMA, _META_SCHEMA) if include_meta else _GRN_SCHEMA
 
-    return retry(fn,
-                 fallback_result=fallback_result,
-                 warning_msg='WARNING: infer_data failed for target {0}'.format(target_gene_name))
+    return retry(
+        fn,
+        fallback_result=fallback_result,
+        warning_msg=f"WARNING: infer_data failed for target {target_gene_name}",
+    )
 
 
-def target_gene_indices(gene_names,
-                        target_genes):
+def target_gene_indices(gene_names, target_genes):
     """
     :param gene_names: list of gene names.
     :param target_genes: either int (the top n), 'all', or a collection (subset of gene_names).
@@ -358,7 +387,7 @@ def target_gene_indices(gene_names,
     if isinstance(target_genes, list) and len(target_genes) == 0:
         return []
 
-    if isinstance(target_genes, str) and target_genes.upper() == 'ALL':
+    if isinstance(target_genes, str) and target_genes.upper() == "ALL":
         return list(range(len(gene_names)))
 
     elif isinstance(target_genes, int):
@@ -371,7 +400,9 @@ def target_gene_indices(gene_names,
         if not target_genes:  # target_genes is empty
             return target_genes
         elif all(isinstance(target_gene, str) for target_gene in target_genes):
-            return [index for index, gene in enumerate(gene_names) if gene in target_genes]
+            return [
+                index for index, gene in enumerate(gene_names) if gene in target_genes
+            ]
         elif all(isinstance(target_gene, int) for target_gene in target_genes):
             return target_genes
         else:
@@ -381,22 +412,24 @@ def target_gene_indices(gene_names,
         raise ValueError("Unable to interpret target_genes.")
 
 
-_GRN_SCHEMA = make_meta({'TF': str, 'target': str, 'importance': float})
-_META_SCHEMA = make_meta({'target': str, 'n_estimators': int})
+_GRN_SCHEMA = make_meta({"TF": str, "target": str, "importance": float})
+_META_SCHEMA = make_meta({"target": str, "n_estimators": int})
 
 
-def create_graph(expression_matrix,
-                 gene_names,
-                 tf_names,
-                 regressor_type,
-                 regressor_kwargs,
-                 client,
-                 target_genes='all',
-                 limit=None,
-                 include_meta=False,
-                 early_stop_window_length=EARLY_STOP_WINDOW_LENGTH,
-                 repartition_multiplier=1,
-                 seed=DEMON_SEED):
+def create_graph(
+    expression_matrix,
+    gene_names,
+    tf_names,
+    regressor_type,
+    regressor_kwargs,
+    client,
+    target_genes="all",
+    limit=None,
+    include_meta=False,
+    early_stop_window_length=EARLY_STOP_WINDOW_LENGTH,
+    repartition_multiplier=1,
+    seed=DEMON_SEED,
+):
     """
     Main API function. Create a Dask computation graph.
 
@@ -422,43 +455,65 @@ def create_graph(expression_matrix,
     assert expression_matrix.shape[1] == len(gene_names)
     assert client, "client is required"
 
-    tf_matrix, tf_matrix_gene_names = to_tf_matrix(expression_matrix, gene_names, tf_names)
+    tf_matrix, tf_matrix_gene_names = to_tf_matrix(
+        expression_matrix, gene_names, tf_names
+    )
 
     future_tf_matrix = client.scatter(tf_matrix, broadcast=True)
     # [1] wrap in a list of 1 -> unsure why but Matt. Rocklin does this often...
-    [future_tf_matrix_gene_names] = client.scatter([tf_matrix_gene_names], broadcast=True)
+    [future_tf_matrix_gene_names] = client.scatter(
+        [tf_matrix_gene_names], broadcast=True
+    )
 
     delayed_link_dfs = []  # collection of delayed link DataFrames
     delayed_meta_dfs = []  # collection of delayed meta DataFrame
 
     for target_gene_index in target_gene_indices(gene_names, target_genes):
         target_gene_name = delayed(gene_names[target_gene_index], pure=True)
-        target_gene_expression = delayed(expression_matrix[:, target_gene_index], pure=True)
+        target_gene_expression = delayed(
+            expression_matrix[:, target_gene_index], pure=True
+        )
 
         if include_meta:
-            delayed_link_df, delayed_meta_df = delayed(infer_partial_network, pure=True, nout=2)(
-                regressor_type, regressor_kwargs,
-                future_tf_matrix, future_tf_matrix_gene_names,
-                target_gene_name, target_gene_expression, include_meta, early_stop_window_length, seed)
+            delayed_link_df, delayed_meta_df = delayed(
+                infer_partial_network, pure=True, nout=2
+            )(
+                regressor_type,
+                regressor_kwargs,
+                future_tf_matrix,
+                future_tf_matrix_gene_names,
+                target_gene_name,
+                target_gene_expression,
+                include_meta,
+                early_stop_window_length,
+                seed,
+            )
 
             if delayed_link_df is not None:
                 delayed_link_dfs.append(delayed_link_df)
                 delayed_meta_dfs.append(delayed_meta_df)
         else:
             delayed_link_df = delayed(infer_partial_network, pure=True)(
-                regressor_type, regressor_kwargs,
-                future_tf_matrix, future_tf_matrix_gene_names,
-                target_gene_name, target_gene_expression, include_meta, early_stop_window_length, seed)
+                regressor_type,
+                regressor_kwargs,
+                future_tf_matrix,
+                future_tf_matrix_gene_names,
+                target_gene_name,
+                target_gene_expression,
+                include_meta,
+                early_stop_window_length,
+                seed,
+            )
 
             if delayed_link_df is not None:
                 delayed_link_dfs.append(delayed_link_df)
 
     # gather the DataFrames into one distributed DataFrame
-    all_links_df = from_delayed(delayed_link_dfs, meta=_GRN_SCHEMA)        
+    all_links_df = from_delayed(delayed_link_dfs, meta=_GRN_SCHEMA)
 
     # optionally limit the number of resulting regulatory links, descending by top importance
     if limit:
-        maybe_limited_links_df = all_links_df.nlargest(limit, columns=['importance'])
+        maybe_limited_links_df = all_links_df.nlargest(limit, columns=["importance"])
     else:
         maybe_limited_links_df = all_links_df
 
@@ -468,14 +523,14 @@ def create_graph(expression_matrix,
 
     if include_meta:
         all_meta_df = from_delayed(delayed_meta_dfs, meta=_META_SCHEMA)
-        return maybe_limited_links_df.repartition(npartitions=n_parts), \
-               all_meta_df.repartition(npartitions=n_parts)
+        return maybe_limited_links_df.repartition(
+            npartitions=n_parts
+        ), all_meta_df.repartition(npartitions=n_parts)
     else:
         return maybe_limited_links_df.repartition(npartitions=n_parts)
 
 
 class EarlyStopMonitor:
-
     def __init__(self, window_length=EARLY_STOP_WINDOW_LENGTH):
         """
         :param window_length: length of the window over the out-of-bag errors.
@@ -506,6 +561,6 @@ class EarlyStopMonitor:
 
         if current_round >= self.window_length - 1:
             lo, hi = self.window_boundaries(current_round)
-            return np.mean(regressor.oob_improvement_[lo: hi]) < 0
+            return np.mean(regressor.oob_improvement_[lo:hi]) < 0
         else:
             return False

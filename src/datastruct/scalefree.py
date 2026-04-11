@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.sparse import random as sprand
 
+
 def scalefree(N: int, n: float, *varargin: object) -> "np.ndarray":
     """
     Create a scalefree network with N nodes and specific sparseness with preferential attachment
@@ -46,23 +47,27 @@ def scalefree(N: int, n: float, *varargin: object) -> "np.ndarray":
     if seed is None:
         # Create seed
         seed_size = m0 * 2
-        density = m0 / (m0 ** 2) if m0 > 0 else 0
-        seed_sparse = sprand(seed_size, seed_size - 1, density=density, data_rvs=np.random.randn)
+        density = m0 / (m0**2) if m0 > 0 else 0
+        seed_sparse = sprand(
+            seed_size, seed_size - 1, density=density, data_rvs=np.random.randn
+        )
         seed = np.abs(seed_sparse.toarray()) > 0  # logical
 
         k = 0
         if rank_check:
             while np.linalg.matrix_rank(seed.astype(float)) < min(seed.shape):
-                seed_sparse = sprand(seed_size, seed_size - 1, density=density, data_rvs=np.random.randn)
+                seed_sparse = sprand(
+                    seed_size, seed_size - 1, density=density, data_rvs=np.random.randn
+                )
                 seed = np.abs(seed_sparse.toarray()) > 0
                 seed.flat[np.random.randint(seed.size)] = True
                 k += 1
                 if k % 100 == 0:
-                    print(f'k = {k}')
+                    print(f"k = {k}")
 
         tmp = np.zeros((seed_size, seed_size))
         for i in range(seed_size):
-            tmp[i, i+1:] = seed[i, :seed_size-1-i]
+            tmp[i, i + 1 :] = seed[i, : seed_size - 1 - i]
         for i in range(1, seed_size):
             tmp[i, :i] = seed[i, :i]
         seed = tmp.astype(bool)

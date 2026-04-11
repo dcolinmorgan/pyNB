@@ -5,24 +5,25 @@ Network plots with gene annotations, TF highlighting, and edge weight display.
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
-from typing import Optional, List, Dict, Any
 
 try:
-    import matplotlib.pyplot as plt
     import matplotlib.patches as mpatches
+    import matplotlib.pyplot as plt
 except ImportError:  # pragma: no cover
     plt = None  # type: ignore
 
 
 def plot_grn(
     adjacency: np.ndarray,
-    gene_names: List[str],
-    tf_names: Optional[List[str]] = None,
+    gene_names: list[str],
+    tf_names: list[str] | None = None,
     threshold: float = 0.0,
     title: str = "Gene Regulatory Network",
     figsize: tuple[int, int] = (10, 10),
-    save_path: Optional[str] = None,
+    save_path: str | None = None,
     **kwargs: Any,
 ) -> Any:
     """Plot a gene regulatory network with gene annotations.
@@ -77,7 +78,9 @@ def plot_grn(
     pos = nx.spring_layout(G, seed=42)
 
     # Node colors
-    node_colors = ["#e74c3c" if G.nodes[n].get("is_tf") else "#3498db" for n in G.nodes()]
+    node_colors = [
+        "#e74c3c" if G.nodes[n].get("is_tf") else "#3498db" for n in G.nodes()
+    ]
 
     # Edge widths scaled by weight
     weights = [abs(G[u][v]["weight"]) for u, v in G.edges()]
@@ -104,9 +107,9 @@ def plot_grn(
 
 
 def plot_evaluation_summary(
-    metrics: Dict[str, float],
+    metrics: dict[str, float],
     title: str = "GRN Evaluation",
-    save_path: Optional[str] = None,
+    save_path: str | None = None,
 ) -> Any:
     """Bar plot of evaluation metrics (AUROC, AUPR, F1, MCC).
 
@@ -134,12 +137,19 @@ def plot_evaluation_summary(
     ax.set_ylim(0, 1.05)
     ax.set_ylabel("Score")
     ax.set_title(title)
-    ax.axhline(0.5, color="gray", linestyle="--", linewidth=0.8, label="Random baseline")
+    ax.axhline(
+        0.5, color="gray", linestyle="--", linewidth=0.8, label="Random baseline"
+    )
     ax.legend()
 
     for bar, val in zip(bars, values):
-        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.02,
-                f"{val:.3f}", ha="center", fontsize=9)
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 0.02,
+            f"{val:.3f}",
+            ha="center",
+            fontsize=9,
+        )
 
     if save_path:
         fig.savefig(save_path, dpi=150, bbox_inches="tight")

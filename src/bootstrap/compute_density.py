@@ -5,9 +5,10 @@ Script to compute network density.
 This script is called from the Snakemake workflow.
 """
 
-import pandas as pd
 from pathlib import Path
 from typing import Any
+
+import pandas as pd
 from nb_fdr import NetworkBootstrap
 
 snakemake: Any  # noqa: F841 — injected by Snakemake
@@ -30,16 +31,16 @@ print(f"Computing network density for {input_normal}")
 normal_df = pd.read_csv(input_normal)
 
 # Ensure run column is properly formatted
-if 'run' not in normal_df.columns and 'runs' in normal_df.columns:
-    normal_df.rename(columns={'runs': 'run'}, inplace=True)
+if "run" not in normal_df.columns and "runs" in normal_df.columns:
+    normal_df.rename(columns={"runs": "run"}, inplace=True)
 
 # If run is a string with format like 'run_5', extract the number
-if normal_df['run'].dtype == 'object':
-    normal_df['run'] = normal_df.run.str.extract(r'(\d+)').astype(int)
+if normal_df["run"].dtype == "object":
+    normal_df["run"] = normal_df.run.str.extract(r"(\d+)").astype(int)
 
 # If link_value column has different name, rename it
-if 'link_value' not in normal_df.columns and 'value' in normal_df.columns:
-    normal_df.rename(columns={'value': 'link_value'}, inplace=True)
+if "link_value" not in normal_df.columns and "value" in normal_df.columns:
+    normal_df.rename(columns={"value": "link_value"}, inplace=True)
 
 # Compute network density
 density_df = nb.compute_network_density(normal_df, threshold=threshold)

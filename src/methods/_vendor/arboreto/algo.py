@@ -4,17 +4,20 @@ Top-level functions.
 
 import pandas as pd
 from distributed import Client, LocalCluster
-from arboreto.core import create_graph, SGBM_KWARGS, RF_KWARGS, EARLY_STOP_WINDOW_LENGTH
+
+from arboreto.core import EARLY_STOP_WINDOW_LENGTH, RF_KWARGS, SGBM_KWARGS, create_graph
 
 
-def grnboost2(expression_data,
-              gene_names=None,
-              tf_names='all',
-              client_or_address='local',
-              early_stop_window_length=EARLY_STOP_WINDOW_LENGTH,
-              limit=None,
-              seed=None,
-              verbose=False):
+def grnboost2(
+    expression_data,
+    gene_names=None,
+    tf_names="all",
+    client_or_address="local",
+    early_stop_window_length=EARLY_STOP_WINDOW_LENGTH,
+    limit=None,
+    seed=None,
+    verbose=False,
+):
     """
     Launch arboreto with [GRNBoost2] profile.
 
@@ -36,18 +39,29 @@ def grnboost2(expression_data,
     :return: a pandas DataFrame['TF', 'target', 'importance'] representing the inferred gene regulatory links.
     """
 
-    return diy(expression_data=expression_data, regressor_type='GBM', regressor_kwargs=SGBM_KWARGS,
-               gene_names=gene_names, tf_names=tf_names, client_or_address=client_or_address,
-               early_stop_window_length=early_stop_window_length, limit=limit, seed=seed, verbose=verbose)
+    return diy(
+        expression_data=expression_data,
+        regressor_type="GBM",
+        regressor_kwargs=SGBM_KWARGS,
+        gene_names=gene_names,
+        tf_names=tf_names,
+        client_or_address=client_or_address,
+        early_stop_window_length=early_stop_window_length,
+        limit=limit,
+        seed=seed,
+        verbose=verbose,
+    )
 
 
-def genie3(expression_data,
-           gene_names=None,
-           tf_names='all',
-           client_or_address='local',
-           limit=None,
-           seed=None,
-           verbose=False):
+def genie3(
+    expression_data,
+    gene_names=None,
+    tf_names="all",
+    client_or_address="local",
+    limit=None,
+    seed=None,
+    verbose=False,
+):
     """
     Launch arboreto with [GENIE3] profile.
 
@@ -68,21 +82,31 @@ def genie3(expression_data,
     :return: a pandas DataFrame['TF', 'target', 'importance'] representing the inferred gene regulatory links.
     """
 
-    return diy(expression_data=expression_data, regressor_type='RF', regressor_kwargs=RF_KWARGS,
-               gene_names=gene_names, tf_names=tf_names, client_or_address=client_or_address,
-               limit=limit, seed=seed, verbose=verbose)
+    return diy(
+        expression_data=expression_data,
+        regressor_type="RF",
+        regressor_kwargs=RF_KWARGS,
+        gene_names=gene_names,
+        tf_names=tf_names,
+        client_or_address=client_or_address,
+        limit=limit,
+        seed=seed,
+        verbose=verbose,
+    )
 
 
-def diy(expression_data,
-        regressor_type,
-        regressor_kwargs,
-        gene_names=None,
-        tf_names='all',
-        client_or_address='local',
-        early_stop_window_length=EARLY_STOP_WINDOW_LENGTH,
-        limit=None,
-        seed=None,
-        verbose=False):
+def diy(
+    expression_data,
+    regressor_type,
+    regressor_kwargs,
+    gene_names=None,
+    tf_names="all",
+    client_or_address="local",
+    early_stop_window_length=EARLY_STOP_WINDOW_LENGTH,
+    limit=None,
+    seed=None,
+    verbose=False,
+):
     """
     :param expression_data: one of:
            * a pandas DataFrame (rows=observations, columns=genes)
@@ -104,42 +128,46 @@ def diy(expression_data,
     :return: a pandas DataFrame['TF', 'target', 'importance'] representing the inferred gene regulatory links.
     """
     if verbose:
-        print('preparing dask client')
+        print("preparing dask client")
 
     client, shutdown_callback = _prepare_client(client_or_address)
 
     try:
         if verbose:
-            print('parsing input')
+            print("parsing input")
 
-        expression_matrix, gene_names, tf_names = _prepare_input(expression_data, gene_names, tf_names)
-
-        if verbose:
-            print('creating dask graph')
-
-        graph = create_graph(expression_matrix,
-                             gene_names,
-                             tf_names,
-                             client=client,
-                             regressor_type=regressor_type,
-                             regressor_kwargs=regressor_kwargs,
-                             early_stop_window_length=early_stop_window_length,
-                             limit=limit,
-                             seed=seed)
+        expression_matrix, gene_names, tf_names = _prepare_input(
+            expression_data, gene_names, tf_names
+        )
 
         if verbose:
-            print('{} partitions'.format(graph.npartitions))
-            print('computing dask graph')
+            print("creating dask graph")
 
-        return client \
-            .compute(graph, sync=True) \
-            .sort_values(by='importance', ascending=False)
+        graph = create_graph(
+            expression_matrix,
+            gene_names,
+            tf_names,
+            client=client,
+            regressor_type=regressor_type,
+            regressor_kwargs=regressor_kwargs,
+            early_stop_window_length=early_stop_window_length,
+            limit=limit,
+            seed=seed,
+        )
+
+        if verbose:
+            print(f"{graph.npartitions} partitions")
+            print("computing dask graph")
+
+        return client.compute(graph, sync=True).sort_values(
+            by="importance", ascending=False
+        )
 
     finally:
         shutdown_callback(verbose)
 
         if verbose:
-            print('finished')
+            print("finished")
 
 
 def _prepare_client(client_or_address):
@@ -153,25 +181,25 @@ def _prepare_client(client_or_address):
     :raises: ValueError if no valid client input was provided.
     """
 
-    if client_or_address is None or str(client_or_address).lower() == 'local':
+    if client_or_address is None or str(client_or_address).lower() == "local":
         local_cluster = LocalCluster(diagnostics_port=None)
         client = Client(local_cluster)
 
         def close_client_and_local_cluster(verbose=False):
             if verbose:
-                print('shutting down client and local cluster')
+                print("shutting down client and local cluster")
 
             client.close()
             local_cluster.close()
 
         return client, close_client_and_local_cluster
 
-    elif isinstance(client_or_address, str) and client_or_address.lower() != 'local':
+    elif isinstance(client_or_address, str) and client_or_address.lower() != "local":
         client = Client(client_or_address)
 
         def close_client(verbose=False):
             if verbose:
-                print('shutting down client')
+                print("shutting down client")
 
             client.close()
 
@@ -181,19 +209,17 @@ def _prepare_client(client_or_address):
 
         def close_dummy(verbose=False):
             if verbose:
-                print('not shutting down client, client was created externally')
+                print("not shutting down client, client was created externally")
 
             return None
 
         return client_or_address, close_dummy
 
     else:
-        raise ValueError("Invalid client specified {}".format(str(client_or_address)))
+        raise ValueError(f"Invalid client specified {str(client_or_address)}")
 
 
-def _prepare_input(expression_data,
-                   gene_names,
-                   tf_names):
+def _prepare_input(expression_data, gene_names, tf_names):
     """
     Wrangle the inputs into the correct formats.
 
@@ -219,13 +245,13 @@ def _prepare_input(expression_data,
 
     if tf_names is None:
         tf_names = gene_names
-    elif tf_names == 'all':
+    elif tf_names == "all":
         tf_names = gene_names
     else:
         if len(tf_names) == 0:
-            raise ValueError('Specified tf_names is empty')
+            raise ValueError("Specified tf_names is empty")
 
         if not set(gene_names).intersection(set(tf_names)):
-            raise ValueError('Intersection of gene_names and tf_names is empty.')
+            raise ValueError("Intersection of gene_names and tf_names is empty.")
 
     return expression_matrix, gene_names, tf_names

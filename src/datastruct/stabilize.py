@@ -1,5 +1,6 @@
-import numpy as np
 import cvxpy as cp
+import numpy as np
+
 
 def stabilize(Atilde: "np.ndarray", **kwargs: object) -> "np.ndarray":
     """
@@ -20,13 +21,13 @@ def stabilize(Atilde: "np.ndarray", **kwargs: object) -> "np.ndarray":
     This function was designed for ~10-50 gene GRNs.
     """
     # Default options
-    iaa = kwargs.get('iaa', 'low')
-    sign = kwargs.get('sign', False)
+    iaa = kwargs.get("iaa", "low")
+    sign = kwargs.get("sign", False)
 
-    if iaa == 'low':  # always low
+    if iaa == "low":  # always low
         Epsilon = -0.01
         Gamma = -10
-    elif iaa == 'high':  # mix of high and low (no guarantee to have all high)
+    elif iaa == "high":  # mix of high and low (no guarantee to have all high)
         Epsilon = -0.01
         Gamma = -100
         Atilde = 10 * Atilde
@@ -35,7 +36,7 @@ def stabilize(Atilde: "np.ndarray", **kwargs: object) -> "np.ndarray":
     tol = 1e-4
     S = np.abs(Atilde) < tol
     n = Atilde.shape[0]
-    I = np.eye(n)
+    eye = np.eye(n)
     Psi = Gamma * 0.9
     Shi = Epsilon * 1.1
 
@@ -45,25 +46,22 @@ def stabilize(Atilde: "np.ndarray", **kwargs: object) -> "np.ndarray":
     e = cp.Variable()
 
     constraints = [
-        g * I <= (Atilde + D) + (Atilde + D).T,
-        (Atilde + D) + (Atilde + D).T <= e * I,
+        g * eye <= (Atilde + D) + (Atilde + D).T,
+        (Atilde + D) + (Atilde + D).T <= e * eye,
         Gamma <= g,
         g <= Psi,
         Shi <= e,
         e <= Epsilon,
-        D[S] == 0
+        D[S] == 0,
     ]
 
     if sign:
         Neg = Atilde < -tol
         Pos = Atilde > tol
         Atmp = Atilde + D
-        constraints.extend([
-            Atmp[Pos] >= 0,
-            Atmp[Neg] <= 0
-        ])
+        constraints.extend([Atmp[Pos] >= 0, Atmp[Neg] <= 0])
 
-    prob = cp.Problem(cp.Minimize(cp.norm(D, 'fro')), constraints)
+    prob = cp.Problem(cp.Minimize(cp.norm(D, "fro")), constraints)
     try:
         prob.solve(solver=cp.SCS, verbose=False)
         if prob.status not in ["optimal", "optimal_inaccurate"]:

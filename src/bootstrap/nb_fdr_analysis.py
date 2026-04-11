@@ -5,9 +5,10 @@ Script to run NB-FDR analysis.
 This script is called from the Snakemake workflow.
 """
 
-import pandas as pd
 from pathlib import Path
 from typing import Any
+
+import pandas as pd
 from nb_fdr import NetworkBootstrap
 
 snakemake: Any  # noqa: F841 — injected by Snakemake
@@ -35,13 +36,13 @@ normal_df = pd.read_csv(input_normal)
 shuffled_df = pd.read_csv(input_shuffled)
 
 # Rename columns to match expected format for nb_fdr
-for df, suffix in [(normal_df, '_norm'), (shuffled_df, '_shuf')]:
+for df, suffix in [(normal_df, "_norm"), (shuffled_df, "_shuf")]:
     for col in df.columns:
-        if col not in ['gene_i', 'gene_j']:
+        if col not in ["gene_i", "gene_j"]:
             df.rename(columns={col: f"{col}{suffix}"}, inplace=True)
 
 # Merge datasets
-merged = pd.merge(normal_df, shuffled_df, on=['gene_i', 'gene_j'])
+merged = pd.merge(normal_df, shuffled_df, on=["gene_i", "gene_j"])
 
 # Run NB-FDR analysis
 data_dir = Path(output_results).parent
@@ -51,19 +52,14 @@ results = nb.nb_fdr(
     init=init,
     data_dir=data_dir,
     fdr=fdr,
-    boot=boot
+    boot=boot,
 )
 
 # Export results to text file
 nb.export_results(results, output_results)
 
 # Save network as CSV
-network_df = pd.DataFrame({
-    'gene_i': [],
-    'gene_j': [],
-    'weight': [],
-    'sign': []
-})
+network_df = pd.DataFrame({"gene_i": [], "gene_j": [], "weight": [], "sign": []})
 
 # TODO: Populate network_df from results
 network_df.to_csv(output_network, index=False)

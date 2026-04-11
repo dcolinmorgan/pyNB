@@ -1,18 +1,19 @@
+import networkx as nx
 import numpy as np
 from numpy import linalg
-import networkx as nx
-from typing import Optional, Tuple, Union, List
-from datastruct.Network import Network
+
 from analyze.DataModel import DataModel
+from datastruct.Network import Network
+
 
 class Model(DataModel):
     """Analyzes structural properties of a Network."""
-    
-    def __init__(self, network: Network, tol: Optional[float] = None) -> None:
+
+    def __init__(self, network: Network, tol: float | None = None) -> None:
         super().__init__(network)
         self._network_id: str = network.network
         self._tol: float = tol if tol is not None else np.finfo(float).eps
-        
+
         # Initialize properties
         self._interampatteness: float = 0.0
         self._networkComponents: int = 0
@@ -22,7 +23,7 @@ class Model(DataModel):
         self._CC: float = 0.0
         self._DD: float = 0.0
         self._proximity_ratio: float = 0.0
-        
+
         self._analyze()
 
     def _analyze(self) -> None:
@@ -30,15 +31,24 @@ class Model(DataModel):
         net = self._data
         if net is None or net.A is None:
             return
-            
+
         A = self._get_matrix(net)
         # Create graph
         # Use abs(sign(A)) to get unweighted connections
-        G = nx.from_numpy_array(np.abs(np.sign(A)), create_using=nx.DiGraph if self.type() == 'directed' else nx.Graph)
-        
+        G = nx.from_numpy_array(
+            np.abs(np.sign(A)),
+            create_using=nx.DiGraph if self.type() == "directed" else nx.Graph,
+        )
+
         self._interampatteness = linalg.cond(A)
-        self._networkComponents = nx.number_strongly_connected_components(G) if self.type() == 'directed' else nx.number_connected_components(G)
-        self._medianPathLength, self._meanPathLength = self._calc_path_lengths(G, A.shape[0])
+        self._networkComponents = (
+            nx.number_strongly_connected_components(G)
+            if self.type() == "directed"
+            else nx.number_connected_components(G)
+        )
+        self._medianPathLength, self._meanPathLength = self._calc_path_lengths(
+            G, A.shape[0]
+        )
         self._tauG = self._calc_time_constant(net)
         self._CC = float(np.nanmean(self._calc_clustering(A, G)))
         self._DD = float(np.mean(self._calc_degree(A)))
@@ -50,12 +60,19 @@ class Model(DataModel):
             return net.G
         return net.A if net.A is not None else np.array([])
 
-    def _calc_path_lengths(self, G: nx.Graph, n: int) -> Tuple[float, float]:
+    def _calc_path_lengths(self, G: nx.Graph, n: int) -> tuple[float, float]:
         """Compute median and mean path lengths."""
         try:
             lengths = dict(nx.all_pairs_shortest_path_length(G))
-            pl = [lengths[i][j] for i in range(n) for j in range(n) if i != j and j in lengths[i]]
-            return float(np.median(pl)) if pl else np.inf, float(np.mean(pl)) if pl else np.inf
+            pl = [
+                lengths[i][j]
+                for i in range(n)
+                for j in range(n)
+                if i != j and j in lengths[i]
+            ]
+            return float(np.median(pl)) if pl else np.inf, float(
+                np.mean(pl)
+            ) if pl else np.inf
         except Exception:
             return np.inf, np.inf
 
@@ -79,19 +96,19 @@ class Model(DataModel):
         """Compute clustering coefficient."""
         A = A.copy()
         np.fill_diagonal(A, 0)
-        if self.type() == 'directed':
-             # Custom directed clustering calculation from original code
-             n = A.shape[0]
-             res = []
-             for i in range(n):
-                 neighbors = np.where(A[:, i])[0]
-                 k = np.sum(A[:, i])
-                 if k > 1:
-                     sub_A = A[neighbors][:, neighbors]
-                     res.append(np.sum(sub_A) / (k * (k - 1)))
-                 else:
-                     res.append(0.0)
-             return np.array(res)
+        if self.type() == "directed":
+            # Custom directed clustering calculation from original code
+            n = A.shape[0]
+            res = []
+            for i in range(n):
+                neighbors = np.where(A[:, i])[0]
+                k = np.sum(A[:, i])
+                if k > 1:
+                    sub_A = A[neighbors][:, neighbors]
+                    res.append(np.sum(sub_A) / (k * (k - 1)))
+                else:
+                    res.append(0.0)
+            return np.array(res)
         return np.array(list(nx.clustering(G).values()))
 
     def _calc_degree(self, A: np.ndarray) -> np.ndarray:
@@ -99,7 +116,9 @@ class Model(DataModel):
         A = A.copy()
         np.fill_diagonal(A, 0)
         A = A.astype(bool)
-        result: np.ndarray = np.sum(A, axis=1) if self.type() == 'directed' else np.sum(A | A.T, axis=1)
+        result: np.ndarray = (
+            np.sum(A, axis=1) if self.type() == "directed" else np.sum(A | A.T, axis=1)
+        )
         return result
 
     def _calc_proximity_ratio(self, A: np.ndarray, G: nx.Graph) -> float:

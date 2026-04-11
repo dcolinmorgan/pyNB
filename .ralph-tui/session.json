@@ -3,10 +3,10 @@
   "sessionId": "76a8aec7-dcad-4394-b827-e558e0cead7c",
   "status": "running",
   "startedAt": "2026-04-11T12:26:16.060Z",
-  "updatedAt": "2026-04-11T15:20:26.968Z",
-  "currentIteration": 11,
+  "updatedAt": "2026-04-11T15:24:35.088Z",
+  "currentIteration": 12,
   "maxIterations": 20,
-  "tasksCompleted": 11,
+  "tasksCompleted": 12,
   "isPaused": false,
   "agentPlugin": "kiro",
   "trackerState": {
@@ -77,8 +77,8 @@
       {
         "id": "US-011",
         "title": "Add type annotations (mypy strict)",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-012",
@@ -234,6 +234,16 @@
       "durationMs": 155955,
       "startedAt": "2026-04-11T14:56:16.759Z",
       "endedAt": "2026-04-11T14:58:52.714Z"
+    },
+    {
+      "iteration": 12,
+      "status": "completed",
+      "taskId": "US-011",
+      "taskTitle": "Add type annotations (mypy strict)",
+      "taskCompleted": true,
+      "durationMs": 1293108,
+      "startedAt": "2026-04-11T14:58:53.859Z",
+      "endedAt": "2026-04-11T15:20:26.967Z"
     }
   ],
   "skippedTaskIds": [],

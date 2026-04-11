@@ -1,36 +1,41 @@
-import numpy as np
 import os
 from datetime import datetime
 from math import floor
+from typing import Any, Union
+
+import numpy as np
 import requests
-from typing import Optional, Dict, Any, List, Union
+
 from .Exchange import Exchange
+
 
 class Network(Exchange):
     """Stores a network matrix A and calculates important network properties."""
-    
-    def __init__(self, A: Optional[np.ndarray] = None, network_type: str = 'unknown') -> None:
+
+    def __init__(
+        self, A: np.ndarray | None = None, network_type: str = "unknown"
+    ) -> None:
         super().__init__()
-        self._A: Optional[np.ndarray] = None
-        self._G: Optional[np.ndarray] = None  # Static gain model
-        self._network: str = ''
-        self._names: List[str] = []
-        self.description: str = ''
+        self._A: np.ndarray | None = None
+        self._G: np.ndarray | None = None  # Static gain model
+        self._network: str = ""
+        self._names: list[str] = []
+        self.description: str = ""
         self.tol: float = np.finfo(float).eps
-        self.created: Dict[str, Any] = {
-            'creator': os.getenv('USER') or os.getenv('USERNAME') or '',
-            'time': datetime.now(),
-            'id': '',
-            'nodes': '',
-            'type': network_type,
-            'sparsity': ''
+        self.created: dict[str, Any] = {
+            "creator": os.getenv("USER") or os.getenv("USERNAME") or "",
+            "time": datetime.now(),
+            "id": "",
+            "nodes": "",
+            "type": network_type,
+            "sparsity": "",
         }
-        
+
         if A is not None:
             self.setA(A)
             self.setname()
-    
-    def setA(self, A: Union[np.ndarray, List[Any]]) -> None:
+
+    def setA(self, A: np.ndarray | list[Any]) -> None:
         """Set the adjacency matrix and compute derived properties."""
         if not isinstance(A, np.ndarray):
             A = np.array(A)
@@ -39,113 +44,113 @@ class Network(Exchange):
         # Use float type for calculation
         A_float = A.astype(float)
         self._G = -np.linalg.pinv(A_float)
-        
+
         cond_val = np.linalg.cond(A_float)
         if np.any(np.isinf(cond_val)) or np.any(np.isnan(cond_val)):
-            id_val = 'inf'
+            id_val = "inf"
         else:
             if isinstance(cond_val, np.ndarray):
                 val = float(np.mean(cond_val))
             else:
                 val = float(cond_val)
             id_val = str(round(val * 10000))
-            
-        self.created['id'] = id_val
-        self.created['nodes'] = str(A.shape[0])
-        self.created['sparsity'] = str(np.count_nonzero(A))
-    
+
+        self.created["id"] = id_val
+        self.created["nodes"] = str(A.shape[0])
+        self.created["sparsity"] = str(np.count_nonzero(A))
+
     @classmethod
-    def from_json_url(cls, url: str) -> 'Network':
+    def from_json_url(cls, url: str) -> "Network":
         """Create a Network instance from a JSON file at the given URL."""
         response = requests.get(url)
         response.raise_for_status()
         data = response.json()
-        
-        if 'obj_data' in data:
-            obj = data['obj_data']
+
+        if "obj_data" in data:
+            obj = data["obj_data"]
         else:
             obj = data
 
         network = cls()
-        if 'A' in obj:
-            network.setA(np.array(obj['A']))
-        
-        if 'names' in obj:
-            network.names = obj['names']
-            
-        if 'network' in obj:
-            network.network = obj['network']
-            
+        if "A" in obj:
+            network.setA(np.array(obj["A"]))
+
+        if "names" in obj:
+            network.names = obj["names"]
+
+        if "network" in obj:
+            network.network = obj["network"]
+
         return network
 
-    def setname(self, namestruct: Optional[Dict[str, Any]] = None) -> None:
+    def setname(self, namestruct: dict[str, Any] | None = None) -> None:
         """Set the network name based on created properties."""
         if namestruct is None:
             namestruct = self.created
         elif not isinstance(namestruct, dict):
-            raise ValueError('Input must be a dict')
-        
+            raise ValueError("Input must be a dict")
+
         # Update created with namestruct
         for key, value in namestruct.items():
             if key in self.created:
                 self.created[key] = value
-        
+
         namer = self.created
         # Handle potential missing keys or non-string values safely
-        creator = namer.get('creator', '')
-        net_type = namer.get('type', 'unknown')
-        nodes = namer.get('nodes', '0')
+        creator = namer.get("creator", "")
+        net_type = namer.get("type", "unknown")
+        nodes = namer.get("nodes", "0")
         # Recalculate sparsity if A is set, else use stored
         links = np.count_nonzero(self._A) if self._A is not None else 0
-        net_id = namer.get('id', '')
-        
-        time_str = datetime.now().strftime('%Y%m%d')
+        net_id = namer.get("id", "")
+
+        time_str = datetime.now().strftime("%Y%m%d")
         self._network = f"{creator}-D{time_str}-{net_type}-N{nodes}-L{links}-ID{net_id}"
-    
+
     @property
-    def A(self) -> Optional[np.ndarray]:
+    def A(self) -> np.ndarray | None:
         return self._A
-    
+
     @A.setter
     def A(self, value: np.ndarray) -> None:
         self.setA(value)
-    
+
     @property
-    def G(self) -> Optional[np.ndarray]:
+    def G(self) -> np.ndarray | None:
         return self._G
-    
+
     @property
     def network(self) -> str:
         return self._network
-    
+
     @network.setter
     def network(self, value: str) -> None:
         self._network = value
-    
+
     @property
     def N(self) -> int:
         """Number of nodes."""
         return self._A.shape[0] if self._A is not None else 0
-    
+
     @property
-    def names(self) -> List[str]:
+    def names(self) -> list[str]:
         """Node names, generates defaults if empty."""
         if not self._names and self.N > 0:
             # Generate default names G01, G02, ...
             digits = floor(np.log10(self.N)) + 1 if self.N > 0 else 1
-            self._names = [f"G{i+1:0{digits}d}" for i in range(self.N)]
+            self._names = [f"G{i + 1:0{digits}d}" for i in range(self.N)]
         return self._names
-    
+
     @names.setter
-    def names(self, value: List[str]) -> None:
+    def names(self, value: list[str]) -> None:
         self._names = value
-    
+
     def show(self) -> None:
         """Display network matrix and properties (text-based approximation)."""
         if self._A is None:
             print("No network matrix to display")
             return
-        
+
         print("Network Matrix:")
         print(self._A)
         print("\nNetwork Properties:")
@@ -155,7 +160,7 @@ class Network(Exchange):
             print(f"Sparseness: {np.count_nonzero(self._A) / self._A.size:.4f}")
         print(f"# Nodes: {self._A.shape[0]}")
         print(f"# Links: {np.count_nonzero(self._A)}")
-    
+
     def view(self) -> None:
         """Graphical network view."""
         if self._A is None:
@@ -164,8 +169,9 @@ class Network(Exchange):
 
         # Try Graphistry first
         try:
-            import graphistry
-            # Check if API key is set or public mode is okay? 
+            import graphistry  # noqa: F401
+
+            # Check if API key is set or public mode is okay?
             # Graphistry usually requires an account or runs in local mode if configured.
             # We'll just try calling it.
             print("Opening Graphistry visualization...")
@@ -173,111 +179,120 @@ class Network(Exchange):
             return
         except ImportError:
             pass
-            
+
         # Fallback to NetworkX + Matplotlib
         try:
-            import networkx as nx
             import matplotlib.pyplot as plt
-            
+            import networkx as nx
+
             print("Plotting with NetworkX/Matplotlib...")
             G = self.to_networkx()
-            
+
             # Use circular layout for small, spring for large
             if self.N < 20:
                 pos = nx.circular_layout(G)
             else:
                 pos = nx.spring_layout(G, seed=42)
-                
+
             plt.figure(figsize=(10, 8))
-            
+
             # Draw nodes
-            nx.draw_networkx_nodes(G, pos, node_color='lightblue', node_size=500)
+            nx.draw_networkx_nodes(G, pos, node_color="lightblue", node_size=500)
             nx.draw_networkx_labels(G, pos, font_size=10)
-            
+
             # Draw edges with varying width based on weight magnitude
-            weights = [G[u][v]['weight'] for u, v in G.edges()]
+            weights = [G[u][v]["weight"] for u, v in G.edges()]
             # Normalize weights for width
             if weights:
                 max_w = max(abs(w) for w in weights)
-                widths: object = [1 + 2 * abs(w)/max_w for w in weights]
-                edge_colors: object = ['red' if w < 0 else 'blue' for w in weights]
+                widths: object = [1 + 2 * abs(w) / max_w for w in weights]
+                edge_colors: object = ["red" if w < 0 else "blue" for w in weights]
             else:
                 widths = 1.0
-                edge_colors = 'black'
-                
-            nx.draw_networkx_edges(G, pos, width=widths, edge_color=edge_colors, 
-                                 arrowsize=20, arrowstyle='->')
-            
+                edge_colors = "black"
+
+            nx.draw_networkx_edges(
+                G,
+                pos,
+                width=widths,
+                edge_color=edge_colors,
+                arrowsize=20,
+                arrowstyle="->",
+            )
+
             plt.title(f"Network: {self.network}")
-            plt.axis('off')
+            plt.axis("off")
             plt.show()
-            
+
         except ImportError:
             print("Network visualization requires networkx and matplotlib.")
             print("For interactive viz, install graphistry.")
 
     def to_networkx(self) -> Any:
         """Convert to NetworkX DiGraph.
-        
+
         Returns:
             nx.DiGraph: NetworkX directed graph where edges represent A[i,j] (j -> i).
         """
         import networkx as nx
+
         if self._A is None:
             return nx.DiGraph()
-        
+
         # A[i, j] is effect of j on i. NetworkX expects A[u, v] to be u -> v.
         # So we transpose A to get Source x Target format.
         G = nx.from_numpy_array(self._A.T, create_using=nx.DiGraph)
-        
+
         # Relabel nodes with names
         mapping = {i: name for i, name in enumerate(self.names)}
         G = nx.relabel_nodes(G, mapping)
-        
+
         return G
 
     def to_graph_tool(self) -> Any:
         """Convert to graph-tool Graph.
-        
+
         Returns:
             gt.Graph: Graph-tool graph object.
         """
         try:
             import graph_tool.all as gt
         except ImportError:
-            raise ImportError("graph-tool is not installed. Please install it to use this feature.")
-            
+            raise ImportError(
+                "graph-tool is not installed. Please install it to use this feature."
+            )
+
         if self._A is None:
             return gt.Graph()
-            
+
         g = gt.Graph(directed=True)
         # Add vertices
         vlist = list(g.add_vertex(self.N))
-        
+
         # Add property for names
         v_name = g.new_vertex_property("string")
         for i, v in enumerate(vlist):
             v_name[v] = self.names[i]
         g.vertex_properties["name"] = v_name
-        
+
         # Add edges
         # A[i, j] is effect of j on i (j -> i)
         rows, cols = np.nonzero(self._A)
         # rows are targets (i), cols are sources (j)
-        
+
         # Add property for weights
         e_weight = g.new_edge_property("double")
-        
+
         for i, j in zip(rows, cols):
             e = g.add_edge(vlist[j], vlist[i])
             e_weight[e] = self._A[i, j]
-            
+
         g.edge_properties["weight"] = e_weight
         return g
 
     def to_graphistry(self) -> Any:
         """Convert to Graphistry Plotter object.
-        
+
         Returns:
             graphistry.Plotter: Graphistry object bound with edges.
         """
@@ -285,42 +300,46 @@ class Network(Exchange):
             import graphistry
             import pandas as pd
         except ImportError:
-            raise ImportError("graphistry or pandas is not installed. Please install them to use this feature.")
-            
+            raise ImportError(
+                "graphistry or pandas is not installed. Please install them to use this feature."
+            )
+
         if self._A is None:
             return None
-            
+
         # Create edge list DataFrame
         rows, cols = np.nonzero(self._A)
         # rows=target, cols=source
-        
+
         edges = []
         for i, j in zip(rows, cols):
-            edges.append({
-                'source': self.names[j],
-                'target': self.names[i],
-                'weight': self._A[i, j],
-                'abs_weight': abs(self._A[i, j]),
-                'sign': 'repressor' if self._A[i, j] < 0 else 'activator'
-            })
-            
+            edges.append(
+                {
+                    "source": self.names[j],
+                    "target": self.names[i],
+                    "weight": self._A[i, j],
+                    "abs_weight": abs(self._A[i, j]),
+                    "sign": "repressor" if self._A[i, j] < 0 else "activator",
+                }
+            )
+
         df = pd.DataFrame(edges)
-        
+
         if df.empty:
-            return graphistry.bind(source='source', destination='target')
-            
+            return graphistry.bind(source="source", destination="target")
+
         # Bind
-        g = graphistry.bind(source='source', destination='target')
+        g = graphistry.bind(source="source", destination="target")
         g = g.edges(df)
-        
+
         return g
 
     def plot_graphistry(self, **kwargs: Any) -> Any:
         """Plot using Graphistry.
-        
+
         Args:
             **kwargs: Arguments passed to graphistry.bind().plot()
-            
+
         Returns:
             The graphistry plot object (iframe or url).
         """
@@ -328,56 +347,56 @@ class Network(Exchange):
         if g is None:
             print("No network to plot")
             return
-            
+
         return g.plot(**kwargs)
-    
+
     def sign(self) -> np.ndarray:
         """Return sign of adjacency matrix."""
         if self._A is None:
             raise ValueError("Network matrix not set")
         result: np.ndarray = np.sign(self._A)
         return result
-    
+
     def logical(self) -> np.ndarray:
         """Return logical (boolean) version of adjacency matrix."""
         if self._A is None:
             raise ValueError("Network matrix not set")
         result: np.ndarray = self._A.astype(bool)
         return result
-    
-    def size(self, dim: Optional[int] = None) -> Union[tuple[int, ...], int]:
+
+    def size(self, dim: int | None = None) -> tuple[int, ...] | int:
         """Return size of adjacency matrix."""
         if self._A is None:
             raise ValueError("Network matrix not set")
         if dim is not None:
             if dim < 1 or dim > self._A.ndim:
-                 raise ValueError(f"Dimension {dim} out of bounds")
+                raise ValueError(f"Dimension {dim} out of bounds")
             return int(self._A.shape[dim - 1])
         return self._A.shape
-    
+
     def nnz(self) -> int:
         """Number of non-zero elements."""
         if self._A is None:
             return 0
         return int(np.count_nonzero(self._A))
-    
+
     def svd(self) -> np.ndarray:
         """Singular values of the network matrix."""
         if self._A is None:
             raise ValueError("Network matrix not set")
         result: np.ndarray = np.linalg.svd(self._A.astype(float), compute_uv=False)
         return result
-    
+
     def __matmul__(self, p: np.ndarray) -> np.ndarray:
         """Matrix multiplication for perturbation response: net @ p"""
         if self._G is None:
-             raise ValueError("G matrix not calculated")
+            raise ValueError("G matrix not calculated")
         if p.ndim == 1:
             p = p.reshape(-1, 1)
         result: np.ndarray = self._G @ p
         return result
-    
-    def populate(self, source: Union['Network', np.ndarray, Dict[str, Any]]) -> None:
+
+    def populate(self, source: Union["Network", np.ndarray, dict[str, Any]]) -> None:
         """Populate from another Network, matrix, or dict."""
         if isinstance(source, Network):
             self._A = source._A.copy() if source._A is not None else None
@@ -397,47 +416,47 @@ class Network(Exchange):
                     setattr(self, f"_{key}", value)
         else:
             raise ValueError("Source must be Network, ndarray, or dict")
-    
+
     def save(self, *args: Any) -> None:
         """Save the network (calls parent save)."""
         super().save(*args)
-    
+
     @staticmethod
     def load(*args: Any) -> Any:
         """Load network (calls parent load)."""
         return Exchange.load(*args)
-    
+
     @staticmethod
-    def fetch(url_or_name: Optional[str] = None, **kwargs: Any) -> Any:  # type: ignore[override]
+    def fetch(url_or_name: str | None = None, **kwargs: Any) -> Any:  # type: ignore[override]
         """Fetch network from URL or repository.
-        
+
         Args:
             url_or_name: URL or network name
             **kwargs: Options like baseurl, version, type, N, etc.
         """
         options = {
-            'directurl': '',
-            'baseurl': 'https://bitbucket.org/sonnhammergrni/gs-networks/raw/',
-            'version': 'master',
-            'type': 'random',
-            'N': 10,
-            'name': '',
-            'filelist': False,
-            'filetype': ''
+            "directurl": "",
+            "baseurl": "https://bitbucket.org/sonnhammergrni/gs-networks/raw/",
+            "version": "master",
+            "type": "random",
+            "N": 10,
+            "name": "",
+            "filelist": False,
+            "filetype": "",
         }
         options.update(kwargs)
-        
+
         if url_or_name is None:
             # Default case
-            default_file = 'Nordling-D20100302-random-N10-L25-ID1446937.json'
+            default_file = "Nordling-D20100302-random-N10-L25-ID1446937.json"
             obj_data = Exchange.fetch(options, default_file)
         else:
             obj_data = Exchange.fetch(options, url_or_name)
-        
+
         # Unwrap obj_data if present
-        if isinstance(obj_data, dict) and 'obj_data' in obj_data:
-            obj_data = obj_data['obj_data']
-        
+        if isinstance(obj_data, dict) and "obj_data" in obj_data:
+            obj_data = obj_data["obj_data"]
+
         if isinstance(obj_data, list):
             return obj_data
         else:

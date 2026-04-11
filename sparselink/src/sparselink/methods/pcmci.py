@@ -21,9 +21,7 @@ class PCMCIMethod(InferenceMethod):
 
     name = "pcmci"
 
-    def __init__(
-        self, max_lag: int = 1, threshold: float = 0.0, **kwargs: Any
-    ) -> None:
+    def __init__(self, max_lag: int = 1, threshold: float = 0.0, **kwargs: Any) -> None:
         super().__init__(max_lag=max_lag, threshold=threshold, **kwargs)
         self.max_lag = max_lag
         self.threshold = threshold
@@ -45,9 +43,7 @@ class PCMCIMethod(InferenceMethod):
             X_past = X_arr[: T - lag]
             X_future = X_arr[lag:]
             # Partial correlation between future_j and past_i conditioned on past
-            cov_full = np.cov(
-                np.hstack([X_future, X_past]), rowvar=False
-            )
+            cov_full = np.cov(np.hstack([X_future, X_past]), rowvar=False)
             try:
                 prec = np.linalg.inv(cov_full)
             except np.linalg.LinAlgError:

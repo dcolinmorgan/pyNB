@@ -68,3 +68,20 @@ follow_imports = "skip"
 
 [tool.ruff]
 target-version = "py311"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "W"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/bootstrap/compute_density.py" = ["F821"]
+"src/bootstrap/generate_plots.py" = ["F821"]
+"src/bootstrap/nb_fdr_analysis.py" = ["F821"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["methods", "datastruct", "analyze", "bootstrap", "bio"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

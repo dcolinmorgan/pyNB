@@ -221,3 +221,25 @@ after each iteration and it's included in prompts for context.
   - numpy operations like `np.sign()`, `np.sum()` return `Any` in strict mode — assign to typed variable first
   - `mypy_path` in pyproject.toml accepts list format: `["src", "sparselink/src"]`
 ---
+
+
+## 2026-04-11 - US-012
+- What was implemented: Configured ruff for linting (replaces flake8 + isort + pyupgrade) and formatting (black-compatible) in both pyGS and sparselink. Added pre-commit hooks config. Fixed all lint errors so both packages pass cleanly.
+- Files changed:
+  - `pyproject.toml` - Added `[tool.ruff.lint]`, `[tool.ruff.lint.per-file-ignores]`, `[tool.ruff.lint.isort]`, `[tool.ruff.format]` sections
+  - `sparselink/pyproject.toml` - Added `[tool.ruff.lint]`, `[tool.ruff.lint.isort]`, `[tool.ruff.format]` sections
+  - `.pre-commit-config.yaml` - Created with ruff lint (--fix) and ruff-format hooks
+  - `src/__init__.py` - Fixed trailing whitespace in docstring
+  - `src/datastruct/Network.py` - Added noqa for graphistry availability import
+  - `src/datastruct/stabilize.py` - Renamed ambiguous variable `I` to `eye`
+  - `src/methods/nestboot.py` - Removed unused variables (eps, current_fdr, found, fp, curr_orig_index, param_list)
+  - `src/methods/scenicplus.py` - Removed unused snakemake_config_overrides variable
+  - `sparselink/src/sparselink/types.py` - Replaced `Union` with `X | Y` syntax
+  - `sparselink/src/sparselink/registry.py` - Replaced `Type` with `type` (UP006/UP035)
+  - Multiple files reformatted by ruff format
+- **Learnings:**
+  - ruff `select = ["E", "F", "I", "UP", "W"]` covers flake8 + isort + pyupgrade in one tool
+  - Snakemake scripts need per-file-ignores for F821 (undefined `snakemake` global injected at runtime)
+  - `ruff format` doesn't touch content inside docstrings/`__doc__` assignments — those need manual whitespace fixes
+  - `from __future__ import annotations` enables `X | Y` syntax for type aliases at runtime on Python 3.10+
+---

@@ -1,17 +1,20 @@
+from typing import Any
+
 import numpy as np
+import requests
 from numpy import linalg
 from scipy.stats import chi2
-import requests
-from typing import Dict, Any, Optional
+
 from datastruct.Dataset import Dataset
 from datastruct.Network import Network
+
 from .DataModel import DataModel
 
 
 class Data(DataModel):
     """Analyzes properties of a Dataset."""
 
-    def __init__(self, dataset: Dataset, tol: Optional[float] = None) -> None:
+    def __init__(self, dataset: Dataset, tol: float | None = None) -> None:
         super().__init__(dataset)
         self._dataset_id: str = dataset.dataset
         self._tol: float = tol if tol is not None else float(np.finfo(float).eps)
@@ -27,7 +30,7 @@ class Data(DataModel):
         """Create a Data instance from a JSON file at the given URL."""
         response = requests.get(url)
         response.raise_for_status()
-        data: Dict[str, Any] = response.json()
+        data: dict[str, Any] = response.json()
 
         if "obj_data" not in data:
             raise ValueError("JSON data does not contain 'obj_data' field")
@@ -41,8 +44,8 @@ class Data(DataModel):
         """Create a Data instance from a local JSON file."""
         import json
 
-        with open(file_path, "r") as f:
-            data: Dict[str, Any] = json.load(f)
+        with open(file_path) as f:
+            data: dict[str, Any] = json.load(f)
 
         if "obj_data" not in data:
             raise ValueError("JSON data does not contain 'obj_data' field")
@@ -52,7 +55,7 @@ class Data(DataModel):
         return cls(dataset)
 
     @classmethod
-    def _build_dataset(cls, obj_data: Dict[str, Any]) -> Dataset:
+    def _build_dataset(cls, obj_data: dict[str, Any]) -> Dataset:
         """Build a Dataset from parsed JSON obj_data."""
         dataset = Dataset()
 
@@ -96,7 +99,9 @@ class Data(DataModel):
         if true_resp is None:
             return 0.0
         s_true = linalg.svd(true_resp, compute_uv=False)
-        s_E = linalg.svd(ds.E, compute_uv=False) if ds.E is not None else np.array([1.0])
+        s_E = (
+            linalg.svd(ds.E, compute_uv=False) if ds.E is not None else np.array([1.0])
+        )
         return float(min(s_true) / max(s_E)) if s_E.size > 0 else float("inf")
 
     def _calc_SNR_Phi_gauss(self, ds: Dataset) -> float:
@@ -126,12 +131,14 @@ class Data(DataModel):
         X = ds.true_response()
         if X is None:
             return np.array([0.0])
-        return np.array([
-            float(linalg.norm(X[i, :]) / linalg.norm(ds.E[i, :]))
-            if ds.E is not None and linalg.norm(ds.E[i, :]) > 0
-            else float("inf")
-            for i in range(X.shape[0])
-        ])
+        return np.array(
+            [
+                float(linalg.norm(X[i, :]) / linalg.norm(ds.E[i, :]))
+                if ds.E is not None and linalg.norm(ds.E[i, :]) > 0
+                else float("inf")
+                for i in range(X.shape[0])
+            ]
+        )
 
     def _calc_SNR_phi_gauss(self, ds: Dataset) -> np.ndarray:
         """Per-variable SNR (Gaussian)."""
@@ -141,10 +148,12 @@ class Data(DataModel):
         alpha = self.alpha() or 0.05
         lambda_val = self._get_lambda(ds)
         chi2_val = float(chi2.ppf(1 - alpha, Y.shape[1]))
-        return np.array([
-            float(linalg.norm(Y[i, :])) / np.sqrt(chi2_val * lambda_val)
-            for i in range(Y.shape[0])
-        ])
+        return np.array(
+            [
+                float(linalg.norm(Y[i, :])) / np.sqrt(chi2_val * lambda_val)
+                for i in range(Y.shape[0])
+            ]
+        )
 
     @staticmethod
     def _get_lambda(ds: Dataset) -> float:

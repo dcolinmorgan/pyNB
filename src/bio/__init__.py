@@ -7,9 +7,9 @@ Submodules:
     evaluation - GRN-specific evaluation (gold standard comparison)
 """
 
-from .preprocessing import load_expression_matrix, filter_tf_targets
 from .evaluation import compare_to_gold_standard
-from .wrappers import scenicplus_infer, pyscenic_infer
+from .preprocessing import filter_tf_targets, load_expression_matrix
+from .wrappers import pyscenic_infer, scenicplus_infer
 
 __all__ = [
     "load_expression_matrix",

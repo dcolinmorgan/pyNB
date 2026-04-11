@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
-from sklearn.linear_model import LassoLarsIC, Lars
+from sklearn.linear_model import Lars, LassoLarsIC
 
 from sparselink.base import InferenceMethod
 from sparselink.registry import registry

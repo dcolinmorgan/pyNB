@@ -1,11 +1,12 @@
 """TIGRESS network inference — delegates to sparselink."""
 
-import numpy as np
-from sklearn.linear_model import LassoLarsIC, Lars
-from typing import Union, Optional, Tuple, Any, List
-from datastruct.Dataset import Dataset
-from analyze.Data import Data
+from typing import Any
 
+import numpy as np
+from sklearn.linear_model import Lars, LassoLarsIC
+
+from analyze.Data import Data
+from datastruct.Dataset import Dataset
 from sparselink import get_method
 
 
@@ -13,7 +14,7 @@ def tigress_single_gene(
     target_expr: np.ndarray,
     predictor_expr: np.ndarray,
     n_bootstrap: int = 100,
-    alpha_range: Optional[Union[np.ndarray, List[float]]] = None,
+    alpha_range: np.ndarray | list[float] | None = None,
     random_state: int = 42,
 ) -> np.ndarray:
     """Run TIGRESS stability selection for a single target gene.
@@ -61,11 +62,11 @@ def tigress_single_gene(
 
 
 def TIGRESS(
-    dataset: Union[Dataset, Data, Any],
-    threshold_range: Optional[Union[np.ndarray, List[float]]] = None,
+    dataset: Dataset | Data | Any,
+    threshold_range: np.ndarray | list[float] | None = None,
     n_bootstrap: int = 50,
     random_state: int = 42,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """TIGRESS network inference via sparselink.
 
     Parameters
@@ -115,9 +116,7 @@ def TIGRESS(
         return np.zeros((n_genes, n_genes, len(zeta))), zeta
 
     # sparselink expects (samples x features)
-    method = get_method("tigress")(
-        n_bootstrap=n_bootstrap, random_state=random_state
-    )
+    method = get_method("tigress")(n_bootstrap=n_bootstrap, random_state=random_state)
     result = method.fit(Y.T)
     stability_matrix = result.adjacency_matrix
 
@@ -138,7 +137,7 @@ def TIGRESS(
 
 
 def TIGRESS_base(
-    dataset: Union[Dataset, Data, Any],
+    dataset: Dataset | Data | Any,
     random_state: int = 42,
     **kwargs: Any,
 ) -> np.ndarray:

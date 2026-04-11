@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Optional
+
 from .Exchange import Exchange
 from .Network import Network
 
@@ -7,12 +7,12 @@ from .Network import Network
 class Experiment(Exchange):
     """Generates experimental data for a Network."""
 
-    def __init__(self, network: Optional[Network] = None, scale: float = 1.0) -> None:
+    def __init__(self, network: Network | None = None, scale: float = 1.0) -> None:
         super().__init__()
-        self._G: Optional[np.ndarray] = None
-        self._P: Optional[np.ndarray] = None
-        self._E: Optional[np.ndarray] = None
-        self._Y: Optional[np.ndarray] = None
+        self._G: np.ndarray | None = None
+        self._P: np.ndarray | None = None
+        self._E: np.ndarray | None = None
+        self._Y: np.ndarray | None = None
         self._scale = scale
 
         if network:
@@ -65,17 +65,17 @@ class Experiment(Exchange):
         return self.signal()
 
     @property
-    def G(self) -> Optional[np.ndarray]:
+    def G(self) -> np.ndarray | None:
         return self._G
 
     @property
-    def P(self) -> Optional[np.ndarray]:
+    def P(self) -> np.ndarray | None:
         return self._P
 
     @property
-    def E(self) -> Optional[np.ndarray]:
+    def E(self) -> np.ndarray | None:
         return self._E
 
     @property
-    def Y(self) -> Optional[np.ndarray]:
+    def Y(self) -> np.ndarray | None:
         return self._Y

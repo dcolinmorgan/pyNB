@@ -1,19 +1,19 @@
 """
 pyGS Package - Network Bootstrap False Discovery Rate Analysis
 
-This package provides both the original interface and an improved Object-Oriented 
+This package provides both the original interface and an improved Object-Oriented
 Programming (OOP) architecture for network bootstrap analysis.
 
 Usage:
     # Original interface (backward compatible)
     from pyGS import NetworkBootstrap
     nb = NetworkBootstrap()
-    
-    # New OOP interface  
+
+    # New OOP interface
     from pyGS.oop import NetworkBootstrapFacade, AnalysisConfig
     config = AnalysisConfig(total_runs=64, support_threshold=0.8)
     nb = NetworkBootstrapFacade(config)
-    
+
     # Hybrid interface (automatically chooses best implementation)
     from pyGS import create_network_bootstrap
     nb = create_network_bootstrap(prefer_oop=True)
@@ -25,7 +25,7 @@ try:
     from .bootstrap.nb_fdr import NetworkData, NetworkResults
 except ImportError:
     LegacyNetworkBootstrap = None
-    NetworkData = None  
+    NetworkData = None
     NetworkResults = None
 
 # Import new Nestboot class
@@ -37,11 +37,11 @@ except ImportError:
 # Import integration layer
 try:
     from .integration import (
-        create_network_bootstrap,
+        HybridNetworkBootstrap,
         NetworkBootstrap,
-        NetworkBootstrapOOP,
         NetworkBootstrapLegacy,
-        HybridNetworkBootstrap
+        NetworkBootstrapOOP,
+        create_network_bootstrap,
     )
 except ImportError:
     # Fallback definitions
@@ -50,7 +50,7 @@ except ImportError:
             return LegacyNetworkBootstrap(*args, **kwargs)
         else:
             raise ImportError("No NetworkBootstrap implementation available")
-    
+
     NetworkBootstrap = create_network_bootstrap
     NetworkBootstrapOOP = None
     NetworkBootstrapLegacy = LegacyNetworkBootstrap
@@ -64,24 +64,20 @@ __email__ = "your.email@example.com"
 # Export main interface
 __all__ = [
     # Main interfaces
-    'NetworkBootstrap',
-    'create_network_bootstrap',
-    
+    "NetworkBootstrap",
+    "create_network_bootstrap",
     # Specific implementations
-    'NetworkBootstrapOOP', 
-    'NetworkBootstrapLegacy',
-    'HybridNetworkBootstrap',
-    
+    "NetworkBootstrapOOP",
+    "NetworkBootstrapLegacy",
+    "HybridNetworkBootstrap",
     # New Nestboot class
-    'Nestboot',
-    
+    "Nestboot",
     # Legacy classes
-    'LegacyNetworkBootstrap',
-    'NetworkData',
-    'NetworkResults',
-    
+    "LegacyNetworkBootstrap",
+    "NetworkData",
+    "NetworkResults",
     # Version info
-    '__version__',
+    "__version__",
 ]
 
 # Package metadata
@@ -94,7 +90,7 @@ on gene regulatory networks. Features both legacy and modern OOP interfaces.
 Key Features:
 - Bootstrap sampling for network stability assessment
 - False Discovery Rate (FDR) control
-- Multiple output formats and visualizations  
+- Multiple output formats and visualizations
 - Backward compatible API
 - Modern OOP architecture with design patterns
 - Integration with SCENIC+ workflows
@@ -102,22 +98,22 @@ Key Features:
 Example Usage:
     import pandas as pd
     from pyGS import NetworkBootstrap
-    
+
     # Load your network data
     normal_data = pd.read_csv('normal_network_data.csv')
     shuffled_data = pd.read_csv('shuffled_network_data.csv')
-    
+
     # Create analyzer
     nb = NetworkBootstrap()
-    
+
     # Compute assignment fractions
     normal_agg = nb.compute_assign_frac(normal_data)
     shuffled_agg = nb.compute_assign_frac(shuffled_data)
-    
+
     # Run FDR analysis
-    results = nb.nb_fdr(normal_data, shuffled_data, 
+    results = nb.nb_fdr(normal_data, shuffled_data,
                        init=64, fdr=0.05, boot=8)
-    
+
     # Export results
     nb.export_results(results, 'results.txt')
 

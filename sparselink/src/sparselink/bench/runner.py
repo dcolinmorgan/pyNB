@@ -54,13 +54,17 @@ def run_benchmark(config: BenchmarkConfig) -> list[BenchmarkResult]:
             sparsity=config.sparsity,
             seed=ds_seed,
         )
-        X = generate_expression(true_net, n_samples=config.n_samples, snr=config.snr, seed=ds_seed)
+        X = generate_expression(
+            true_net, n_samples=config.n_samples, snr=config.snr, seed=ds_seed
+        )
 
         for method_name in config.methods:
             method_cls = get_method(method_name)
             method = method_cls()
             result = method.fit(X)
             metrics = evaluate(true_net, result.adjacency_matrix)
-            results.append(BenchmarkResult(method=method_name, dataset_idx=ds_idx, metrics=metrics))
+            results.append(
+                BenchmarkResult(method=method_name, dataset_idx=ds_idx, metrics=metrics)
+            )
 
     return results

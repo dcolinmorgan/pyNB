@@ -23,13 +23,15 @@ def _bdeu_local_score(
     n_samples = data.shape[0]
     # Discretize
     child_data = np.digitize(
-        data[:, child], np.linspace(data[:, child].min(), data[:, child].max(), n_bins + 1)[1:-1]
+        data[:, child],
+        np.linspace(data[:, child].min(), data[:, child].max(), n_bins + 1)[1:-1],
     )
     if parents:
         parent_data = np.column_stack(
             [
                 np.digitize(
-                    data[:, p], np.linspace(data[:, p].min(), data[:, p].max(), n_bins + 1)[1:-1]
+                    data[:, p],
+                    np.linspace(data[:, p].min(), data[:, p].max(), n_bins + 1)[1:-1],
                 )
                 for p in parents
             ]
@@ -205,9 +207,15 @@ class BGeMethod(InferenceMethod):
     name = "bge"
 
     def __init__(
-        self, alpha_mu: float = 1.0, alpha_w: float | None = None, max_parents: int = 3, **kwargs: Any
+        self,
+        alpha_mu: float = 1.0,
+        alpha_w: float | None = None,
+        max_parents: int = 3,
+        **kwargs: Any,
     ) -> None:
-        super().__init__(alpha_mu=alpha_mu, alpha_w=alpha_w, max_parents=max_parents, **kwargs)
+        super().__init__(
+            alpha_mu=alpha_mu, alpha_w=alpha_w, max_parents=max_parents, **kwargs
+        )
         self.alpha_mu = alpha_mu
         self._alpha_w = alpha_w
         self.max_parents = max_parents

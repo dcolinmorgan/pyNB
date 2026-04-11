@@ -6,14 +6,13 @@ Wraps the existing CompareModels functionality with a cleaner array-based API.
 from __future__ import annotations
 
 import numpy as np
-from typing import Dict, Optional, List, Union
-from sklearn.metrics import roc_auc_score, average_precision_score
+from sklearn.metrics import average_precision_score, roc_auc_score
 
 
 def compare_to_gold_standard(
     predicted: np.ndarray,
     gold_standard: np.ndarray,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Compare a predicted GRN against a gold standard network.
 
     Parameters
@@ -51,7 +50,11 @@ def compare_to_gold_standard(
     precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
     recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
     specificity = tn / (tn + fp) if (tn + fp) > 0 else 0.0
-    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+    f1 = (
+        2 * precision * recall / (precision + recall)
+        if (precision + recall) > 0
+        else 0.0
+    )
 
     denom = np.sqrt(float((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn)))
     mcc = (tp * tn - fp * fn) / denom if denom > 0 else 0.0
@@ -68,10 +71,10 @@ def compare_to_gold_standard(
 
 
 def compare_multiple(
-    predicted_list: List[np.ndarray],
+    predicted_list: list[np.ndarray],
     gold_standard: np.ndarray,
-    method_names: Optional[List[str]] = None,
-) -> List[Dict[str, Union[float, str]]]:
+    method_names: list[str] | None = None,
+) -> list[dict[str, float | str]]:
     """Compare multiple predicted networks against a gold standard.
 
     Parameters
@@ -88,9 +91,9 @@ def compare_multiple(
     list of dict
         Each dict contains metrics plus a 'method' key.
     """
-    results: List[Dict[str, Union[float, str]]] = []
+    results: list[dict[str, float | str]] = []
     for i, pred in enumerate(predicted_list):
-        metrics: Dict[str, Union[float, str]] = compare_to_gold_standard(pred, gold_standard)  # type: ignore[assignment]
+        metrics: dict[str, float | str] = compare_to_gold_standard(pred, gold_standard)  # type: ignore[assignment]
         metrics["method"] = method_names[i] if method_names else f"method_{i}"
         results.append(metrics)
     return results

@@ -106,7 +106,11 @@ def generate_expression(
     signal = G @ P
 
     noise_std = np.std(signal) / snr if snr > 0 else 0.0
-    noise = rng.normal(0, noise_std, signal.shape) if noise_std > 0 else np.zeros_like(signal)
+    noise = (
+        rng.normal(0, noise_std, signal.shape)
+        if noise_std > 0
+        else np.zeros_like(signal)
+    )
 
     Y = signal + noise
     return Y.T  # Return (samples x features)
