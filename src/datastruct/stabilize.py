@@ -1,7 +1,7 @@
 import numpy as np
 import cvxpy as cp
 
-def stabilize(Atilde, **kwargs):
+def stabilize(Atilde: "np.ndarray", **kwargs: object) -> "np.ndarray":
     """
     Stabilize weights a static network structure
 
@@ -73,5 +73,5 @@ def stabilize(Atilde, **kwargs):
         print(f"CVX error: {ex}")
         return Atilde
 
-    A = Atilde + D.value
+    A: np.ndarray = Atilde + D.value
     return A

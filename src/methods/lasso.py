@@ -14,7 +14,7 @@ def Lasso(
     tol: float = 1e-4,
     max_iter: int = 10000,
     use_covariance: Optional[bool] = None,
-    **kwargs,
+    **kwargs: object,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Infer network matrix A using LASSO regression via sparselink.
 
@@ -31,12 +31,12 @@ def Lasso(
         Tuple of (3D network array, alpha values used)
     """
     if alpha_range is None and "threshold_range" in kwargs:
-        alpha_range = kwargs["threshold_range"]
+        alpha_range = np.asarray(kwargs["threshold_range"])
 
     # Extract data from dataset
     if hasattr(dataset, "Y"):
         Y, P = dataset.Y, dataset.P
-    elif hasattr(dataset, "data"):
+    elif hasattr(dataset, "data") and dataset.data is not None:
         Y, P = dataset.data.Y, dataset.data.P
     else:
         raise ValueError("Dataset must contain Y and P matrices")

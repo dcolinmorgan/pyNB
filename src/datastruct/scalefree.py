@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.sparse import random as sprand
 
-def scalefree(N, n, *varargin):
+def scalefree(N: int, n: float, *varargin: object) -> "np.ndarray":
     """
     Create a scalefree network with N nodes and specific sparseness with preferential attachment
 

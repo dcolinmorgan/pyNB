@@ -1,3 +1,5 @@
+from typing import Any
+
 from .lasso import Lasso
 from .lsco import LSCO
 from .clr import CLR
@@ -8,7 +10,7 @@ try:
 except ImportError:
     SCENICPLUS = None  # type: ignore[assignment]
 
-def run(method, dataset, nested_boot=False, nest_runs=50, boot_runs=50, seed=42, fdr=0.05, **kwargs):
+def run(method: Any, dataset: Any, nested_boot: bool = False, nest_runs: int = 50, boot_runs: int = 50, seed: int = 42, fdr: float = 0.05, **kwargs: Any) -> Any:
     """
     Unified runner for all inference methods.
     

@@ -34,6 +34,37 @@ packages = ["src"]
 
 [tool.mypy]
 strict = true
+mypy_path = ["src", "sparselink/src"]
+packages = ["methods", "datastruct", "analyze", "bootstrap", "bio"]
+exclude = ["_vendor/", "egg-info/"]
+
+[[tool.mypy.overrides]]
+module = [
+    "sklearn.*",
+    "scipy.*",
+    "pandas.*",
+    "causallearn.*",
+    "torch.*",
+    "scanpy.*",
+    "yaml.*",
+    "networkx.*",
+    "matplotlib.*",
+    "seaborn.*",
+    "requests.*",
+    "cvxpy.*",
+    "graphistry.*",
+    "graph_tool.*",
+    "nb_fdr.*",
+    "arboreto.*",
+    "src.bootstrap.nb_fdr",
+    "src.integration",
+    "methods._vendor.*",
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "methods._vendor.*"
+follow_imports = "skip"
 
 [tool.ruff]
 target-version = "py311"

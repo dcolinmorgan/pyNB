@@ -1,68 +1,44 @@
-from typing import List, Tuple, Optional
+from typing import Tuple
 import numpy as np
 import numpy.typing as npt
-import logging
 
 NDArrayFloat = npt.NDArray[np.float64]
 NDArrayBool = npt.NDArray[np.bool_]
+
 
 class NetworkUtils:
     """Utility functions for network analysis."""
 
     @staticmethod
     def matrix_or(
-        matrix: NDArrayFloat,
-        dim: int = 1
+        matrix: np.ndarray,
+        dim: int = 1,
     ) -> NDArrayFloat:
-        """Compute element-wise OR operation along specified dimension.
-
-        Args:
-            matrix: Input matrix
-            dim: Dimension along which to perform OR operation
-
-        Returns:
-            Matrix after OR operation
-        """
+        """Compute element-wise OR operation along specified dimension."""
         if matrix.ndim < dim:
             raise ValueError(f"Input has no dimension {dim}")
-            
-        return np.any(matrix, axis=dim-1)
+        result: NDArrayFloat = np.any(matrix, axis=dim - 1).astype(np.float64)
+        return result
 
     @staticmethod
     def matrix_and(
-        matrix: NDArrayFloat,
-        dim: int = 1
+        matrix: np.ndarray,
+        dim: int = 1,
     ) -> NDArrayFloat:
-        """Compute element-wise AND operation along specified dimension.
-
-        Args:
-            matrix: Input matrix
-            dim: Dimension along which to perform AND operation
-
-        Returns:
-            Matrix after AND operation
-        """
-        matrix = np.nan_to_num(matrix, 0)
-        if matrix.ndim < dim:
+        """Compute element-wise AND operation along specified dimension."""
+        cleaned = np.nan_to_num(matrix.astype(np.float64), nan=0.0)
+        if cleaned.ndim < dim:
             raise ValueError(f"Input has no dimension {dim}")
-            
-        return np.all(matrix, axis=dim-1)
+        result: NDArrayFloat = np.all(cleaned, axis=dim - 1).astype(np.float64)
+        return result
 
     @staticmethod
     def calc_bin_freq(
         matrix: NDArrayFloat,
-        init: int
+        init: int,
     ) -> Tuple[NDArrayFloat, NDArrayFloat]:
-        """Calculate binned frequencies of matrix values.
-
-        Args:
-            matrix: Input matrix
-            init: Number of bins
-
-        Returns:
-            Tuple of (frequencies, bin_edges)
-        """
+        """Calculate binned frequencies of matrix values."""
         bins = np.arange(init + 1) / init
         counts, bin_edges = np.histogram(matrix.flatten(), bins=bins)
-        freq = counts / counts.sum()
-        return freq, bin_edges 
+        freq: NDArrayFloat = counts / counts.sum()
+        return freq, bin_edges

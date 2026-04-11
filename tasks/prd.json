@@ -226,14 +226,15 @@
         "Explicit __all__ in every __init__.py"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "dependsOn": [
         "US-010"
       ],
       "labels": [
         "hardening",
         "types"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-012",
@@ -384,6 +385,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-11T14:58:52.715Z"
+    "updatedAt": "2026-04-11T15:20:26.968Z"
   }
 }

@@ -28,7 +28,7 @@ def SCENICPLUS(dataset: Optional[Dataset] = None,
                use_snakemake: bool = False,
                use_arboreto: bool = False,
                threshold_range: Optional[np.ndarray] = None,
-               **kwargs: Any) -> Tuple[np.ndarray, Any]:
+               **kwargs: Any) -> Any:
     """
     SCENIC+-inspired GRN inference for pyNB.
     
@@ -205,7 +205,7 @@ def SCENICPLUS(dataset: Optional[Dataset] = None,
         gene_names = None
         if hasattr(dataset, 'names') and dataset.names:
             gene_names = dataset.names
-        elif hasattr(dataset, 'data') and hasattr(dataset.data, 'names') and dataset.data.names:
+        elif hasattr(dataset, 'data') and dataset.data is not None and hasattr(dataset.data, 'names') and dataset.data.names:
             gene_names = dataset.data.names
         elif hasattr(dataset, '_names') and dataset._names:
              gene_names = dataset._names
@@ -387,7 +387,7 @@ def _apply_thresholding(adj_matrix: np.ndarray, threshold_range: np.ndarray) -> 
     return adj_3d, actual_thresholds
 
 
-def _infer_targets_worker(args):
+def _infer_targets_worker(args: Any) -> Any:
     """Worker function for inferring targets for a single TF using GBM.
     
     Must be defined at module level for multiprocessing pickle compatibility.
@@ -423,9 +423,9 @@ def _infer_targets_worker(args):
     return tf_idx, importances
 
 
-def _run_scenicplus_direct(dataset, work_dir=None, cisTopic_obj_fname=None, n_cpu=1, 
-                           keep_files=False, seed=42, var_names=None, use_arboreto=False, 
-                           threshold_range=None, **kwargs):
+def _run_scenicplus_direct(dataset: Any, work_dir: Any = None, cisTopic_obj_fname: Any = None, n_cpu: int = 1, 
+                           keep_files: bool = False, seed: int = 42, var_names: Any = None, use_arboreto: bool = False, 
+                           threshold_range: Any = None, **kwargs: Any) -> Any:
     """Lightweight SCENIC+-inspired implementation with optional arboreto."""
     
     if use_arboreto:
@@ -513,8 +513,8 @@ def _run_scenicplus_direct(dataset, work_dir=None, cisTopic_obj_fname=None, n_cp
 
 
 
-def _run_with_arboreto(dataset, work_dir=None, cisTopic_obj_fname=None, n_cpu=1,
-                       keep_files=False, seed=42, var_names=None, threshold_range=None, **kwargs):
+def _run_with_arboreto(dataset: Any, work_dir: Any = None, cisTopic_obj_fname: Any = None, n_cpu: int = 1,
+                       keep_files: bool = False, seed: int = 42, var_names: Any = None, threshold_range: Any = None, **kwargs: Any) -> Any:
     """SCENIC+ implementation using vendored arboreto (requires dask)."""
     try:
         from ._vendor.arboreto.algo import grnboost2

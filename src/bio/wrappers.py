@@ -60,7 +60,7 @@ def scenicplus_infer(
     dataset._P = np.eye(expression.shape[0])
     dataset._network = Network(np.zeros((expression.shape[0], expression.shape[0])))
 
-    return SCENICPLUS(
+    result: Any = SCENICPLUS(
         dataset=dataset,
         n_cpu=n_cpu,
         seed=seed,
@@ -69,8 +69,7 @@ def scenicplus_infer(
         threshold_range=threshold_range,
         **kwargs,
     )
-
-
+    return result  # type: ignore[no-any-return]
 def pyscenic_infer(
     expression: np.ndarray,
     gene_names: List[str],

@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.sparse import random as sprandn
 
-def randomNet(N, n):
+def randomNet(N: int, n: float) -> "np.ndarray":
     """
     Creates a random undirected network with N nodes and specific sparseness with no self loops.
 

@@ -180,3 +180,44 @@ after each iteration and it's included in prompts for context.
   - Greedy hill-climbing with acyclicity check via DFS is simple and effective for small networks
   - `scipy.special.gammaln` is the only extra dependency needed beyond numpy
 ---
+
+
+## 2026-04-11 - US-011
+- What was implemented: Full type annotations on all public APIs in both sparselink and pyGS packages. mypy strict mode passes on both. Explicit `__all__` in every `__init__.py`. `py.typed` marker files added.
+- Files changed:
+  - `sparselink/pyproject.toml` - Added mypy overrides for third-party untyped libs (sklearn, scipy, pandas, causallearn, torch)
+  - `sparselink/src/sparselink/py.typed` - PEP 561 marker file
+  - `pyproject.toml` - Added mypy_path, packages config, overrides for third-party libs, exclude vendor
+  - `src/py.typed` - PEP 561 marker file
+  - `src/datastruct/__init__.py` - Added `__all__`
+  - `src/analyze/__init__.py` - Added `__all__` and imports
+  - `src/bootstrap/__init__.py` - Added `__all__` and imports
+  - `src/datastruct/Experiment.py` - Full type annotations on all methods/properties
+  - `src/datastruct/Dataset.py` - Fixed union-attr and no-any-return errors
+  - `src/datastruct/Network.py` - Fixed type assignments, return types, override
+  - `src/datastruct/random.py` - Added function type annotation
+  - `src/datastruct/scalefree.py` - Added function type annotation
+  - `src/datastruct/stabilize.py` - Added function type annotation
+  - `src/analyze/DataModel.py` - Full type annotations
+  - `src/analyze/Data.py` - Full rewrite with type annotations
+  - `src/analyze/Model.py` - Fixed no-any-return
+  - `src/methods/__init__.py` - Added type annotation to `run()` function
+  - `src/methods/lasso.py` - Fixed kwargs type, union-attr
+  - `src/methods/lsco.py` - Fixed union-attr
+  - `src/methods/scenicplus.py` - Added type annotations to internal functions
+  - `src/methods/nestboot.py` - Fixed no-redef, type-arg, assignment, var-annotated errors
+  - `src/bootstrap/utils.py` - Rewritten with proper type annotations
+  - `src/bootstrap/nb_fdr_analysis.py` - Declared snakemake global
+  - `src/bootstrap/generate_plots.py` - Declared snakemake global
+  - `src/bootstrap/compute_density.py` - Declared snakemake global
+  - `src/bio/evaluation.py` - Fixed return type for compare_multiple
+  - `src/bio/visualization.py` - Fixed tuple type parameters
+  - `src/bio/wrappers.py` - Fixed return type
+- **Learnings:**
+  - mypy strict with third-party untyped libs: use `[[tool.mypy.overrides]]` with `ignore_missing_imports = true` per module pattern
+  - mypy cache must be cleared (`rm -rf .mypy_cache`) after config changes for overrides to take effect
+  - Vendored code should use `follow_imports = "skip"` in mypy overrides
+  - Snakemake scripts need `snakemake: Any` declaration at module level for type checking
+  - numpy operations like `np.sign()`, `np.sum()` return `Any` in strict mode — assign to typed variable first
+  - `mypy_path` in pyproject.toml accepts list format: `["src", "sparselink/src"]`
+---

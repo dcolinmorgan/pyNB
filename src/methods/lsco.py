@@ -27,7 +27,7 @@ def LSCO(
     """
     if hasattr(dataset, "Y"):
         Y, P = dataset.Y, dataset.P
-    elif hasattr(dataset, "data"):
+    elif hasattr(dataset, "data") and dataset.data is not None:
         Y, P = dataset.data.Y, dataset.data.P
     else:
         raise ValueError("Dataset must contain Y and P matrices")

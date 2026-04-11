@@ -7,7 +7,10 @@ This script is called from the Snakemake workflow.
 
 import pandas as pd
 from pathlib import Path
+from typing import Any
 from nb_fdr import NetworkBootstrap
+
+snakemake: Any  # noqa: F841 — injected by Snakemake
 
 # Get inputs, outputs and parameters from Snakemake
 input_normal = snakemake.input.normal

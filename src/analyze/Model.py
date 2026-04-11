@@ -99,7 +99,8 @@ class Model(DataModel):
         A = A.copy()
         np.fill_diagonal(A, 0)
         A = A.astype(bool)
-        return np.sum(A, axis=1) if self.type() == 'directed' else np.sum(A | A.T, axis=1)
+        result: np.ndarray = np.sum(A, axis=1) if self.type() == 'directed' else np.sum(A | A.T, axis=1)
+        return result
 
     def _calc_proximity_ratio(self, A: np.ndarray, G: nx.Graph) -> float:
         """Compute small-worldness."""

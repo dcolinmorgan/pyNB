@@ -21,7 +21,7 @@ def plot_grn(
     tf_names: Optional[List[str]] = None,
     threshold: float = 0.0,
     title: str = "Gene Regulatory Network",
-    figsize: tuple = (10, 10),
+    figsize: tuple[int, int] = (10, 10),
     save_path: Optional[str] = None,
     **kwargs: Any,
 ) -> Any:

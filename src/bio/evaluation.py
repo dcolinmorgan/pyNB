@@ -6,7 +6,7 @@ Wraps the existing CompareModels functionality with a cleaner array-based API.
 from __future__ import annotations
 
 import numpy as np
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Union
 from sklearn.metrics import roc_auc_score, average_precision_score
 
 
@@ -71,7 +71,7 @@ def compare_multiple(
     predicted_list: List[np.ndarray],
     gold_standard: np.ndarray,
     method_names: Optional[List[str]] = None,
-) -> List[Dict[str, float]]:
+) -> List[Dict[str, Union[float, str]]]:
     """Compare multiple predicted networks against a gold standard.
 
     Parameters
@@ -88,9 +88,9 @@ def compare_multiple(
     list of dict
         Each dict contains metrics plus a 'method' key.
     """
-    results = []
+    results: List[Dict[str, Union[float, str]]] = []
     for i, pred in enumerate(predicted_list):
-        metrics = compare_to_gold_standard(pred, gold_standard)
+        metrics: Dict[str, Union[float, str]] = compare_to_gold_standard(pred, gold_standard)  # type: ignore[assignment]
         metrics["method"] = method_names[i] if method_names else f"method_{i}"
         results.append(metrics)
     return results

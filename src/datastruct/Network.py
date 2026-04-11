@@ -45,7 +45,7 @@ class Network(Exchange):
             id_val = 'inf'
         else:
             if isinstance(cond_val, np.ndarray):
-                val = np.mean(cond_val)
+                val = float(np.mean(cond_val))
             else:
                 val = float(cond_val)
             id_val = str(round(val * 10000))
@@ -199,9 +199,8 @@ class Network(Exchange):
             # Normalize weights for width
             if weights:
                 max_w = max(abs(w) for w in weights)
-                widths = [1 + 2 * abs(w)/max_w for w in weights]
-                # Color edges by sign
-                edge_colors = ['red' if w < 0 else 'blue' for w in weights]
+                widths: object = [1 + 2 * abs(w)/max_w for w in weights]
+                edge_colors: object = ['red' if w < 0 else 'blue' for w in weights]
             else:
                 widths = 1.0
                 edge_colors = 'black'
@@ -336,36 +335,38 @@ class Network(Exchange):
         """Return sign of adjacency matrix."""
         if self._A is None:
             raise ValueError("Network matrix not set")
-        return np.sign(self._A)
+        result: np.ndarray = np.sign(self._A)
+        return result
     
     def logical(self) -> np.ndarray:
         """Return logical (boolean) version of adjacency matrix."""
         if self._A is None:
             raise ValueError("Network matrix not set")
-        return self._A.astype(bool)
+        result: np.ndarray = self._A.astype(bool)
+        return result
     
-    def size(self, dim: Optional[int] = None) -> Union[tuple, int]:
+    def size(self, dim: Optional[int] = None) -> Union[tuple[int, ...], int]:
         """Return size of adjacency matrix."""
         if self._A is None:
             raise ValueError("Network matrix not set")
         if dim is not None:
-            # MATLAB 1-based indexing support
             if dim < 1 or dim > self._A.ndim:
                  raise ValueError(f"Dimension {dim} out of bounds")
-            return self._A.shape[dim - 1]
+            return int(self._A.shape[dim - 1])
         return self._A.shape
     
     def nnz(self) -> int:
         """Number of non-zero elements."""
         if self._A is None:
             return 0
-        return np.count_nonzero(self._A)
+        return int(np.count_nonzero(self._A))
     
     def svd(self) -> np.ndarray:
         """Singular values of the network matrix."""
         if self._A is None:
             raise ValueError("Network matrix not set")
-        return np.linalg.svd(self._A.astype(float), compute_uv=False)
+        result: np.ndarray = np.linalg.svd(self._A.astype(float), compute_uv=False)
+        return result
     
     def __matmul__(self, p: np.ndarray) -> np.ndarray:
         """Matrix multiplication for perturbation response: net @ p"""
@@ -373,7 +374,8 @@ class Network(Exchange):
              raise ValueError("G matrix not calculated")
         if p.ndim == 1:
             p = p.reshape(-1, 1)
-        return self._G @ p
+        result: np.ndarray = self._G @ p
+        return result
     
     def populate(self, source: Union['Network', np.ndarray, Dict[str, Any]]) -> None:
         """Populate from another Network, matrix, or dict."""
@@ -406,7 +408,7 @@ class Network(Exchange):
         return Exchange.load(*args)
     
     @staticmethod
-    def fetch(url_or_name: Optional[str] = None, **kwargs: Any) -> Any:
+    def fetch(url_or_name: Optional[str] = None, **kwargs: Any) -> Any:  # type: ignore[override]
         """Fetch network from URL or repository.
         
         Args:

@@ -35,18 +35,12 @@ class Dataset(Exchange):
         """Populate data from Network or Experiment."""
         if isinstance(source, Network):
             self._network = source
-            # Fix: Network might not have P attribute
             source_P = getattr(source, 'P', None)
-            self._P = source_P if source_P is not None else np.eye(source.A.shape[0])
-            # Calculate Y = A @ P (assuming A is G for now, or G is calculated)
-            # Network.py calculates G = -pinv(A).
-            # If source is Network, we might want to use G if available.
-            # The original code used source.A @ self._P.
-            # But Network.py has __matmul__ using G.
-            # I'll stick to original logic but add safety checks.
             if source.A is not None:
+                self._P = source_P if source_P is not None else np.eye(source.A.shape[0])
                 self._Y = source.A @ self._P
             else:
+                self._P = source_P
                 self._Y = None
                 
         elif isinstance(source, Experiment):
@@ -61,7 +55,6 @@ class Dataset(Exchange):
     def true_response(self) -> Optional[np.ndarray]:
         """Compute true response (G @ P)."""
         if self._network is None:
-             # Create dummy network if Y exists
              if self._Y is not None:
                  self._network = Network(np.eye(self._Y.shape[0]))
              else:
@@ -70,11 +63,11 @@ class Dataset(Exchange):
         if self._network.G is None and self._network.A is None:
              return None
 
-        # Prefer G, fallback to A
         G = self._network.G if self._network.G is not None else self._network.A
         
-        if self._P is not None:
-            return G @ self._P
+        if self._P is not None and G is not None:
+            result: np.ndarray = G @ self._P
+            return result
         return G
 
     def _set_name(self) -> None:

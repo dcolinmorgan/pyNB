@@ -11,7 +11,7 @@ try:
 except ImportError:
     # Fallback if config module not available
     @dataclass
-    class AnalysisConfig:
+    class AnalysisConfig:  # type: ignore[no-redef]
         total_runs: int = 64
         inner_group_size: int = 8
         support_threshold: float = 0.8
@@ -67,7 +67,7 @@ class Nestboot:
     bootstrap-based confidence estimation.
     """
 
-    def __init__(self, param: Optional[Union[logging.Logger, NetworkData, AnalysisConfig, dict]] = None) -> None:
+    def __init__(self, param: Optional[Union[logging.Logger, "NetworkData", AnalysisConfig, Dict[str, Any]]] = None) -> None:
         """Initialize Nestboot analyzer.
 
         Args:
@@ -267,7 +267,7 @@ class Nestboot:
         if unique_params:
             try:
                 max_param = int(max(unique_params))
-                full_param_range = range(max_param + 1)
+                full_param_range: Union[range, list[int]] = range(max_param + 1)
             except ValueError:
                 full_param_range = [0]
         else:
@@ -438,10 +438,10 @@ class Nestboot:
                 # Stacking 1D arrays -> (L, n_params) ? No, lengths might differ.
                 # Just return lists if no node_names?
                 # But run_nestboot ensures node_names is mostly present.
-                xnet_stack = xnet_list # Fallback
-                ssum_stack = ssum_list
-                min_ab_stack = min_ab_list
-                sxnet_stack = sxnet_list
+                xnet_stack = xnet_list  # type: ignore[assignment]
+                ssum_stack = ssum_list  # type: ignore[assignment]
+                min_ab_stack = min_ab_list  # type: ignore[assignment]
+                sxnet_stack = sxnet_list  # type: ignore[assignment]
 
             return NetworkResults(
                 xnet=xnet_stack,
@@ -655,8 +655,10 @@ class Nestboot:
         """
         hist, _ = np.histogram(merged['Afrac_norm'], bins=bins, range=(0, 1))
         if hist.sum() > 0:
-            return hist.astype(float) / hist.sum()
-        return hist.astype(float)
+            result: np.ndarray = hist.astype(float) / hist.sum()
+            return result
+        result2: np.ndarray = hist.astype(float)
+        return result2
 
     def export_results(self, results: NetworkResults, txt_file: Path) -> None:
         """Export analysis results to a text file.
@@ -678,7 +680,7 @@ class Nestboot:
             f.write("Accumulated (first 5 rows):\n")
             np.savetxt(f, results.accumulated[:5], fmt='%.4f')
             f.write("\nBinned frequencies:\n")
-            np.savetxt(f, results.binned_freq[np.newaxis, :], fmt='%.4f')
+            np.savetxt(f, np.asarray(results.binned_freq)[np.newaxis, :], fmt='%.4f')
     
     def plot_analysis_results(self, merged: pd.DataFrame, plot_file: Path, bins: int = 10) -> None:
         """Plot analysis results with link frequencies for normal and shuffled data.
@@ -875,7 +877,7 @@ class Nestboot:
                         network_matrix = network_result
                         
                     # Handle 3D array or 2D array and extract links
-                    param_list = []
+                    param_list: list[Any] = []
                     
                     if hasattr(network_matrix, 'ndim') and network_matrix.ndim == 3:
                         # 3D array: (genes, genes, params)
