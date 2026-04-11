@@ -149,3 +149,20 @@ after each iteration and it's included in prompts for context.
   - Keeping biology deps out of core pyGS dependencies means `pip install pyGS` stays lightweight; users opt-in via extras
   - PEP 621 `[project.optional-dependencies]` replaces the older `[dependency-groups]` pattern used by uv
 ---
+
+
+## 2026-04-11 - US-006
+- What was implemented: PC algorithm, FCI, NOTEARS, and DAG-GNN causal discovery methods in sparselink with unified `fit(X) -> InferenceResult` interface and `@registry.register` decorator. PC and FCI require `[causal]` optional dep (causal-learn). DAG-GNN requires `[deep]` optional dep (torch). NOTEARS uses only scipy (no extra deps).
+- Files changed:
+  - `sparselink/src/sparselink/methods/pc.py` - PCMethod (constraint-based, wraps causal-learn PC)
+  - `sparselink/src/sparselink/methods/fci.py` - FCIMethod (constraint-based with latent confounders, wraps causal-learn FCI)
+  - `sparselink/src/sparselink/methods/notears.py` - NOTEARSMethod (continuous optimization with acyclicity constraint via matrix exponential)
+  - `sparselink/src/sparselink/methods/dag_gnn.py` - DAGGNNMethod (GNN-based with augmented Lagrangian DAG constraint, requires torch)
+  - `sparselink/src/sparselink/methods/__init__.py` - Added imports for all 4 new methods
+  - `sparselink/tests/test_us006_causal_discovery.py` - 18 tests (14 pass, 4 skip when causal-learn absent)
+- **Learnings:**
+  - Optional deps pattern: import inside `fit()` with clear ImportError message pointing to the correct extras group
+  - NOTEARS overflow: matrix exponential of W◦W can overflow for large W values during early iterations; the algorithm still converges because thresholding zeros out unstable entries
+  - causal-learn's PC/FCI return graph objects with `.graph` attribute (numpy array with edge types encoded as integers); take abs and symmetrize for undirected adjacency
+  - DAG-GNN augmented Lagrangian: update rho every N epochs, not every step, for stability
+---

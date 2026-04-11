@@ -3,10 +3,10 @@
   "sessionId": "76a8aec7-dcad-4394-b827-e558e0cead7c",
   "status": "running",
   "startedAt": "2026-04-11T12:26:16.060Z",
-  "updatedAt": "2026-04-11T14:52:16.265Z",
-  "currentIteration": 8,
+  "updatedAt": "2026-04-11T14:56:15.566Z",
+  "currentIteration": 9,
   "maxIterations": 20,
-  "tasksCompleted": 8,
+  "tasksCompleted": 9,
   "isPaused": false,
   "agentPlugin": "kiro",
   "trackerState": {
@@ -95,8 +95,8 @@
       {
         "id": "US-014",
         "title": "Set up packaging with pyproject.toml",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-015",
@@ -204,12 +204,20 @@
       "durationMs": 7613174,
       "startedAt": "2026-04-11T12:45:22.008Z",
       "endedAt": "2026-04-11T14:52:15.182Z"
+    },
+    {
+      "iteration": 9,
+      "status": "completed",
+      "taskId": "US-014",
+      "taskTitle": "Set up packaging with pyproject.toml",
+      "taskCompleted": true,
+      "durationMs": 86633,
+      "startedAt": "2026-04-11T14:52:16.252Z",
+      "endedAt": "2026-04-11T14:53:42.885Z"
     }
   ],
   "skippedTaskIds": [],
   "cwd": "/Users/apple/Developer/dcolinmorgan/pyGS",
-  "activeTaskIds": [
-    "US-014"
-  ],
+  "activeTaskIds": [],
   "subagentPanelVisible": false
 }

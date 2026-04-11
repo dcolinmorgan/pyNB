@@ -12,6 +12,10 @@ from sparselink.methods.glasso import GraphicalLassoMethod, GLASSOStARS
 from sparselink.methods.neighborhood import NeighborhoodSelection
 from sparselink.methods.genie3 import GENIE3Method
 from sparselink.methods.tigress import TIGRESSMethod
+from sparselink.methods.pc import PCMethod
+from sparselink.methods.fci import FCIMethod
+from sparselink.methods.notears import NOTEARSMethod
+from sparselink.methods.dag_gnn import DAGGNNMethod
 
 __all__ = [
     "LassoMethod",
@@ -28,4 +32,8 @@ __all__ = [
     "NeighborhoodSelection",
     "GENIE3Method",
     "TIGRESSMethod",
+    "PCMethod",
+    "FCIMethod",
+    "NOTEARSMethod",
+    "DAGGNNMethod",
 ]
