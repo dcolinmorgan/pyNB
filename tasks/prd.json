@@ -356,14 +356,15 @@
         "Stable import paths documented"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "dependsOn": [
         "US-013"
       ],
       "labels": [
         "hardening",
         "release"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-018",
@@ -389,6 +390,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-11T15:33:16.060Z"
+    "updatedAt": "2026-04-11T15:36:13.403Z"
   }
 }

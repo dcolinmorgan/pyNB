@@ -57,7 +57,7 @@ except ImportError:
     HybridNetworkBootstrap = None
 
 # Version information
-__version__ = "0.2.0"
+__version__ = "1.0.0"
 __author__ = "Daniel Colin Morgan"
 __email__ = "your.email@example.com"
 

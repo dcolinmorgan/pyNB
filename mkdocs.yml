@@ -43,6 +43,7 @@ nav:
       - sparselink.bench: api/bench.md
       - pyGS.bio: api/bio.md
   - Contributing: contributing.md
+  - Versioning & Deprecation: versioning.md
 
 markdown_extensions:
   - admonition

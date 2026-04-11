@@ -291,3 +291,20 @@ after each iteration and it's included in prompts for context.
   - `docs_dir` in mkdocs.yml allows placing source markdown in a subdirectory while keeping mkdocs.yml at project root
   - GitHub Pages deployment uses actions/deploy-pages@v4 with `pages: write` and `id-token: write` permissions
 ---
+
+
+## 2026-04-11 - US-017
+- What was implemented: SemVer 1.0.0 applied to both pyGS and sparselink. CHANGELOG.md files in Keep a Changelog format for both packages. Deprecation policy (warn for 1 minor version before removal) with `src/deprecation.py` utility. Stable import paths documented in `docs/site/versioning.md` and added to mkdocs nav.
+- Files changed:
+  - `pyproject.toml` - Bumped version to 1.0.0
+  - `src/__init__.py` - Bumped __version__ to 1.0.0
+  - `CHANGELOG.md` - Created in Keep a Changelog format
+  - `sparselink/CHANGELOG.md` - Created in Keep a Changelog format
+  - `src/deprecation.py` - Deprecation decorator utility with policy documentation
+  - `docs/site/versioning.md` - Stable import paths and deprecation policy docs
+  - `mkdocs.yml` - Added versioning page to nav
+- **Learnings:**
+  - Keep a Changelog format uses `## [version] - date` headers with Added/Changed/Deprecated/Removed/Fixed/Security subsections
+  - Deprecation policy of "1 minor version" is simple and predictable for users
+  - Both pyproject.toml `version` and `__version__` in code must be kept in sync
+---

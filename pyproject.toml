@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pyGS"
-version = "0.1.0"
+version = "1.0.0"
 description = "Python GENESpider - gene regulatory network inference and benchmarking"
 readme = "docs/README.md"
 requires-python = ">=3.11"
