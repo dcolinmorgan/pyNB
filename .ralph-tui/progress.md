@@ -71,3 +71,17 @@ after each iteration and it's included in prompts for context.
   - StARS instability metric: `2 * freq * (1 - freq)` where freq is edge selection frequency across subsamples
   - Neighborhood Selection produces binary adjacency; symmetrize with "and" (intersection) or "or" (union) rule
 ---
+
+
+## 2026-04-11 - US-005
+- What was implemented: GENIE3-style Random Forest importance and TIGRESS-style stability selection + LARS methods in sparselink with unified `fit(X) -> InferenceResult` interface and `@registry.register` decorator.
+- Files changed:
+  - `sparselink/src/sparselink/methods/genie3.py` - GENIE3Method (per-gene RF importance)
+  - `sparselink/src/sparselink/methods/tigress.py` - TIGRESSMethod (stability selection + LARS)
+  - `sparselink/src/sparselink/methods/__init__.py` - Added imports for new methods
+  - `sparselink/tests/test_tree_methods.py` - 14 tests covering both methods
+- **Learnings:**
+  - GENIE3 output is non-negative by construction (RF feature_importances_ are always >= 0)
+  - TIGRESS stability scores are naturally bounded [0, 1] — proportion of bootstraps selecting each feature
+  - sparselink convention: data is (samples x features), unlike the original pyGS code which uses (features x samples)
+---

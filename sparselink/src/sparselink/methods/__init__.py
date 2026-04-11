@@ -10,6 +10,8 @@ from sparselink.methods.granger import GrangerCausality
 from sparselink.methods.transfer_entropy import TransferEntropy
 from sparselink.methods.glasso import GraphicalLassoMethod, GLASSOStARS
 from sparselink.methods.neighborhood import NeighborhoodSelection
+from sparselink.methods.genie3 import GENIE3Method
+from sparselink.methods.tigress import TIGRESSMethod
 
 __all__ = [
     "LassoMethod",
@@ -24,4 +26,6 @@ __all__ = [
     "GraphicalLassoMethod",
     "GLASSOStARS",
     "NeighborhoodSelection",
+    "GENIE3Method",
+    "TIGRESSMethod",
 ]

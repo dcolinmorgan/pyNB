@@ -3,10 +3,10 @@
   "sessionId": "76a8aec7-dcad-4394-b827-e558e0cead7c",
   "status": "running",
   "startedAt": "2026-04-11T12:26:16.060Z",
-  "updatedAt": "2026-04-11T12:36:45.374Z",
-  "currentIteration": 3,
+  "updatedAt": "2026-04-11T12:38:34.481Z",
+  "currentIteration": 4,
   "maxIterations": 20,
-  "tasksCompleted": 3,
+  "tasksCompleted": 4,
   "isPaused": false,
   "agentPlugin": "kiro",
   "trackerState": {
@@ -35,8 +35,8 @@
       {
         "id": "US-004",
         "title": "Implement graphical model methods",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-005",
@@ -154,6 +154,16 @@
       "durationMs": 138328,
       "startedAt": "2026-04-11T12:32:38.563Z",
       "endedAt": "2026-04-11T12:34:56.891Z"
+    },
+    {
+      "iteration": 4,
+      "status": "completed",
+      "taskId": "US-004",
+      "taskTitle": "Implement graphical model methods",
+      "taskCompleted": true,
+      "durationMs": 107292,
+      "startedAt": "2026-04-11T12:34:58.081Z",
+      "endedAt": "2026-04-11T12:36:45.373Z"
     }
   ],
   "skippedTaskIds": [],
