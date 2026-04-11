@@ -159,14 +159,15 @@
         "CLI entry point for batch benchmarking"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "dependsOn": [
         "US-002"
       ],
       "labels": [
         "pyGS",
         "bench"
-      ]
+      ],
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "US-009",
@@ -378,6 +379,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-04-11T12:38:34.481Z"
+    "updatedAt": "2026-04-11T12:42:06.330Z"
   }
 }

@@ -3,10 +3,10 @@
   "sessionId": "76a8aec7-dcad-4394-b827-e558e0cead7c",
   "status": "running",
   "startedAt": "2026-04-11T12:26:16.060Z",
-  "updatedAt": "2026-04-11T12:38:34.481Z",
-  "currentIteration": 4,
+  "updatedAt": "2026-04-11T12:42:06.331Z",
+  "currentIteration": 5,
   "maxIterations": 20,
-  "tasksCompleted": 4,
+  "tasksCompleted": 5,
   "isPaused": false,
   "agentPlugin": "kiro",
   "trackerState": {
@@ -41,8 +41,8 @@
       {
         "id": "US-005",
         "title": "Implement tree-based methods",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-006",
@@ -164,6 +164,16 @@
       "durationMs": 107292,
       "startedAt": "2026-04-11T12:34:58.081Z",
       "endedAt": "2026-04-11T12:36:45.373Z"
+    },
+    {
+      "iteration": 5,
+      "status": "completed",
+      "taskId": "US-005",
+      "taskTitle": "Implement tree-based methods",
+      "taskCompleted": true,
+      "durationMs": 107889,
+      "startedAt": "2026-04-11T12:36:46.592Z",
+      "endedAt": "2026-04-11T12:38:34.481Z"
     }
   ],
   "skippedTaskIds": [],

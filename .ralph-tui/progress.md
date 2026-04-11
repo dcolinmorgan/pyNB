@@ -85,3 +85,20 @@ after each iteration and it's included in prompts for context.
   - TIGRESS stability scores are naturally bounded [0, 1] — proportion of bootstraps selecting each feature
   - sparselink convention: data is (samples x features), unlike the original pyGS code which uses (features x samples)
 ---
+
+
+## 2026-04-11 - US-008
+- What was implemented: `sparselink.bench` subpackage with synthetic data generation, evaluation metrics, NestBoot bootstrap aggregation + FDR control, pipeline runner, and CLI entry point.
+- Files changed:
+  - `sparselink/src/sparselink/bench/__init__.py` - Public API exports
+  - `sparselink/src/sparselink/bench/synthetic.py` - generate_network (random/scalefree) + generate_expression (linear model with SNR)
+  - `sparselink/src/sparselink/bench/metrics.py` - evaluate() returning AUROC, AUPR, precision, recall, FDR
+  - `sparselink/src/sparselink/bench/nestboot.py` - NestBoot class with bootstrap aggregation + FDR threshold via null distribution
+  - `sparselink/src/sparselink/bench/runner.py` - run_benchmark() running N methods on M synthetic datasets
+  - `sparselink/src/sparselink/bench/cli.py` - CLI entry point (`sparselink-bench` command)
+  - `sparselink/pyproject.toml` - Added `[project.scripts]` for CLI entry point
+- **Learnings:**
+  - Expression generation needs spectral radius stabilization (scale A so rho < 1) before inverting (I - A)
+  - NestBoot FDR control: sweep threshold from 1.0 down, compare real vs null edge counts at each level
+  - sklearn lacks py.typed marker so mypy --strict always flags it; acceptable to ignore
+---
