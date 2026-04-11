@@ -166,3 +166,17 @@ after each iteration and it's included in prompts for context.
   - causal-learn's PC/FCI return graph objects with `.graph` attribute (numpy array with edge types encoded as integers); take abs and symmetrize for undirected adjacency
   - DAG-GNN augmented Lagrangian: update rho every N epochs, not every step, for stability
 ---
+
+
+## 2026-04-11 - US-007
+- What was implemented: Bayesian structure learning with BDeu scoring (for discrete/discretized data) and BGe scoring (for continuous Gaussian data). Both use greedy hill-climbing DAG search with acyclicity constraint. Registered as "bdeu" and "bge" in the method registry.
+- Files changed:
+  - `sparselink/src/sparselink/methods/bayesian.py` - BDeuMethod and BGeMethod implementations with local scoring functions and greedy hill-climbing
+  - `sparselink/src/sparselink/methods/__init__.py` - Added imports for BDeuMethod, BGeMethod
+  - `sparselink/tests/test_bayesian_methods.py` - 13 tests covering registration, DAG output, edge detection, sparsity on independent data
+- **Learnings:**
+  - BDeu requires discretization of continuous data; `np.digitize` with linspace bins works well
+  - BGe prior scatter matrix T0 must be scaled by (alpha_w - p - 1) for proper prior; alpha_w must be > p + 1
+  - Greedy hill-climbing with acyclicity check via DFS is simple and effective for small networks
+  - `scipy.special.gammaln` is the only extra dependency needed beyond numpy
+---

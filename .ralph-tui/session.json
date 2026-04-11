@@ -3,10 +3,10 @@
   "sessionId": "76a8aec7-dcad-4394-b827-e558e0cead7c",
   "status": "running",
   "startedAt": "2026-04-11T12:26:16.060Z",
-  "updatedAt": "2026-04-11T14:56:15.566Z",
-  "currentIteration": 9,
+  "updatedAt": "2026-04-11T14:58:52.715Z",
+  "currentIteration": 10,
   "maxIterations": 20,
-  "tasksCompleted": 9,
+  "tasksCompleted": 10,
   "isPaused": false,
   "agentPlugin": "kiro",
   "trackerState": {
@@ -47,8 +47,8 @@
       {
         "id": "US-006",
         "title": "Implement causal discovery methods",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-007",
@@ -214,6 +214,16 @@
       "durationMs": 86633,
       "startedAt": "2026-04-11T14:52:16.252Z",
       "endedAt": "2026-04-11T14:53:42.885Z"
+    },
+    {
+      "iteration": 10,
+      "status": "completed",
+      "taskId": "US-006",
+      "taskTitle": "Implement causal discovery methods",
+      "taskCompleted": true,
+      "durationMs": 151590,
+      "startedAt": "2026-04-11T14:53:43.975Z",
+      "endedAt": "2026-04-11T14:56:15.565Z"
     }
   ],
   "skippedTaskIds": [],

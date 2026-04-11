@@ -16,6 +16,7 @@ from sparselink.methods.pc import PCMethod
 from sparselink.methods.fci import FCIMethod
 from sparselink.methods.notears import NOTEARSMethod
 from sparselink.methods.dag_gnn import DAGGNNMethod
+from sparselink.methods.bayesian import BDeuMethod, BGeMethod
 
 __all__ = [
     "LassoMethod",
@@ -36,4 +37,6 @@ __all__ = [
     "FCIMethod",
     "NOTEARSMethod",
     "DAGGNNMethod",
+    "BDeuMethod",
+    "BGeMethod",
 ]
