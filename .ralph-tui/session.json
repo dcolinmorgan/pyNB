@@ -3,10 +3,10 @@
   "sessionId": "76a8aec7-dcad-4394-b827-e558e0cead7c",
   "status": "running",
   "startedAt": "2026-04-11T12:26:16.060Z",
-  "updatedAt": "2026-04-11T15:24:35.088Z",
-  "currentIteration": 12,
+  "updatedAt": "2026-04-11T15:24:36.589Z",
+  "currentIteration": 13,
   "maxIterations": 20,
-  "tasksCompleted": 12,
+  "tasksCompleted": 13,
   "isPaused": false,
   "agentPlugin": "kiro",
   "trackerState": {
@@ -83,8 +83,8 @@
       {
         "id": "US-012",
         "title": "Configure linting and formatting",
-        "status": "open",
-        "completedInSession": false
+        "status": "completed",
+        "completedInSession": true
       },
       {
         "id": "US-013",
@@ -244,10 +244,22 @@
       "durationMs": 1293108,
       "startedAt": "2026-04-11T14:58:53.859Z",
       "endedAt": "2026-04-11T15:20:26.967Z"
+    },
+    {
+      "iteration": 13,
+      "status": "completed",
+      "taskId": "US-012",
+      "taskTitle": "Configure linting and formatting",
+      "taskCompleted": true,
+      "durationMs": 246904,
+      "startedAt": "2026-04-11T15:20:28.183Z",
+      "endedAt": "2026-04-11T15:24:35.087Z"
     }
   ],
   "skippedTaskIds": [],
   "cwd": "/Users/apple/Developer/dcolinmorgan/pyGS",
-  "activeTaskIds": [],
+  "activeTaskIds": [
+    "US-013"
+  ],
   "subagentPanelVisible": false
 }

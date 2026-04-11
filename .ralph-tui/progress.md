@@ -243,3 +243,16 @@ after each iteration and it's included in prompts for context.
   - `ruff format` doesn't touch content inside docstrings/`__doc__` assignments — those need manual whitespace fixes
   - `from __future__ import annotations` enables `X | Y` syntax for type aliases at runtime on Python 3.10+
 ---
+
+
+## 2026-04-11 - US-013
+- What was implemented: GitHub Actions CI/CD workflows for both pyGS and sparselink packages. CI workflow with Python 3.10/3.11/3.12 matrix, pytest+pytest-cov, and ruff linting step. Release workflow triggered by version tags that builds and publishes both packages to PyPI using trusted publishing. Removed old single-version pytest.yml.
+- Files changed:
+  - `.github/workflows/ci.yml` - New CI workflow (lint + test matrix)
+  - `.github/workflows/release.yml` - New release workflow (tag → build → PyPI publish)
+  - `.github/workflows/pytest.yml` - Removed (superseded by ci.yml)
+- **Learnings:**
+  - GitHub Actions `pypa/gh-action-pypi-publish@release/v1` supports trusted publishing via OIDC (id-token: write permission)
+  - Matrix strategy with `include` allows mapping package names to directory paths
+  - Branch protection must be configured in GitHub repo settings (Settings → Branches → Add rule for `main`), not in workflow files
+---
