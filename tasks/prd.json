@@ -1,0 +1,379 @@
+{
+  "name": "pyGS v1 Hardening & sparselink Extraction",
+  "branchName": "feature/pygs-v1-hardening-sparselink",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Create sparselink repo with unified interface",
+      "description": "As a developer, I want a standalone sparselink repo with a unified fit(X) -> AdjacencyMatrix interface, common types (AdjacencyMatrix, EdgeList, InferenceResult), and method registry pattern so that all algorithms share a consistent API.",
+      "acceptanceCriteria": [
+        "Separate git repo created for sparselink",
+        "Unified interface: each method implements fit(X) -> AdjacencyMatrix or fit(X, y) -> EdgeWeights",
+        "Common types defined: AdjacencyMatrix, EdgeList, InferenceResult",
+        "Method registry pattern implemented for discovery/enumeration",
+        "All methods accept numpy arrays / pandas DataFrames"
+      ],
+      "priority": 1,
+      "passes": true,
+      "dependsOn": [],
+      "labels": [
+        "sparselink",
+        "architecture"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-002",
+      "title": "Port LASSO/LSCO/CLR to sparselink",
+      "description": "As a developer, I want LASSO, LSCO, and CLR algorithms ported from pyGS to sparselink with the unified interface so that sparse regression methods are available standalone.",
+      "acceptanceCriteria": [
+        "LASSO implementation ported and conforms to unified interface",
+        "LSCO implementation ported from pyGS and conforms to unified interface",
+        "Elastic Net and Ridge regression implemented",
+        "Unit tests pass for each method"
+      ],
+      "priority": 1,
+      "passes": false,
+      "dependsOn": [
+        "US-001"
+      ],
+      "labels": [
+        "sparselink",
+        "sparse-regression"
+      ]
+    },
+    {
+      "id": "US-003",
+      "title": "Implement correlation/info-theoretic methods",
+      "description": "As a developer, I want Partial Correlation, PCMCI, Granger Causality, and Transfer Entropy implemented in sparselink.",
+      "acceptanceCriteria": [
+        "Partial Correlation implemented with unified interface",
+        "PCMCI implemented with unified interface",
+        "Granger Causality implemented with unified interface",
+        "Transfer Entropy implemented with unified interface",
+        "Unit tests for each method"
+      ],
+      "priority": 2,
+      "passes": false,
+      "dependsOn": [
+        "US-001"
+      ],
+      "labels": [
+        "sparselink",
+        "correlation"
+      ]
+    },
+    {
+      "id": "US-004",
+      "title": "Implement graphical model methods",
+      "description": "As a developer, I want Graphical LASSO, GLASSO+StARS, and Neighborhood Selection (Meinshausen-Bühlmann) in sparselink.",
+      "acceptanceCriteria": [
+        "Graphical LASSO implemented with unified interface",
+        "GLASSO+StARS implemented",
+        "Neighborhood Selection implemented",
+        "Unit tests for each method"
+      ],
+      "priority": 2,
+      "passes": false,
+      "dependsOn": [
+        "US-001"
+      ],
+      "labels": [
+        "sparselink",
+        "graphical-models"
+      ]
+    },
+    {
+      "id": "US-005",
+      "title": "Implement tree-based methods",
+      "description": "As a developer, I want Random Forest importance (GENIE3-style) and TIGRESS-style (stability selection + LARS) in sparselink.",
+      "acceptanceCriteria": [
+        "GENIE3-style Random Forest importance implemented",
+        "TIGRESS-style stability selection + LARS implemented",
+        "Unit tests for each method"
+      ],
+      "priority": 2,
+      "passes": false,
+      "dependsOn": [
+        "US-001"
+      ],
+      "labels": [
+        "sparselink",
+        "tree-based"
+      ]
+    },
+    {
+      "id": "US-006",
+      "title": "Implement causal discovery methods",
+      "description": "As a developer, I want PC algorithm, FCI, NOTEARS, and DAG-GNN implemented in sparselink under optional dependency groups.",
+      "acceptanceCriteria": [
+        "PC algorithm implemented with unified interface",
+        "FCI implemented with unified interface",
+        "NOTEARS implemented (optional dep: [causal])",
+        "DAG-GNN implemented (optional dep: [deep])",
+        "Unit tests for each method"
+      ],
+      "priority": 3,
+      "passes": false,
+      "dependsOn": [
+        "US-001"
+      ],
+      "labels": [
+        "sparselink",
+        "causal-discovery"
+      ]
+    },
+    {
+      "id": "US-007",
+      "title": "Implement ensemble/meta methods",
+      "description": "As a developer, I want Bayesian structure learning (BDeu/BGe scoring) implemented in sparselink.",
+      "acceptanceCriteria": [
+        "Bayesian structure learning with BDeu scoring implemented",
+        "BGe scoring implemented",
+        "Unit tests for each method"
+      ],
+      "priority": 3,
+      "passes": false,
+      "dependsOn": [
+        "US-001"
+      ],
+      "labels": [
+        "sparselink",
+        "ensemble"
+      ]
+    },
+    {
+      "id": "US-008",
+      "title": "Refactor pyGS into pyGS.bench subpackage",
+      "description": "As a developer, I want pyGS.bench to contain benchmarking and data creation: synthetic data generation, evaluation metrics, NestBoot orchestration, pipeline runners, and CLI.",
+      "acceptanceCriteria": [
+        "pyGS.bench subpackage created",
+        "Synthetic network + expression data generation moved here",
+        "Evaluation metrics (AUROC, AUPR, precision, recall, FDR) moved here",
+        "NestBoot bootstrap aggregation + FDR control moved here",
+        "Pipeline runner: run N methods from sparselink on M datasets",
+        "CLI entry point for batch benchmarking"
+      ],
+      "priority": 2,
+      "passes": false,
+      "dependsOn": [
+        "US-002"
+      ],
+      "labels": [
+        "pyGS",
+        "bench"
+      ]
+    },
+    {
+      "id": "US-009",
+      "title": "Refactor pyGS into pyGS.bio subpackage",
+      "description": "As a developer, I want pyGS.bio to contain biology-specific methods: preprocessing, external bio tool wrappers, domain-specific visualization, and GRN evaluation.",
+      "acceptanceCriteria": [
+        "pyGS.bio subpackage created",
+        "Biology-specific preprocessing moved here (expression matrices, TF/target gene lists)",
+        "Wrappers for external bio tools (scenicplus, pyscenic) moved here",
+        "Domain-specific visualization (network plots with gene annotations) moved here",
+        "GRN-specific evaluation (gold standard comparison) moved here"
+      ],
+      "priority": 2,
+      "passes": false,
+      "dependsOn": [
+        "US-002"
+      ],
+      "labels": [
+        "pyGS",
+        "bio"
+      ]
+    },
+    {
+      "id": "US-010",
+      "title": "Replace inline pyGS methods with sparselink imports",
+      "description": "As a developer, I want all inline inference methods in pyGS replaced with sparselink imports so there is no code duplication.",
+      "acceptanceCriteria": [
+        "All inline inference algorithms removed from pyGS",
+        "pyGS depends on sparselink>=1.0.0 in pyproject.toml",
+        "All existing pyGS functionality preserved (no regression)",
+        "pip install pyGS pulls in sparselink automatically"
+      ],
+      "priority": 2,
+      "passes": false,
+      "dependsOn": [
+        "US-008",
+        "US-009"
+      ],
+      "labels": [
+        "pyGS",
+        "migration"
+      ]
+    },
+    {
+      "id": "US-011",
+      "title": "Add type annotations (mypy strict)",
+      "description": "As a developer, I want full type annotations on all public APIs in both packages with mypy strict mode passing.",
+      "acceptanceCriteria": [
+        "Type annotations on all public APIs in sparselink",
+        "Type annotations on all public APIs in pyGS",
+        "mypy passes strict on both packages",
+        "Explicit __all__ in every __init__.py"
+      ],
+      "priority": 3,
+      "passes": false,
+      "dependsOn": [
+        "US-010"
+      ],
+      "labels": [
+        "hardening",
+        "types"
+      ]
+    },
+    {
+      "id": "US-012",
+      "title": "Configure linting and formatting",
+      "description": "As a developer, I want ruff for linting and formatting with pre-commit hooks configured for both packages.",
+      "acceptanceCriteria": [
+        "ruff configured (replaces flake8 + isort + pyupgrade)",
+        "ruff format configured (black-compatible)",
+        "Pre-commit hooks config added",
+        "Both packages pass linting cleanly"
+      ],
+      "priority": 3,
+      "passes": false,
+      "dependsOn": [
+        "US-010"
+      ],
+      "labels": [
+        "hardening",
+        "linting"
+      ]
+    },
+    {
+      "id": "US-013",
+      "title": "Set up CI/CD with GitHub Actions",
+      "description": "As a developer, I want GitHub Actions workflows for testing, linting, and PyPI publishing on both packages.",
+      "acceptanceCriteria": [
+        "CI matrix: Python 3.10, 3.11, 3.12",
+        "pytest + pytest-cov in CI",
+        "Linting step in CI",
+        "Release workflow: tag -> build -> publish to PyPI",
+        "Branch protection on main"
+      ],
+      "priority": 3,
+      "passes": false,
+      "dependsOn": [
+        "US-012"
+      ],
+      "labels": [
+        "hardening",
+        "ci-cd"
+      ]
+    },
+    {
+      "id": "US-014",
+      "title": "Set up packaging with pyproject.toml",
+      "description": "As a developer, I want both packages using pyproject.toml (PEP 621) with src/ layout and optional dependency groups.",
+      "acceptanceCriteria": [
+        "pyproject.toml for sparselink with hatchling or setuptools backend",
+        "pyproject.toml for pyGS with sparselink>=1.0.0 dependency",
+        "src/ layout retained",
+        "Optional dependency groups: [dev], [docs], [test], [causal], [deep]",
+        "pip install sparselink works standalone with no biology deps"
+      ],
+      "priority": 2,
+      "passes": false,
+      "dependsOn": [
+        "US-001"
+      ],
+      "labels": [
+        "hardening",
+        "packaging"
+      ]
+    },
+    {
+      "id": "US-015",
+      "title": "Create documentation site",
+      "description": "As a developer, I want MkDocs + mkdocstrings documentation published to GitHub Pages with API reference, quickstart guide, and method comparison table.",
+      "acceptanceCriteria": [
+        "MkDocs with Material theme configured",
+        "mkdocstrings for auto-generated API reference",
+        "Quickstart guide written",
+        "Method comparison table included",
+        "Contributing guide written",
+        "Published to GitHub Pages"
+      ],
+      "priority": 4,
+      "passes": false,
+      "dependsOn": [
+        "US-011"
+      ],
+      "labels": [
+        "hardening",
+        "docs"
+      ]
+    },
+    {
+      "id": "US-016",
+      "title": "Achieve 80%+ test coverage",
+      "description": "As a developer, I want at least 80% test coverage on sparselink with unit tests for each algorithm and integration tests for the pipeline runner.",
+      "acceptanceCriteria": [
+        "Unit tests for each algorithm in sparselink",
+        "Integration tests for pipeline runner in pyGS.bench",
+        "80%+ test coverage achieved",
+        "pytest-cov reporting configured"
+      ],
+      "priority": 3,
+      "passes": false,
+      "dependsOn": [
+        "US-010"
+      ],
+      "labels": [
+        "hardening",
+        "testing"
+      ]
+    },
+    {
+      "id": "US-017",
+      "title": "Add versioning and changelog",
+      "description": "As a developer, I want SemVer 1.0.0 versioning with CHANGELOG.md in Keep a Changelog format and a deprecation policy.",
+      "acceptanceCriteria": [
+        "SemVer 1.0.0 applied to both packages",
+        "CHANGELOG.md in Keep a Changelog format",
+        "Deprecation policy: warnings for 1 minor version before removal",
+        "Stable import paths documented"
+      ],
+      "priority": 4,
+      "passes": false,
+      "dependsOn": [
+        "US-013"
+      ],
+      "labels": [
+        "hardening",
+        "release"
+      ]
+    },
+    {
+      "id": "US-018",
+      "title": "v1.0.0 release of sparselink and pyGS",
+      "description": "As a developer, I want both packages released as v1.0.0 on PyPI with all success criteria met.",
+      "acceptanceCriteria": [
+        "sparselink v1.0.0 published to PyPI",
+        "pyGS v1.0.0 published to PyPI",
+        "At least 12 inference algorithms available in sparselink",
+        "Docs site live with API reference + quickstart",
+        "GitHub Actions green: lint + test + publish pipeline"
+      ],
+      "priority": 4,
+      "passes": false,
+      "dependsOn": [
+        "US-015",
+        "US-016",
+        "US-017"
+      ],
+      "labels": [
+        "release"
+      ]
+    }
+  ],
+  "metadata": {
+    "updatedAt": "2026-04-11T12:29:13.055Z"
+  }
+}

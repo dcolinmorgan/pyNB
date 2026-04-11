@@ -1,0 +1,132 @@
+{
+  "version": 1,
+  "sessionId": "76a8aec7-dcad-4394-b827-e558e0cead7c",
+  "status": "running",
+  "startedAt": "2026-04-11T12:26:16.060Z",
+  "updatedAt": "2026-04-11T12:29:13.056Z",
+  "currentIteration": 0,
+  "maxIterations": 20,
+  "tasksCompleted": 0,
+  "isPaused": false,
+  "agentPlugin": "kiro",
+  "trackerState": {
+    "plugin": "json",
+    "prdPath": "./tasks/prd.json",
+    "totalTasks": 18,
+    "tasks": [
+      {
+        "id": "US-001",
+        "title": "Create sparselink repo with unified interface",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-002",
+        "title": "Port LASSO/LSCO/CLR to sparselink",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-003",
+        "title": "Implement correlation/info-theoretic methods",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-004",
+        "title": "Implement graphical model methods",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-005",
+        "title": "Implement tree-based methods",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-006",
+        "title": "Implement causal discovery methods",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-007",
+        "title": "Implement ensemble/meta methods",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-008",
+        "title": "Refactor pyGS into pyGS.bench subpackage",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-009",
+        "title": "Refactor pyGS into pyGS.bio subpackage",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-010",
+        "title": "Replace inline pyGS methods with sparselink imports",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-011",
+        "title": "Add type annotations (mypy strict)",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-012",
+        "title": "Configure linting and formatting",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-013",
+        "title": "Set up CI/CD with GitHub Actions",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-014",
+        "title": "Set up packaging with pyproject.toml",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-015",
+        "title": "Create documentation site",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-016",
+        "title": "Achieve 80%+ test coverage",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-017",
+        "title": "Add versioning and changelog",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "US-018",
+        "title": "v1.0.0 release of sparselink and pyGS",
+        "status": "open",
+        "completedInSession": false
+      }
+    ]
+  },
+  "iterations": [],
+  "skippedTaskIds": [],
+  "cwd": "/Users/apple/Developer/dcolinmorgan/pyGS",
+  "activeTaskIds": [],
+  "subagentPanelVisible": false
+}
