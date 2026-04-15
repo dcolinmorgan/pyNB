@@ -28,8 +28,10 @@ class PartialCorrelation(InferenceMethod):
             X: Data matrix (samples x features).
             y: Ignored.
         """
+        from sparselink.accel import cov as mlx_cov
+
         X_arr = self._to_array(X)
-        cov = np.cov(X_arr, rowvar=False)
+        cov = mlx_cov(X_arr)
         try:
             precision = np.linalg.inv(cov)
         except np.linalg.LinAlgError:

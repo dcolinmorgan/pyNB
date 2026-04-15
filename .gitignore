@@ -173,3 +173,16 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Benchmark artifacts
+.gs_cache/
+benchmark_results.json
+benchmark_genespider.json
+benchmark_dashboard.html
+benchmark_genespider_dashboard.html
+benchmark.log
+benchmark_gs.log
+
+# Editor / tool caches
+.kiro/
+.DS_Store

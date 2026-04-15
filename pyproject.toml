@@ -19,8 +19,11 @@ dependencies = [
     "seaborn>=0.13.2",
     "requests>=2.31.0",
     "PyYAML",
-    "sparselink>=1.0.0",
+    "sparselink",
 ]
+
+[tool.uv.sources]
+sparselink = { path = "sparselink/", editable = true }
 
 [project.optional-dependencies]
 dev = ["pytest", "pytest-cov", "mypy", "ruff", "ipykernel>=7.1.0"]

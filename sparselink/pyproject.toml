@@ -13,10 +13,14 @@ dependencies = [
     "scipy>=1.9",
     "scikit-learn>=1.1",
     "pandas>=1.5",
+    "rich>=13.0",
 ]
 
 [project.scripts]
 sparselink-bench = "sparselink.bench.cli:main"
+sparselink-benchmark = "sparselink.bench.run_benchmark:main"
+sparselink-dashboard = "sparselink.bench.dashboard:main"
+sparselink-tui = "sparselink.bench.tui:main"
 
 [project.optional-dependencies]
 causal = ["causal-learn"]

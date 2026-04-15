@@ -1,188 +1,184 @@
-# Network Bootstrap FDR & mini GeneSPIDER
+# pyGS — Python GeneSpider
 
-A comprehensive Python implementation of NB-FDR (Network Bootstrap False Discovery Rate) analysis for gene regulatory network inference and evaluation. This package implements an algorithm to estimate bootstrap support for network links by comparing measured networks against a shuffled (null) dataset.
+Gene regulatory network inference and benchmarking, powered by [sparselink](sparselink/).
 
-## 🚀 Supported Methods
+## Overview
 
-This package includes implementations of the following network inference methods:
+pyGS provides biology-specific workflows (data loading, TF filtering, gold-standard evaluation) on top of **sparselink**, a domain-agnostic sparse network inference library with 20 methods behind a unified interface.
 
-1. **LASSO** (Least Absolute Shrinkage and Selection Operator)
-2. **LSCO** (Least Squares with Cut-Off)
-3. **CLR** (Context Likelihood of Relatedness)
-4. **GENIE3** (GEne Network Inference with Ensemble of trees)
-5. **TIGRESS** (Trustful Inference of Gene REgulation with Stability Selection)
+## Installation
 
-## 📦 Installation
-
-### Quick Start with uv (Recommended)
 ```bash
-# Navigate to project directory
-cd /path/to/pyNB
+# With uv (recommended)
+uv pip install -e ".[dev]" -e "sparselink/[dev]"
 
-# For development with all features
-uv pip install -e ".[dev,workflow]"
+# Or with pip
+pip install -e ".[dev]"
+pip install -e "sparselink/[dev]"
+
+# Optional extras
+uv pip install -e "sparselink/[causal]"   # PC, FCI (causal-learn)
+uv pip install -e "sparselink/[deep]"     # DAG-GNN (torch)
 ```
 
-### Alternative Installation
+## Quick Start
+
+### Interactive TUI (recommended)
+
 ```bash
-python -m venv venv
-source venv/bin/activate           # Windows: venv\Scripts\activate  
-pip install -e ".[dev]"            # Core functionality + testing
-pip install -e ".[workflow]"       # + Snakemake & SCENIC+ integration
+sparselink-tui                    # if installed
+uv run -m sparselink.bench.tui    # without installing
 ```
 
-## ⚡ Quick Start: Create a Dataset/Network
+Launches an interactive terminal UI where you can configure and run benchmarks, generate dashboards, and inspect results — all from a menu:
+
+```
+ ▄▄▄▄  ▄▄▄▄   ▄▄▄  ▄▄▄▄  ▄▄▄▄  ▄▄▄▄  █     ▀ ▄▄▄  █  ▄
+ █▀▀▀  █▀ ▀█  █▀ █  █▀ ▀▄ █▀▀▀  █▀▀▀  █     █ █  █  █▄▀
+ ▀▀▀█  █▀▀▀   █▀▀█  █▀▀▄  ▀▀▀█  █▀▀   █     █ █  █  █ ▀▄
+ ▄▄▄█▀ █      █  █  █  █  ▄▄▄█▀ █▄▄▄  █▄▄▄▀ █ █  █  █  █
+
+  1  Show system status & available methods
+  2  Run synthetic benchmark
+  3  Run GeneSpider benchmark
+  4  Generate interactive HTML dashboard
+  5  Render a previous result JSON
+
+sparselink ❯
+```
+
+Option **2** walks you through configuring every dimension:
+- **A)** Method tier (fast / medium / slow / very_slow)
+- **B)** Network size (20 / 50 / 100 genes)
+- **C)** Sparsity levels (0.2, 0.4, 0.6)
+- **D)** SNR levels (0.1, 1.0, 10.0)
+- **E)** Number of replicates
+
+### TUI CLI commands
+
+```bash
+sparselink-tui status                             # check methods, MLX, deps
+sparselink-tui bench --tier fast --timeout 60     # synthetic benchmark
+sparselink-tui bench-gs --sizes N50               # GeneSpider benchmark
+sparselink-tui show benchmark_results.json        # render results table
+sparselink-tui dashboard -i results.json          # generate + open HTML dashboard
+```
+
+### Infer a network with sparselink
 
 ```python
-import sys, numpy as np
-from sklearn.decomposition import TruncatedSVD
-from scipy.stats.distributions import chi2
-sys.path.insert(0, 'src')
+import numpy as np
+from sparselink import get_method, list_methods
 
-from analyze.Data import Data
-from datastruct.Network import Network
-from datastruct.scalefree import scalefree
-from datastruct.random import randomNet
-from datastruct.stabilize import stabilize
-import analyze
-from datastruct.Dataset import Dataset
-N=20
-A=scalefree(N,3)
-A = stabilize(A, iaa='low')
+print(list_methods())
+# ['lasso', 'elastic_net', 'lsco', 'clr', 'genie3', 'tigress',
+#  'graphical_lasso', 'glasso_stars', 'pc', 'fci', 'notears', ...]
 
-Net = Network(A, 'myNetwork')
-
-P=np.identity(N)
-
-X = Net.G@P
-
-
-SNR = 50
-alpha=0.05
-svd = TruncatedSVD(n_components=5, n_iter=7, random_state=42)
-s = svd.fit(X).singular_values_
-stdE = s[0]/(SNR*np.sqrt(chi2.ppf(1-alpha,np.size(P))))
-E = stdE*np.random.randn(P.shape[0],P.shape[1])
-
-F = np.zeros_like(P)
-
-D= Dataset
-D.network = Net.network
-D.E = E
-D.F = F 
-D.Y = X+E
-D.P = P
-D.lambda_ = [stdE**2,0]
-D.cvY = D.lambda_[0]*np.identity(N)
-D.cvP = np.zeros(N)
-D.sdY = stdE*np.ones(D.P.shape)
-D.sdP = np.zeros(D.P.shape)
-
-Data = Dataset(D, Net)
-from methods.lsco import LSCO
-from analyze.CompareModels import CompareModels
-
-zeta = np.logspace(-6,0,30)
-infMethod = 'LSCO'
-[Aest0, z0] = LSCO(Data,zeta)
-M = CompareModels(Net, Aest0)
-
-M.AUROC
-max(M.F1)
-
+X = np.random.randn(100, 10)
+result = get_method("lasso")(alpha=0.1).fit(X)
+print(result.adjacency_matrix.shape)  # (10, 10)
 ```
 
-## ⚡ Quick Start: Basic Inference
-
-Here is a simple example of how to load a dataset and run inference using various supported methods.
+### Benchmark with synthetic data
 
 ```python
-import sys
-import numpy as np
-sys.path.insert(0, 'src')
+from sparselink import get_method
+from sparselink.bench import generate_network, generate_expression, evaluate
 
-from analyze.Data import Data
-from datastruct.Network import Network
-from analyze.CompareModels import CompareModels
-from methods.lasso import Lasso
-from methods.lsco import LSCO
-from methods.genie3 import GENIE3
-from methods.clr import CLR
+A_true = generate_network(n_genes=20, topology="scalefree")
+X = generate_expression(A_true, n_samples=100, snr=10.0)
 
-dataset = Data.from_json_url(
-    'https://bitbucket.org/sonnhammergrni/gs-datasets/raw/d2047430263f5ffe473525c74b4318f723c23b0e/N50/Tjarnberg-ID252384-D20151111-N50-E150-SNR100000-IDY252384.json'
-)
-true_net = Network.from_json_url(
-    'https://bitbucket.org/sonnhammergrni/gs-networks/raw/0b3a66e67d776eadaa5d68667ad9c8fbac12ef85/random/N50/Tjarnberg-D20150910-random-N50-L158-ID252384.json'
-)
-
-# 2. Run Inference Methods
-
-zetavec = np.logspace(-6, 0, 30)
-lasso_net, _ = Lasso(dataset, alpha_range=zetavec)
-lsco_net,_ = LSCO(dataset, threshold_range=zetavec)
-genie3_net,_ = GENIE3(dataset)
-clr_net,_ = CLR(dataset)
-
-M0 = CompareModels(true_net,lasso_net)
-max(M0.AUROC)
-
-M1 = CompareModels(true_net,lsco_net)
-max(M1.AUROC)
-
-M2 = CompareModels(true_net,genie3_net)
-max(M2.AUROC)
-
-M3 = CompareModels(true_net,clr_net)
-max(M3.AUROC)
-
-import sys
-import numpy as np
-sys.path.insert(0, 'src')
-
-from methods.nestboot import Nestboot
-from methods.lsco import LSCO
-from analyze.Data import Data
-
-dataset = Data.from_json_url(
-    'https://bitbucket.org/sonnhammergrni/gs-datasets/raw/d2047430263f5ffe473525c74b4318f723c23b0e/N50/Tjarnberg-ID252384-D20151111-N50-E150-SNR100000-IDY252384.json'
-)
-
-zetavec = np.logspace(-6, 0, 30)
-
-nb = Nestboot()
-
-results = nb.run_nestboot(
-    dataset=dataset,
-    inference_method=LSCO,  # The class itself
-    method_params={'threshold_range': zetavec},  # Parameters for the method
-    nest_runs=5,
-    boot_runs=5,
-    seed=42
-)
-
-
-results.fp_rate
-results.support
-
-M4 = CompareModels(true_net,results.sxnet)
-
+result = get_method("glasso")().fit(X)
+metrics = evaluate(A_true, result.adjacency_matrix)
+print(f"AUROC={metrics.auroc:.3f}  F1={metrics.f1:.3f}  MCC={metrics.mcc:.3f}")
 ```
 
-## 📊 Benchmark Results Visualization
+### Benchmark against real GeneSpider data
 
-After running the benchmark, you can generate comprehensive performance comparison plots using the included visualization notebooks.
+```bash
+python benchmark_genespider.py --tier fast --sizes N50 --timeout 120
+```
 
-### Sample Results
+Downloads datasets from the [Sonnhammer GRNi repos](https://bitbucket.org/sonnhammergrni/) and evaluates all methods with alpha sweep and perturbation matrix support.
 
-Here are example performance comparison plots for the 5 supported methods (N50 networks):
+### NestBoot FDR control
 
-![MATLAB Comparison Violin Plot](benchmark/plots/language_comparison_all.png)
+```python
+from sparselink.bench import NestBoot
 
+nestboot = NestBoot(method_name="lasso", n_bootstraps=50, fdr=0.05)
+final_adj = nestboot.run(X)
+```
 
-Each plot shows F1 Score, MCC, and AUROC comparisons across different SNR levels, providing a comprehensive view of method performance and stability.
+### Interactive dashboard
 
+After any benchmark run, generate a click-to-drill-down HTML dashboard:
 
-### BENCHMARK CODE
-The benchmark and plotting scripts are located in the [benchmark](benchmark/demo_code/n50_benchmark.ipynb). You can customize and extend these scripts to suit your analysis needs.
+```bash
+sparselink-tui dashboard -i benchmark_results.json
+```
 
+Drill order: **SNR → Topology → Sparsity**, with methods always compared on the x-axis. Includes collapsible static comparison grids and a searchable data table.
+
+## Supported Methods
+
+| Category | Methods |
+|----------|---------|
+| Regression | Lasso, Elastic Net, Ridge, LSCO, TIGRESS |
+| Tree-based | GENIE3 |
+| Information theory | CLR |
+| Graphical models | Graphical Lasso, GLASSO+StARS, Neighborhood Selection |
+| Correlation | Partial Correlation |
+| Causal (time-series) | PCMCI, Granger, Transfer Entropy |
+| Constraint-based | PC, FCI |
+| Continuous optimization | NOTEARS, DAG-GNN |
+| Bayesian | BDeu, BGe |
+
+All methods implement `InferenceMethod.fit(X) -> InferenceResult`. See [docs/site/methods.md](docs/site/methods.md) for details.
+
+## Project Structure
+
+```
+pyGS/
+├── src/                  # pyGS source (bio workflows, legacy methods, bootstrap)
+│   ├── methods/          # pyGS method wrappers
+│   ├── datastruct/       # Network, Dataset classes
+│   ├── analyze/          # CompareModels, Data loading
+│   ├── bio/              # Biology-specific subpackage
+│   └── bootstrap/        # NB-FDR analysis
+├── sparselink/           # Standalone inference library
+│   └── src/sparselink/
+│       ├── methods/      # 20 registered inference methods
+│       ├── bench/        # Benchmarking, TUI, dashboard, NestBoot
+│       └── accel.py      # MLX acceleration for Apple Silicon
+├── benchmark_genespider.py  # GeneSpider dataset benchmark
+├── docs/site/            # MkDocs documentation
+└── pyproject.toml
+```
+
+## Development
+
+```bash
+git clone https://github.com/dcolinmorgan/pyGS.git
+cd pyGS
+pip install -e ".[dev]"
+pip install -e "sparselink/[dev]"
+
+# Lint & type-check
+ruff check src/ sparselink/
+mypy
+
+# Test
+pytest --cov
+```
+
+## Documentation
+
+```bash
+pip install -e ".[docs]"
+mkdocs serve
+```
+
+## License
+
+MIT

@@ -82,9 +82,12 @@ class NOTEARSMethod(InferenceMethod):
         self, W: np.ndarray, X: np.ndarray, rho: float, alpha: float, d: int, n: int
     ) -> np.ndarray:
         """Proximal gradient step."""
+        from sparselink.accel import matmul
+
         lr = 1e-3
         for _ in range(300):
-            loss_grad = -(2.0 / n) * X.T @ (X - X @ W)
+            residual = X - matmul(X, W)
+            loss_grad = -(2.0 / n) * matmul(X.T, residual)
             E = expm(W * W)
             h_grad = E.T * W * 2.0
             grad = loss_grad + (rho * self._h(W) + alpha) * h_grad

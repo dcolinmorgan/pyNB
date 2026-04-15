@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
-from sklearn.covariance import GraphicalLasso
+from sklearn.covariance import GraphicalLasso, LedoitWolf
 
 from sparselink.base import InferenceMethod
 from sparselink.registry import registry
@@ -24,10 +24,14 @@ class GraphicalLassoMethod(InferenceMethod):
 
     def fit(self, X: InputData, y: InputData | None = None) -> InferenceResult:
         X_arr = self._to_array(X)
-        model = GraphicalLasso(alpha=self.alpha, max_iter=200)
-        model.fit(X_arr)
-        prec = model.precision_
-        # Zero diagonal for adjacency
+        try:
+            model = GraphicalLasso(alpha=self.alpha, max_iter=500)
+            model.fit(X_arr)
+            prec = model.precision_
+        except FloatingPointError:
+            # Ill-conditioned: fall back to Ledoit-Wolf shrunk covariance
+            lw = LedoitWolf().fit(X_arr)
+            prec = np.linalg.pinv(lw.covariance_)
         np.fill_diagonal(prec, 0.0)
         return InferenceResult(adjacency_matrix=np.abs(prec))
 
@@ -85,9 +89,13 @@ class GLASSOStARS(InferenceMethod):
                 best_alpha = alpha
                 break
 
-        model = GraphicalLasso(alpha=best_alpha, max_iter=200)
-        model.fit(X_arr)
-        prec = model.precision_
+        model = GraphicalLasso(alpha=best_alpha, max_iter=500)
+        try:
+            model.fit(X_arr)
+            prec = model.precision_
+        except FloatingPointError:
+            lw = LedoitWolf().fit(X_arr)
+            prec = np.linalg.pinv(lw.covariance_)
         np.fill_diagonal(prec, 0.0)
         return InferenceResult(
             adjacency_matrix=np.abs(prec),

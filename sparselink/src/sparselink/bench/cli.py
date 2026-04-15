@@ -63,7 +63,10 @@ def main(argv: list[str] | None = None) -> None:
             "aupr": r.metrics.aupr,
             "precision": r.metrics.precision,
             "recall": r.metrics.recall,
+            "f1": r.metrics.f1,
             "fdr": r.metrics.fdr,
+            "mcc": r.metrics.mcc,
+            "r2": r.metrics.r2,
         }
         for r in results
     ]
