@@ -36,7 +36,7 @@ from rich.table import Table
 from rich.tree import Tree
 
 # Reuse sparselink TUI components
-from sparselink.bench.tui import (
+from sparselink.tui import (
     BOLD, DIM, GREEN, INDIGO, ORANGE, ROSE, TEAL, TEXT,
     _bar, _cmd_dashboard, _cmd_show, _cmd_status, _color,
     _configure_synthetic, _pick_multi, _render_results,
