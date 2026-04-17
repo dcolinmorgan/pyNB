@@ -1,0 +1,3 @@
+[submodule "sparselink"]
+	path = sparselink
+	url = https://github.com/graffold/sparselink.git
