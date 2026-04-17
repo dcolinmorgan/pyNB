@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 import time
 import warnings
@@ -56,11 +57,11 @@ DIM = "#71717A"
 BOLD = "bold #FAFAFA"
 
 BANNER = [
-    "            ▄▄▄▄   ▄▄▄▄ ",
-    " ▄▄▄▄  █  █ █▀▀▀  █▀▀▀  ",
-    " █▀ ▀█ █▄▄█ █ ▀█▀ ▀▀▀█  ",
-    " █▀▀▀  ▀  █ ▀▄▄█▀ ▄▄▄█▀ ",
-    " █     ▀  ▀               ",
+    " ▄▄▄▄  ▄  ▄  ▄▄▄▄  ▄▄▄▄",
+    " █  █  █  █  █     █    ",
+    " █▀▀█  ▀▄▄█  █ ▀█▀ ▀▀▀█",
+    " █     ▄  █  █  █  ▄  █",
+    " ▀     ▀▀▀▀  ▀▀▀▀  ▀▀▀▀",
 ]
 
 # Method categories for display
@@ -95,8 +96,8 @@ def _print_banner() -> None:
     for line in BANNER:
         console.print(f"[{TEAL}]{line}[/]")
     console.print(
-        f"  [{BOLD}]pyGS[/]  [{DIM}]gene regulatory network"
-        f" inference & benchmarking[/]"
+        f"  [{BOLD}]pyGS[/]  [{DIM}]python genespider —"
+        f" network inference & benchmarking[/]"
     )
     console.print()
 
@@ -497,10 +498,29 @@ def _configure_genespider() -> argparse.Namespace:
     console.print(f"  [{TEAL}]A) Method tier[/]")
     tiers = _pick_multi(
         "Tiers",
-        {"1": "fast", "2": "medium", "3": "slow"},
+        {"1": "fast", "2": "medium", "3": "slow", "4": "nestboot"},
         default="1",
     )
-    tier = ",".join(tiers) if tiers else "fast"
+
+    use_nestboot = "nestboot" in tiers
+    tier_names = [t for t in tiers if t != "nestboot"]
+    tier = ",".join(tier_names) if tier_names else "fast"
+
+    # NestBoot params
+    nest_runs = 0
+    boot_runs = 0
+    fdr = 0.05
+    if use_nestboot:
+        console.print(f"\n  [{TEAL}]NestBoot config[/]")
+        nest_runs = int(
+            Prompt.ask(f"  [{DIM}]Outer runs[/]", default="10")
+        )
+        boot_runs = int(
+            Prompt.ask(f"  [{DIM}]Inner runs[/]", default="10")
+        )
+        fdr = float(
+            Prompt.ask(f"  [{DIM}]FDR threshold[/]", default="0.05")
+        )
 
     console.print(f"\n  [{TEAL}]B) Network sizes[/]")
     sizes = _pick_multi(
@@ -527,6 +547,11 @@ def _configure_genespider() -> argparse.Namespace:
         max_datasets=max_ds,
         timeout=timeout,
         output=output,
+        nestboot=use_nestboot,
+        nest_runs=nest_runs,
+        boot_runs=boot_runs,
+        fdr=fdr,
+        seed=42,
     )
 
 
@@ -539,18 +564,28 @@ def _run_genespider_live(args: argparse.Namespace) -> None:
 
     import sparselink.methods  # noqa: F401
 
+    # Parse tiers — "nestboot" in the tier list enables NestBoot wrapping
     selected_tiers = [t.strip() for t in args.tier.split(",")]
+    use_nestboot = getattr(args, "nestboot", False) or "nestboot" in selected_tiers
+    method_tiers = [t for t in selected_tiers if t != "nestboot"]
+    if not method_tiers:
+        method_tiers = ["fast"]
+
     methods: list[str] = []
-    for t in selected_tiers:
+    for t in method_tiers:
         methods.extend(TIERS.get(t, []))
     registered = set(list_methods())
     methods = [m for m in methods if m in registered]
-
     sizes = [s.strip() for s in args.sizes.split(",")]
 
     console.print(f"  [{TEAL}]Methods[/]  {', '.join(methods)}")
     console.print(f"  [{TEAL}]Sizes[/]    {sizes}")
     console.print(f"  [{TEAL}]Timeout[/]  {args.timeout}s")
+    if use_nestboot:
+        console.print(
+            f"  [{TEAL}]NestBoot[/] {args.nest_runs}×{args.boot_runs},"
+            f" FDR={args.fdr}"
+        )
     console.print()
 
     progress = Progress(
@@ -571,9 +606,10 @@ def _run_genespider_live(args: argparse.Namespace) -> None:
             datasets = datasets[: args.max_datasets]
 
         total = len(datasets) * len(methods)
+        label = "NestBoot" if use_nestboot else "Direct"
         console.print(
             f"  [{DIM}]{len(datasets)} datasets × {len(methods)}"
-            f" methods = {total} runs[/]"
+            f" methods = {total} runs ({label})[/]"
         )
 
         with progress:
@@ -586,25 +622,38 @@ def _run_genespider_live(args: argparse.Namespace) -> None:
                 except Exception:
                     progress.advance(task, len(methods))
                     continue
+
                 for method_name in methods:
                     snr = ds_meta["snr"]
+                    tag = f"{'NB:' if use_nestboot else ''}{method_name}"
                     progress.update(
                         task,
-                        description=(
-                            f"{method_name:20s} {topology}/SNR={snr}"
-                        ),
+                        description=f"{tag:20s} {topology}/SNR={snr}",
                     )
-                    r = run_single(
-                        method_name,
-                        X,
-                        A_true,
-                        ds_meta,
-                        topology,
-                        net_name,
-                        args.timeout,
-                        P,
-                    )
-                    results.append(asdict(r))
+
+                    if use_nestboot:
+                        r = _run_nestboot_on_gs(
+                            method_name,
+                            X,
+                            A_true,
+                            ds_meta,
+                            topology,
+                            net_name,
+                            args,
+                        )
+                    else:
+                        r = run_single(
+                            method_name,
+                            X,
+                            A_true,
+                            ds_meta,
+                            topology,
+                            net_name,
+                            args.timeout,
+                            P,
+                        )
+                        r = asdict(r)
+                    results.append(r)
                     progress.advance(task)
 
     _render_results(results, f"GeneSpider Benchmark ({len(results)} runs)")
@@ -612,6 +661,93 @@ def _run_genespider_live(args: argparse.Namespace) -> None:
     with open(args.output, "w") as f:
         json.dump(results, f, indent=2)
     console.print(f"\n  [{DIM}]Results saved to {args.output}[/]")
+
+
+def _run_nestboot_on_gs(
+    method_name: str,
+    X: np.ndarray,
+    A_true: np.ndarray,
+    ds_meta: dict,
+    topology: str,
+    net_name: str,
+    args: argparse.Namespace,
+) -> dict:
+    """Run a single method through NestBoot on a GeneSpider dataset."""
+    from sparselink import get_method
+    from sparselink.bench.metrics import evaluate
+
+    from config import AnalysisConfig
+    from datastruct.Dataset import Dataset
+    from datastruct.Network import Network
+    from analyze.Data import Data
+    from methods.nestboot import Nestboot
+
+    n_genes = X.shape[1]
+    gene_names = [f"G{i}" for i in range(n_genes)]
+
+    # Build Dataset (X is samples×genes, Dataset wants genes×samples)
+    ds = Dataset()
+    ds._Y = X.T
+    ds._P = np.eye(n_genes)
+    ds._network = Network(A_true)
+    ds._names = gene_names
+    data_obj = Data(ds)
+
+    method_cls = get_method(method_name)
+
+    def _infer(dataset: Data, **kwargs: object) -> np.ndarray:
+        Y = dataset.data.Y  # type: ignore[union-attr]
+        result = method_cls().fit(Y.T)
+        return result.adjacency_matrix
+
+    config = AnalysisConfig(
+        total_runs=args.nest_runs * args.boot_runs,
+        inner_group_size=args.boot_runs,
+        fdr_threshold=args.fdr,
+    )
+    nb = Nestboot(config)
+    nb.logger.setLevel(logging.WARNING)
+
+    base = dict(
+        method=f"nestboot:{method_name}",
+        dataset_name=ds_meta["path"],
+        network_name=net_name,
+        topology=topology,
+        n_genes=ds_meta["n_genes"],
+        snr=ds_meta["snr"],
+    )
+    fail = dict(
+        auroc=0, aupr=0, precision=0, recall=0,
+        f1=0, fdr=1, mcc=0, r2=0,
+    )
+
+    try:
+        t0 = time.perf_counter()
+        nb_results = nb.run_nestboot(
+            dataset=data_obj,
+            inference_method=_infer,
+            nest_runs=args.nest_runs,
+            boot_runs=args.boot_runs,
+            seed=getattr(args, "seed", 42),
+        )
+        elapsed = time.perf_counter() - t0
+
+        metrics = evaluate(A_true, nb_results.xnet)
+        return {
+            **base,
+            "auroc": metrics.auroc,
+            "aupr": metrics.aupr,
+            "precision": metrics.precision,
+            "recall": metrics.recall,
+            "f1": metrics.f1,
+            "fdr": metrics.fdr,
+            "mcc": metrics.mcc,
+            "r2": metrics.r2,
+            "elapsed_sec": round(elapsed, 4),
+            "error": None,
+        }
+    except Exception as e:
+        return {**base, **fail, "elapsed_sec": 0, "error": str(e)[:120]}
 
 
 # ── NestBoot FDR ──────────────────────────────────────────────────────────
@@ -671,6 +807,7 @@ def _cmd_nestboot(args: argparse.Namespace) -> None:
         fdr_threshold=args.fdr,
     )
     nb = Nestboot(config)
+    nb.logger.setLevel(logging.WARNING)
 
     with console.status(
         f"[{TEAL}]Running NestBoot"
@@ -886,12 +1023,11 @@ _MENU = {
     "2": ("methods", "List all inference methods"),
     "3": ("infer", "Infer a network from a data file"),
     "4": ("bench", "Run synthetic benchmark"),
-    "5": ("bench-gs", "Run GeneSpider benchmark (real data)"),
-    "6": ("nestboot", "NestBoot FDR analysis"),
-    "7": ("evaluate", "Evaluate predicted GRN vs gold standard"),
-    "8": ("plot", "Plot a gene regulatory network"),
-    "9": ("dashboard", "Generate interactive HTML dashboard"),
-    "0": ("show", "Render a previous result JSON"),
+    "5": ("bench-gs", "Run GeneSpider benchmark (+ NestBoot)"),
+    "6": ("evaluate", "Evaluate predicted GRN vs gold standard"),
+    "7": ("plot", "Plot a gene regulatory network"),
+    "8": ("dashboard", "Generate interactive HTML dashboard"),
+    "9": ("show", "Render a previous result JSON"),
 }
 
 
@@ -950,36 +1086,6 @@ def _interactive() -> None:
             elif cmd == "bench-gs":
                 ns = _configure_genespider()
                 _run_genespider_live(ns)
-
-            elif cmd == "nestboot":
-                fpath = Prompt.ask(
-                    f"  [{DIM}]Expression file"
-                    f" (.csv, .tsv, .h5ad, .npy)[/]"
-                )
-                method = Prompt.ask(f"  [{DIM}]Method[/]", default="lasso")
-                nest = int(
-                    Prompt.ask(f"  [{DIM}]Outer runs[/]", default="10")
-                )
-                boot = int(
-                    Prompt.ask(f"  [{DIM}]Inner runs[/]", default="10")
-                )
-                fdr = float(
-                    Prompt.ask(f"  [{DIM}]FDR threshold[/]", default="0.05")
-                )
-                out = Prompt.ask(
-                    f"  [{DIM}]Output (.npy)[/]", default="nestboot.npy"
-                )
-                _cmd_nestboot(
-                    argparse.Namespace(
-                        file=fpath,
-                        method=method,
-                        nest_runs=nest,
-                        boot_runs=boot,
-                        fdr=fdr,
-                        seed=42,
-                        output=out,
-                    )
-                )
 
             elif cmd == "evaluate":
                 pred = Prompt.ask(
@@ -1080,12 +1186,23 @@ def main() -> None:
     gp = subs.add_parser(
         "bench-gs", help="GeneSpider benchmark (real data)"
     )
-    gp.add_argument("--tier", default="fast")
+    gp.add_argument(
+        "--tier", default="fast",
+        help="Comma-separated: fast,medium,slow,nestboot",
+    )
     gp.add_argument(
         "--sizes", default="N50", help="Comma-separated: N10,N50,N100"
     )
     gp.add_argument("--max-datasets", type=int, default=0, help="0 = all")
     gp.add_argument("--timeout", type=int, default=120)
+    gp.add_argument(
+        "--nestboot", action="store_true",
+        help="Wrap methods in NestBoot FDR",
+    )
+    gp.add_argument("--nest-runs", type=int, default=10)
+    gp.add_argument("--boot-runs", type=int, default=10)
+    gp.add_argument("--fdr", type=float, default=0.05)
+    gp.add_argument("--seed", type=int, default=42)
     gp.add_argument("-o", "--output", default="benchmark_genespider.json")
 
     # nestboot

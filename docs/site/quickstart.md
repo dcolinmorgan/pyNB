@@ -101,6 +101,7 @@ pygs methods                                      # list inference methods
 pygs infer data.csv -m lasso                      # infer a GRN
 pygs bench --tier fast                            # synthetic benchmark
 pygs bench-gs --tier fast --sizes N50             # GeneSpider benchmark
+pygs bench-gs --tier fast,nestboot --sizes N50    # GeneSpider + NestBoot wrapping
 pygs nestboot data.csv -m lasso                   # NestBoot FDR analysis
 pygs evaluate pred.npy --gold gold.npy            # evaluate against gold standard
 pygs plot pred.npy --genes genes.txt              # plot a GRN

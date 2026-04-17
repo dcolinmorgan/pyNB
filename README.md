@@ -65,6 +65,7 @@ pygs infer data.csv -m lasso -o adj.npy           # infer a network
 # Benchmarking
 pygs bench --tier fast --timeout 60               # synthetic benchmark (sparselink)
 pygs bench-gs --tier fast --sizes N50             # GeneSpider benchmark (real data)
+pygs bench-gs --tier fast,nestboot --sizes N50    # GeneSpider + NestBoot wrapping
 
 # NestBoot FDR
 pygs nestboot expr.csv -m lasso --fdr 0.05        # bootstrap FDR-controlled inference

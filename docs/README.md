@@ -103,6 +103,7 @@ pygs methods                                      # list inference methods
 pygs infer data.csv -m lasso                      # infer a GRN
 pygs bench --tier fast                            # synthetic benchmark
 pygs bench-gs --tier fast --sizes N50             # GeneSpider benchmark
+pygs bench-gs --tier fast,nestboot --sizes N50    # GeneSpider + NestBoot wrapping
 pygs nestboot data.csv -m lasso                   # NestBoot FDR analysis
 pygs evaluate pred.npy --gold gold.npy            # evaluate against gold standard
 pygs plot pred.npy --genes genes.txt              # plot a GRN
@@ -115,9 +116,14 @@ pygs                                              # interactive mode
 
 ```bash
 pygs bench-gs --tier fast --sizes N50 --timeout 120
+
+# Enable NestBoot wrapping via --tier (alternative to --nestboot flag)
+pygs bench-gs --tier fast,nestboot --sizes N50 --timeout 120
 ```
 
 Downloads datasets from the [Sonnhammer GRNi repos](https://bitbucket.org/sonnhammergrni/) and evaluates all methods with alpha sweep and perturbation matrix support.
+
+You can enable NestBoot wrapping in two ways: pass `--nestboot` as a flag, or include `nestboot` in the `--tier` list. When `nestboot` is the only tier, methods default to the `fast` tier.
 
 ### NestBoot FDR via CLI
 

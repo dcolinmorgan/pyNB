@@ -36,7 +36,11 @@ causal = ["causal-learn"]
 deep = ["torch>=2.0"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src"]
+packages = ["src/analyze", "src/bench", "src/bio", "src/bootstrap", "src/datastruct", "src/methods"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/config.py" = "config.py"
+"src/deprecation.py" = "deprecation.py"
 
 [tool.mypy]
 strict = true
