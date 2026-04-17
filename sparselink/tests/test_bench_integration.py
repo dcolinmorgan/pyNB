@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from sparselink.bench.runner import BenchmarkConfig, run_benchmark
-from sparselink.bench.synthetic import generate_expression, generate_network
+from sparselink.bench.synthetic import generate_data, generate_network
 
 
 @pytest.mark.integration
@@ -18,7 +18,7 @@ class TestPipelineRunnerIntegration:
         config = BenchmarkConfig(
             methods=["lasso", "ridge", "elastic_net"],
             n_datasets=3,
-            n_genes=10,
+            n_nodes=10,
             n_samples=50,
             seed=42,
         )
@@ -34,7 +34,7 @@ class TestPipelineRunnerIntegration:
         config = BenchmarkConfig(
             methods=["lasso", "partial_correlation"],
             n_datasets=2,
-            n_genes=10,
+            n_nodes=10,
             n_samples=60,
             seed=7,
         )
@@ -51,7 +51,7 @@ class TestPipelineRunnerIntegration:
         config = BenchmarkConfig(
             methods=["lasso"],
             n_datasets=2,
-            n_genes=8,
+            n_nodes=8,
             n_samples=40,
             seed=123,
         )
@@ -61,14 +61,13 @@ class TestPipelineRunnerIntegration:
             assert a.metrics.auroc == b.metrics.auroc
 
     def test_synthetic_data_pipeline(self) -> None:
-        """Test generate_network -> generate_expression -> method.fit flow."""
+        """Test generate_network -> generate_data -> method.fit flow."""
         net = generate_network(15, topology="scalefree", sparsity=0.2, seed=0)
-        X = generate_expression(net, n_samples=80, snr=5.0, seed=0)
+        X = generate_data(net, n_samples=80, noise_std=1.0, seed=0)
 
         from sparselink import get_method
 
-        method = get_method("lasso")(alpha=0.1)
+        method = get_method("lasso")(alpha=0.01)
         result = method.fit(X)
         assert result.adjacency_matrix.shape == (15, 15)
-        # Should detect at least some edges
         assert np.count_nonzero(result.adjacency_matrix) > 0

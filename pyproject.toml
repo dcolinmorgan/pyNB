@@ -26,7 +26,7 @@ dependencies = [
 sparselink = { path = "sparselink/", editable = true }
 
 [project.scripts]
-pygs-tui = "bench.tui:main"
+pygs = "bench.cli:main"
 
 [project.optional-dependencies]
 dev = ["pytest", "pytest-cov", "mypy", "ruff", "ipykernel>=7.1.0"]

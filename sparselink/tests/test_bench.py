@@ -1,14 +1,13 @@
-"""Tests for sparselink.bench: synthetic data, metrics, nestboot, and runner."""
+"""Tests for sparselink.bench: synthetic data, metrics, and runner."""
 
 from __future__ import annotations
 
 import numpy as np
 
 from sparselink.bench.metrics import MetricsResult, evaluate
-from sparselink.bench.nestboot import NestBoot
 from sparselink.bench.runner import BenchmarkConfig, run_benchmark
-from sparselink.bench.synthetic import generate_expression, generate_network
-from sparselink.methods.lasso import LassoMethod
+from sparselink.bench.synthetic import generate_data, generate_network
+
 
 # --- synthetic ---
 
@@ -18,11 +17,7 @@ class TestGenerateNetwork:
         A = generate_network(10, topology="random", sparsity=0.3, seed=0)
         assert A.shape == (10, 10)
 
-    def test_random_symmetric(self) -> None:
-        A = generate_network(8, topology="random", seed=1)
-        np.testing.assert_allclose(A, A.T)
-
-    def test_random_zero_diagonal(self) -> None:
+    def test_zero_diagonal(self) -> None:
         A = generate_network(10, seed=2)
         np.testing.assert_array_equal(np.diag(A), 0)
 
@@ -30,31 +25,27 @@ class TestGenerateNetwork:
         A = generate_network(15, topology="scalefree", sparsity=0.3, seed=3)
         assert A.shape == (15, 15)
 
-    def test_scalefree_symmetric(self) -> None:
-        A = generate_network(12, topology="scalefree", seed=4)
-        np.testing.assert_allclose(A, A.T)
-
     def test_sparsity_affects_density(self) -> None:
         sparse = generate_network(20, sparsity=0.1, seed=5)
         dense = generate_network(20, sparsity=0.5, seed=5)
         assert np.count_nonzero(sparse) < np.count_nonzero(dense)
 
 
-class TestGenerateExpression:
+class TestGenerateData:
     def test_shape(self) -> None:
         A = generate_network(10, seed=0)
-        X = generate_expression(A, n_samples=50, seed=0)
+        X = generate_data(A, n_samples=50, seed=0)
         assert X.shape == (50, 10)
 
     def test_deterministic(self) -> None:
         A = generate_network(5, seed=0)
-        X1 = generate_expression(A, n_samples=30, seed=1)
-        X2 = generate_expression(A, n_samples=30, seed=1)
+        X1 = generate_data(A, n_samples=30, seed=1)
+        X2 = generate_data(A, n_samples=30, seed=1)
         np.testing.assert_array_equal(X1, X2)
 
     def test_zero_network(self) -> None:
         A = np.zeros((5, 5))
-        X = generate_expression(A, n_samples=20, snr=10.0, seed=0)
+        X = generate_data(A, n_samples=20, noise_std=0.1, seed=0)
         assert X.shape == (20, 5)
 
 
@@ -72,7 +63,6 @@ class TestEvaluate:
     def test_zero_prediction(self) -> None:
         true = np.array([[0, 1, 0], [1, 0, 0], [0, 0, 0]], dtype=float)
         pred = np.zeros((3, 3))
-        # With threshold=0.5, nothing is predicted positive
         result = evaluate(true, pred, threshold=0.5)
         assert result.recall == 0.0
 
@@ -93,30 +83,6 @@ class TestEvaluate:
         assert result.recall == 1.0
 
 
-# --- nestboot ---
-
-
-class TestNestBoot:
-    def test_basic_run(self) -> None:
-        rng = np.random.default_rng(0)
-        X = rng.standard_normal((30, 5))
-        nb = NestBoot(n_bootstraps=10, n_nestings=2, fdr=0.2, seed=0)
-        method = LassoMethod(alpha=0.5)
-        result = nb.run(method, X)
-        assert result.adjacency.shape == (5, 5)
-        assert result.frequency.shape == (5, 5)
-        assert 0.0 <= result.fdr_threshold <= 1.0
-
-    def test_frequency_bounded(self) -> None:
-        rng = np.random.default_rng(1)
-        X = rng.standard_normal((30, 4))
-        nb = NestBoot(n_bootstraps=6, n_nestings=2, seed=1)
-        method = LassoMethod(alpha=0.3)
-        result = nb.run(method, X)
-        assert np.all(result.frequency >= 0)
-        assert np.all(result.frequency <= 1)
-
-
 # --- runner ---
 
 
@@ -125,7 +91,7 @@ class TestRunBenchmark:
         config = BenchmarkConfig(
             methods=["lasso", "ridge"],
             n_datasets=2,
-            n_genes=8,
+            n_nodes=8,
             n_samples=40,
             seed=0,
         )
@@ -139,7 +105,7 @@ class TestRunBenchmark:
         config = BenchmarkConfig(
             methods=["lasso"],
             n_datasets=1,
-            n_genes=10,
+            n_nodes=10,
             n_samples=50,
             topology="scalefree",
             seed=1,

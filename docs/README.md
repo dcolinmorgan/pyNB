@@ -93,15 +93,47 @@ metrics = evaluate(A_true, result.adjacency_matrix)
 print(f"AUROC={metrics.auroc:.3f}  F1={metrics.f1:.3f}  MCC={metrics.mcc:.3f}")
 ```
 
+### pygs CLI
+
+The `pygs` command provides a unified CLI for pyGS-specific workflows (GeneSpider benchmarks, biology-layer status). Running `pygs` with no arguments launches interactive mode:
+
+```bash
+pygs status                                       # system info
+pygs methods                                      # list inference methods
+pygs infer data.csv -m lasso                      # infer a GRN
+pygs bench --tier fast                            # synthetic benchmark
+pygs bench-gs --tier fast --sizes N50             # GeneSpider benchmark
+pygs nestboot data.csv -m lasso                   # NestBoot FDR analysis
+pygs evaluate pred.npy --gold gold.npy            # evaluate against gold standard
+pygs plot pred.npy --genes genes.txt              # plot a GRN
+pygs dashboard -i results.json                    # HTML dashboard
+pygs show results.json                            # render result table
+pygs                                              # interactive mode
+```
+
 ### Benchmark against real GeneSpider data
 
 ```bash
-python benchmark_genespider.py --tier fast --sizes N50 --timeout 120
+pygs bench-gs --tier fast --sizes N50 --timeout 120
 ```
 
 Downloads datasets from the [Sonnhammer GRNi repos](https://bitbucket.org/sonnhammergrni/) and evaluates all methods with alpha sweep and perturbation matrix support.
 
-### NestBoot FDR control
+### NestBoot FDR via CLI
+
+Run bootstrap-based FDR analysis directly from the command line:
+
+```bash
+pygs nestboot expression.csv -m lasso                        # defaults: 10×10, FDR 0.05
+pygs nestboot expression.csv -m elastic_net --nest 20 --boot 20 --fdr 0.01
+pygs nestboot expression.h5ad -m glasso -o my_network.npy
+```
+
+Outputs three files: the thresholded adjacency (`.npy`), a signed network (`_signed.npy`), and a text summary (`.txt`).
+
+Supported input formats: `.csv`, `.tsv`, `.h5ad`, `.npy`.
+
+### NestBoot FDR (Python API)
 
 ```python
 from sparselink.bench import NestBoot
@@ -109,6 +141,28 @@ from sparselink.bench import NestBoot
 nestboot = NestBoot(method_name="lasso", n_bootstraps=50, fdr=0.05)
 final_adj = nestboot.run(X)
 ```
+
+### Evaluate a predicted GRN
+
+Compare a predicted adjacency matrix against a gold standard:
+
+```bash
+pygs evaluate pred.npy --gold gold.npy
+pygs evaluate pred.csv --gold gold_standard.json
+```
+
+Prints AUROC, AUPR, F1, MCC, and other metrics. Accepts `.npy`, `.csv`, `.tsv` for predictions and additionally `.json` (GeneSpider format) for gold standards.
+
+### Plot a GRN
+
+Visualize a gene regulatory network:
+
+```bash
+pygs plot adjacency.npy --genes genes.txt
+pygs plot adjacency.csv --genes genes.txt --tfs tfs.txt --threshold 0.1 -o network.png
+```
+
+Gene names default to `G1, G2, ...` if `--genes` is omitted. Optionally highlight transcription factors with `--tfs`.
 
 ### Interactive dashboard
 

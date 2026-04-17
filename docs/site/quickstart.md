@@ -93,10 +93,23 @@ metrics = compare_to_gold_standard(results[:, :, 0], "gold_standard.csv")
 
 ## CLI
 
-sparselink includes a benchmark CLI:
+The `pygs` command provides a unified CLI for pyGS workflows. Running `pygs` with no arguments launches interactive mode.
 
 ```bash
-sparselink-bench --methods lasso,genie3,glasso_stars \
-                 --n-genes 50 --n-samples 200 \
-                 --topology scalefree --n-datasets 5
+pygs status                                       # system info
+pygs methods                                      # list inference methods
+pygs infer data.csv -m lasso                      # infer a GRN
+pygs bench --tier fast                            # synthetic benchmark
+pygs bench-gs --tier fast --sizes N50             # GeneSpider benchmark
+pygs nestboot data.csv -m lasso                   # NestBoot FDR analysis
+pygs evaluate pred.npy --gold gold.npy            # evaluate against gold standard
+pygs plot pred.npy --genes genes.txt              # plot a GRN
+pygs dashboard -i results.json                    # HTML dashboard
+pygs show results.json                            # render result table
+```
+
+sparselink also has its own TUI:
+
+```bash
+sparselink-tui
 ```
