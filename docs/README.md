@@ -103,7 +103,7 @@ pygs methods                                      # list inference methods
 pygs infer data.csv -m lasso                      # infer a GRN
 pygs bench --tier fast                            # synthetic benchmark
 pygs bench-gs --tier fast --sizes N50             # GeneSpider benchmark
-pygs bench-gs --tier fast,nestboot --sizes N50    # GeneSpider + NestBoot wrapping
+pygs bench-gs --tier fast,nestboot --sizes N50    # GeneSpider direct vs NestBoot comparison
 pygs nestboot data.csv -m lasso                   # NestBoot FDR analysis
 pygs evaluate pred.npy --gold gold.npy            # evaluate against gold standard
 pygs plot pred.npy --genes genes.txt              # plot a GRN
@@ -117,13 +117,15 @@ pygs                                              # interactive mode
 ```bash
 pygs bench-gs --tier fast --sizes N50 --timeout 120
 
-# Enable NestBoot wrapping via --tier (alternative to --nestboot flag)
+# Enable NestBoot comparison via --tier (alternative to --nestboot flag)
 pygs bench-gs --tier fast,nestboot --sizes N50 --timeout 120
 ```
 
 Downloads datasets from the [Sonnhammer GRNi repos](https://bitbucket.org/sonnhammergrni/) and evaluates all methods with alpha sweep and perturbation matrix support.
 
 You can enable NestBoot wrapping in two ways: pass `--nestboot` as a flag, or include `nestboot` in the `--tier` list. When `nestboot` is the only tier, methods default to the `fast` tier.
+
+When NestBoot is enabled, each method is run twice — once direct and once with NestBoot wrapping — and results are rendered in a side-by-side comparison table.
 
 ### NestBoot FDR via CLI
 
@@ -133,7 +135,15 @@ Run bootstrap-based FDR analysis directly from the command line:
 pygs nestboot expression.csv -m lasso                        # defaults: 10×10, FDR 0.05
 pygs nestboot expression.csv -m elastic_net --nest 20 --boot 20 --fdr 0.01
 pygs nestboot expression.h5ad -m glasso -o my_network.npy
+pygs nestboot expression.csv -m genie3                       # post-hoc thresholding
 ```
+
+NestBoot adapts its sparsity-sweep strategy based on the chosen method:
+
+- Methods with a native regularization parameter (lasso, elastic_net, ridge, lsco, glasso, neighborhood_selection) are swept across a range of alpha values to produce the variation NestBoot needs.
+- All other methods (e.g. genie3, clr, pc, notears) are fit once, then a post-hoc threshold sweep over the continuous adjacency scores generates the required sparsity variation.
+
+Both strategies produce a 3D stack of adjacency matrices that NestBoot aggregates for FDR control. The choice is automatic — no extra flags needed.
 
 Outputs three files: the thresholded adjacency (`.npy`), a signed network (`_signed.npy`), and a text summary (`.txt`).
 

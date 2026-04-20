@@ -194,6 +194,122 @@ def _render_results(data: list[dict], title: str = "Results") -> None:
             console.print(st)
 
 
+def _render_comparison(data: list[dict]) -> None:
+    """Render direct vs NestBoot comparison table with deltas."""
+    ok = [r for r in data if not r.get("error")]
+    if not ok:
+        console.print("[dim]No results[/]")
+        return
+
+    # Split into direct and nestboot results
+    direct = [r for r in ok if not r["method"].startswith("nestboot:")]
+    nestboot = [r for r in ok if r["method"].startswith("nestboot:")]
+
+    # Get base method names
+    base_methods = sorted(set(r["method"] for r in direct))
+
+    # Overall comparison
+    t = Table(
+        title="Direct vs NestBoot",
+        title_style=TEAL,
+        border_style="dim",
+    )
+    t.add_column("Method", style="bold")
+    t.add_column("Direct", justify="right")
+    t.add_column("NestBoot", justify="right")
+    t.add_column("Δ AUROC", justify="right")
+    t.add_column("", min_width=22)
+    t.add_column("Direct F1", justify="right")
+    t.add_column("NB F1", justify="right")
+    t.add_column("Δ F1", justify="right")
+
+    for method in base_methods:
+        d_rows = [r for r in direct if r["method"] == method]
+        n_rows = [r for r in nestboot if r["method"] == f"nestboot:{method}"]
+        if not d_rows or not n_rows:
+            continue
+
+        d_auroc = np.mean([r.get("auroc", 0) for r in d_rows])
+        n_auroc = np.mean([r.get("auroc", 0) for r in n_rows])
+        d_f1 = np.mean([r.get("f1", 0) for r in d_rows])
+        n_f1 = np.mean([r.get("f1", 0) for r in n_rows])
+
+        delta_auroc = n_auroc - d_auroc
+        delta_f1 = n_f1 - d_f1
+
+        # Color the delta
+        if delta_auroc > 0.01:
+            dc = GREEN
+            arrow = "▲"
+        elif delta_auroc < -0.01:
+            dc = ROSE
+            arrow = "▼"
+        else:
+            dc = DIM
+            arrow = "="
+
+        t.add_row(
+            method,
+            f"[{_color(d_auroc)}]{d_auroc:.3f}[/]",
+            f"[{_color(n_auroc)}]{n_auroc:.3f}[/]",
+            f"[{dc}]{arrow} {delta_auroc:+.3f}[/]",
+            _bar(n_auroc),
+            f"[{_color(d_f1)}]{d_f1:.3f}[/]",
+            f"[{_color(n_f1)}]{n_f1:.3f}[/]",
+            f"[{dc}]{delta_f1:+.3f}[/]",
+        )
+
+    console.print(t)
+
+    # Per-SNR breakdown
+    snrs = sorted(set(r.get("snr", 0) for r in ok))
+    if len(snrs) > 1:
+        console.print()
+        for snr in snrs:
+            d_sub = [r for r in direct if r.get("snr") == snr]
+            n_sub = [r for r in nestboot if r.get("snr") == snr]
+            if not d_sub or not n_sub:
+                continue
+
+            st = Table(
+                title=f"SNR={snr}",
+                title_style=f"bold {ORANGE}",
+                border_style="dim",
+                show_edge=False,
+            )
+            st.add_column("Method", style="bold", width=22)
+            st.add_column("Direct", justify="right")
+            st.add_column("NestBoot", justify="right")
+            st.add_column("Δ AUROC", justify="right")
+            st.add_column("", min_width=18)
+
+            for method in base_methods:
+                dr = [r for r in d_sub if r["method"] == method]
+                nr = [r for r in n_sub if r["method"] == f"nestboot:{method}"]
+                if not dr or not nr:
+                    continue
+                da = np.mean([r.get("auroc", 0) for r in dr])
+                na = np.mean([r.get("auroc", 0) for r in nr])
+                delta = na - da
+                if delta > 0.01:
+                    dc = GREEN
+                    arrow = "▲"
+                elif delta < -0.01:
+                    dc = ROSE
+                    arrow = "▼"
+                else:
+                    dc = DIM
+                    arrow = "="
+                st.add_row(
+                    method,
+                    f"{da:.3f}",
+                    f"[{_color(na)}]{na:.3f}[/]",
+                    f"[{dc}]{arrow} {delta:+.3f}[/]",
+                    _bar(na),
+                )
+            console.print(st)
+
+
 # ── Status ────────────────────────────────────────────────────────────────
 
 
@@ -606,10 +722,14 @@ def _run_genespider_live(args: argparse.Namespace) -> None:
             datasets = datasets[: args.max_datasets]
 
         total = len(datasets) * len(methods)
-        label = "NestBoot" if use_nestboot else "Direct"
+        if use_nestboot:
+            # Run both direct and nestboot for comparison
+            total *= 2
         console.print(
             f"  [{DIM}]{len(datasets)} datasets × {len(methods)}"
-            f" methods = {total} runs ({label})[/]"
+            f" methods"
+            f"{' × 2 (direct + nestboot)' if use_nestboot else ''}"
+            f" = {total} runs[/]"
         )
 
         with progress:
@@ -620,28 +740,48 @@ def _run_genespider_live(args: argparse.Namespace) -> None:
                         ds_meta, size
                     )
                 except Exception:
-                    progress.advance(task, len(methods))
+                    advance_n = len(methods) * (2 if use_nestboot else 1)
+                    progress.advance(task, advance_n)
                     continue
 
                 for method_name in methods:
                     snr = ds_meta["snr"]
-                    tag = f"{'NB:' if use_nestboot else ''}{method_name}"
-                    progress.update(
-                        task,
-                        description=f"{tag:20s} {topology}/SNR={snr}",
-                    )
 
                     if use_nestboot:
-                        r = _run_nestboot_on_gs(
+                        # Run direct WITHOUT oracle alpha (fair baseline)
+                        progress.update(
+                            task,
+                            description=f"{method_name:20s} {topology}/SNR={snr}",
+                        )
+                        r_direct = _run_direct_fair(
+                            method_name, X, P, A_true, ds_meta,
+                            topology, net_name, args.timeout,
+                        )
+                        results.append(r_direct)
+                        progress.advance(task)
+
+                        # Run nestboot
+                        progress.update(
+                            task,
+                            description=f"NB:{method_name:17s} {topology}/SNR={snr}",
+                        )
+                        r_nb = _run_nestboot_on_gs(
                             method_name,
                             X,
+                            P,
                             A_true,
                             ds_meta,
                             topology,
                             net_name,
                             args,
                         )
+                        results.append(r_nb)
+                        progress.advance(task)
                     else:
+                        progress.update(
+                            task,
+                            description=f"{method_name:20s} {topology}/SNR={snr}",
+                        )
                         r = run_single(
                             method_name,
                             X,
@@ -652,20 +792,100 @@ def _run_genespider_live(args: argparse.Namespace) -> None:
                             args.timeout,
                             P,
                         )
-                        r = asdict(r)
-                    results.append(r)
-                    progress.advance(task)
+                        results.append(asdict(r))
+                        progress.advance(task)
 
-    _render_results(results, f"GeneSpider Benchmark ({len(results)} runs)")
+    if use_nestboot:
+        _render_comparison(results)
+    else:
+        _render_results(results, f"GeneSpider Benchmark ({len(results)} runs)")
 
     with open(args.output, "w") as f:
         json.dump(results, f, indent=2)
     console.print(f"\n  [{DIM}]Results saved to {args.output}[/]")
 
 
+def _run_direct_fair(
+    method_name: str,
+    X: np.ndarray,
+    P: np.ndarray | None,
+    A_true: np.ndarray,
+    ds_meta: dict,
+    topology: str,
+    net_name: str,
+    timeout: int,
+) -> dict:
+    """Run a method directly (no oracle) for fair NestBoot comparison.
+
+    For methods with alpha: sweeps the same alpha range and averages
+    the absolute adjacency matrices (bagging over alphas, single data).
+    For methods without alpha: single run with defaults.
+    """
+    from sparselink import get_method
+    from sparselink.bench.metrics import evaluate
+
+    from bench.genespider import ALPHA_SWEEP
+
+    import sparselink.methods  # noqa: F401
+
+    method_cls = get_method(method_name)
+    n = X.shape[1]
+
+    base = dict(
+        method=method_name,
+        dataset_name=ds_meta["path"],
+        network_name=net_name,
+        topology=topology,
+        n_genes=ds_meta["n_genes"],
+        snr=ds_meta["snr"],
+    )
+    fail = dict(
+        auroc=0, aupr=0, precision=0, recall=0,
+        f1=0, fdr=1, mcc=0, r2=0,
+    )
+
+    try:
+        t0 = time.perf_counter()
+
+        if method_name in ALPHA_SWEEP:
+            # Sweep alphas on full data, average the absolute adjacency
+            # matrices. This is a simple ensemble over regularization
+            # strength — no oracle, no gold standard.
+            alpha_param = ALPHA_SWEEP[method_name]
+            alpha_range = np.logspace(-3, 0, 10)
+            adj_sum = np.zeros((n, n))
+            for alpha in alpha_range:
+                r = method_cls(**{alpha_param: float(alpha)}).fit(X, P)
+                adj_sum += np.abs(r.adjacency_matrix)
+            best_adj = adj_sum / len(alpha_range)
+            np.fill_diagonal(best_adj, 0.0)
+        else:
+            result = method_cls().fit(X, P)
+            best_adj = result.adjacency_matrix
+
+        elapsed = time.perf_counter() - t0
+        metrics = evaluate(A_true, best_adj)
+        return {
+            **base,
+            "auroc": metrics.auroc,
+            "aupr": metrics.aupr,
+            "precision": metrics.precision,
+            "recall": metrics.recall,
+            "f1": metrics.f1,
+            "fdr": metrics.fdr,
+            "mcc": metrics.mcc,
+            "r2": metrics.r2,
+            "elapsed_sec": round(elapsed, 4),
+            "error": None,
+        }
+    except Exception as e:
+        return {**base, **fail, "elapsed_sec": 0, "error": str(e)[:120]}
+
+
 def _run_nestboot_on_gs(
     method_name: str,
     X: np.ndarray,
+    P: np.ndarray | None,
     A_true: np.ndarray,
     ds_meta: dict,
     topology: str,
@@ -683,22 +903,81 @@ def _run_nestboot_on_gs(
     from methods.nestboot import Nestboot
 
     n_genes = X.shape[1]
+    n_samples = X.shape[0]
     gene_names = [f"G{i}" for i in range(n_genes)]
 
     # Build Dataset (X is samples×genes, Dataset wants genes×samples)
+    # P is (samples × genes) from GeneSpider, transpose to (genes × samples)
     ds = Dataset()
     ds._Y = X.T
-    ds._P = np.eye(n_genes)
+    ds._P = P.T if P is not None else np.eye(n_genes, n_samples)
     ds._network = Network(A_true)
     ds._names = gene_names
     data_obj = Data(ds)
 
     method_cls = get_method(method_name)
 
+    # Determine if this method supports a native regularization parameter
+    from bench.genespider import ALPHA_SWEEP
+
+    has_native_alpha = method_name in ALPHA_SWEEP
+    if has_native_alpha:
+        alpha_param = ALPHA_SWEEP[method_name]
+        alpha_range = np.logspace(-3, 0, 10)
+    else:
+        alpha_range = None
+
+    # Counter to vary random_state for stochastic methods (e.g., genie3)
+    _call_count = [0]
+
     def _infer(dataset: Data, **kwargs: object) -> np.ndarray:
         Y = dataset.data.Y  # type: ignore[union-attr]
-        result = method_cls().fit(Y.T)
-        return result.adjacency_matrix
+        P_mat = dataset.data.P  # type: ignore[union-attr]
+        X_in = Y.T
+        P_in = P_mat.T if P_mat is not None else None
+        _call_count[0] += 1
+
+        if has_native_alpha:
+            # Sweep native regularization parameter → 3D output
+            slices = []
+            for alpha in alpha_range:  # type: ignore[union-attr]
+                result = method_cls(**{alpha_param: float(alpha)}).fit(
+                    X_in, P_in
+                )
+                slices.append(result.adjacency_matrix)
+            return np.stack(slices, axis=2)
+        else:
+            # Fit with varying random_state for stochastic methods
+            extra: dict = {}
+            try:
+                # If method accepts random_state, vary it per call
+                import inspect
+
+                sig = inspect.signature(method_cls.__init__)
+                if "random_state" in sig.parameters:
+                    extra["random_state"] = _call_count[0]
+            except Exception:
+                pass
+
+            result = method_cls(**extra).fit(X_in, P_in)
+            adj = result.adjacency_matrix
+            scores = np.abs(adj)
+            np.fill_diagonal(scores, 0.0)
+            nonzero = scores[scores > 0]
+            if len(nonzero) == 0:
+                return adj
+            # Sweep thresholds from loose to strict
+            thresholds = np.linspace(
+                np.percentile(nonzero, 10),
+                np.percentile(nonzero, 90),
+                10,
+            )
+            slices = []
+            for thr in thresholds:
+                masked = adj.copy()
+                masked[scores < thr] = 0.0
+                slices.append(masked)
+            return np.stack(slices, axis=2)
 
     config = AnalysisConfig(
         total_runs=args.nest_runs * args.boot_runs,
@@ -732,7 +1011,16 @@ def _run_nestboot_on_gs(
         )
         elapsed = time.perf_counter() - t0
 
-        metrics = evaluate(A_true, nb_results.xnet)
+        # sxnet may be 3D (genes × genes × n_params).
+        # Average absolute scores across all param slices — mirrors
+        # how the direct baseline averages across alphas.
+        sxnet = nb_results.sxnet
+        if sxnet.ndim == 3:
+            combined = np.mean(np.abs(sxnet), axis=2)
+        else:
+            combined = np.abs(sxnet)
+        np.fill_diagonal(combined, 0.0)
+        metrics = evaluate(A_true, combined)
         return {
             **base,
             "auroc": metrics.auroc,
@@ -778,7 +1066,7 @@ def _cmd_nestboot(args: argparse.Namespace) -> None:
 
     ds = Dataset()
     ds._Y = matrix
-    ds._P = np.eye(n_genes)
+    ds._P = np.eye(n_genes, n_samples)
     ds._network = Network(np.zeros((n_genes, n_genes)))
     ds._names = gene_names
     data_obj = Data(ds)

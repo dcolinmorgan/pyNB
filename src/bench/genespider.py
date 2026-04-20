@@ -85,6 +85,9 @@ def _fetch_json(url: str, cache_key: str) -> dict:
     return data
 
 
+VALID_SNRS = {10, 1000, 100000}
+
+
 def _list_datasets(size: str) -> list[dict]:
     """List all datasets for a given size, return parsed metadata."""
     url = f"{DATASET_BASE}/{size}/?pagelen=100"
@@ -94,12 +97,15 @@ def _list_datasets(size: str) -> list[dict]:
         path = v["path"]
         m = re.search(r"ID(\d+).*N(\d+)-E(\d+)-SNR(\d+)-IDY", path)
         if m:
+            snr = int(m.group(4))
+            if snr not in VALID_SNRS:
+                continue
             results.append({
                 "path": path,
                 "network_id": m.group(1),
                 "n_genes": int(m.group(2)),
                 "n_experiments": int(m.group(3)),
-                "snr": int(m.group(4)),
+                "snr": snr,
             })
     return results
 

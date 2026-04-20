@@ -296,36 +296,26 @@ class Nestboot:
             if sub_merged.empty:
                 best_t = 0.8  # Fallback
             else:
-                # Find smallest t such that FDR(t) <= target_fdr
-                # FDR(t) = (Shuf_counts >= t) / (Norm_counts >= t)
-                # Scan t from 0.05 to 1.0
+                # Find the lowest support threshold t where FDR(t) <= target_fdr
+                # FDR(t) = #{shuffled links with Afrac >= t} / #{normal links with Afrac >= t}
+                # Scan from low to high; the lowest valid t maximizes recall.
                 t_vals = np.linspace(0.05, 1.0, 96)
 
-                # Pre-fetch arrays
                 n_norm_arr = sub_merged["Afrac_norm"].values
                 n_shuf_arr = sub_merged["Afrac_shuf"].values
 
-                # Default to highest if none satisfy
-                best_t = 1.0
+                best_t = 1.0  # Default: most conservative
 
-                # Check from high to low to find the Cutoff
-                # Usually we want the *lowest* t that is still valid (Maximum Recall)
-                # But we must ensure all t' > t are also valid? Not necessarily monotonic in practice but roughly.
-                # Standard Approach: Find the lowest t with FDR < target.
-
-                for t in reversed(t_vals):
+                for t in t_vals:
                     n_norm = (n_norm_arr >= t).sum()
                     if n_norm == 0:
                         continue
                     n_shuf = (n_shuf_arr >= t).sum()
-
                     fdr_est = n_shuf / n_norm
 
                     if fdr_est <= target_fdr:
                         best_t = t
-                    else:
-                        # FDR exceeded, stop going lower. The previous t (larger) was the limit.
-                        break
+                        break  # First (lowest) valid threshold
 
             support_threshold = best_t
 
@@ -997,28 +987,16 @@ class Nestboot:
                                 }
                             )
 
-                    # Shuffle
-                    # CRITICAL FIX: We must break the relationship between Y and P.
-                    # Previously, we shuffled both with the same indices, which just reordered the samples
-                    # but preserved the Y-P correspondence, leading to the "shuffled" data containing the real network signal.
-
-                    shuffle_indices_ya = np.random.permutation(n_samples)
-                    shuffle_indices_yb = np.random.permutation(n_genes)
-
-                    # We can keep P in original order, or shuffle it independently.
-                    # Shuffling Y against fixed P is sufficient to break links.
-                    # If we really want to be random, we can shuffle P independently too,
-                    # but keeping one fixed serves the purpose of breaking the pair (Y_i, P_i).
+                    # Shuffle: break Y-P correspondence by shuffling samples only.
+                    # IMPORTANT: Only shuffle columns (samples), NOT rows (genes).
+                    # Shuffling genes destroys gene identity and makes the null
+                    # distribution meaningless. The MATLAB implementation only
+                    # permutes the sample axis.
+                    shuffle_indices = np.random.permutation(n_samples)
 
                     shuffled_dataset_obj = Dataset()
-                    # Apply both column (sample) and row (gene) shuffling
-                    # Use a temporary variable to ensure both are applied
-                    Y_shuf = original_Y.copy()
-                    Y_shuf = Y_shuf[:, shuffle_indices_ya]  # Shuffle samples
-                    Y_shuf = Y_shuf[shuffle_indices_yb, :]  # Shuffle genes
-                    shuffled_dataset_obj._Y = Y_shuf
-                    shuffled_dataset_obj._P = original_P  # Keep P as is (or original_P.copy() if safety needed)
-                    # Note: We must ensure P has same dimensions. original_P is (genes, samples).
+                    shuffled_dataset_obj._Y = original_Y[:, shuffle_indices]
+                    shuffled_dataset_obj._P = original_P  # Keep P fixed
 
                     shuffled_dataset_obj._network = ds_obj._network
                     shuffled_dataset_obj._names = ds_obj._names

@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GeneSpider live benchmark runner with Rich progress bars in the `pygs` CLI
 - NestBoot tier option in the interactive `bench-gs` wizard — select "nestboot" alongside method tiers to configure outer/inner runs and FDR threshold inline
 
+### Changed
+- Direct baseline in `bench-gs` now averages absolute adjacency matrices across the alpha sweep (bagging over regularization strengths) instead of selecting a single alpha by bootstrap stability
+
 ## [1.0.0] - 2026-04-11
 
 ### Added

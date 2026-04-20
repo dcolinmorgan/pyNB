@@ -65,11 +65,12 @@ pygs infer data.csv -m lasso -o adj.npy           # infer a network
 # Benchmarking
 pygs bench --tier fast --timeout 60               # synthetic benchmark (sparselink)
 pygs bench-gs --tier fast --sizes N50             # GeneSpider benchmark (real data)
-pygs bench-gs --tier fast,nestboot --sizes N50    # GeneSpider + NestBoot wrapping
+pygs bench-gs --tier fast,nestboot --sizes N50    # GeneSpider direct vs NestBoot comparison
 
 # NestBoot FDR
 pygs nestboot expr.csv -m lasso --fdr 0.05        # bootstrap FDR-controlled inference
 pygs nestboot expr.h5ad -m elastic_net             # works with h5ad, csv, tsv, npy
+pygs nestboot expr.csv -m genie3                   # auto post-hoc thresholding
 
 # Evaluation & visualization
 pygs evaluate pred.npy --gold gold.npy            # evaluate against gold standard
@@ -85,6 +86,10 @@ pygs show results.json                            # render result table
 NestBoot performs bootstrap-based false discovery rate control for network inference.
 It runs an inference method repeatedly on bootstrapped samples and compares against
 shuffled-data baselines to identify statistically supported edges.
+
+Methods with a native regularization parameter (lasso, elastic_net, ridge, lsco, glasso,
+neighborhood_selection) are swept across alpha values automatically. All other methods
+use post-hoc threshold sweeping over continuous adjacency scores — no extra flags needed.
 
 ```python
 from methods.nestboot import Nestboot
