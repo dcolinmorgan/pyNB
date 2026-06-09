@@ -7,7 +7,7 @@ name = "pyGS"
 version = "1.0.0"
 description = "Python GENESpider - gene regulatory network inference and benchmarking"
 readme = "docs/README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = "MIT"
 dependencies = [
     "numpy>=1.26.4",
@@ -20,10 +20,9 @@ dependencies = [
     "requests>=2.31.0",
     "PyYAML",
     "sparselink",
+    "ipython>=9.10.0",
+    "scanpy>=1.11.5",
 ]
-
-[tool.uv.sources]
-sparselink = { path = "sparselink/", editable = true }
 
 [project.scripts]
 pygs = "bench.cli:main"
@@ -34,6 +33,11 @@ test = ["pytest", "pytest-cov"]
 docs = ["mkdocs-material", "mkdocstrings[python]"]
 causal = ["causal-learn"]
 deep = ["torch>=2.0"]
+scenic = ["pycistopic @ git+https://github.com/aertslab/pycisTopic.git", "setuptools<81"]
+
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/analyze", "src/bench", "src/bio", "src/bootstrap", "src/datastruct", "src/methods"]
@@ -44,7 +48,6 @@ packages = ["src/analyze", "src/bench", "src/bio", "src/bootstrap", "src/datastr
 
 [tool.mypy]
 strict = true
-mypy_path = ["src", "sparselink/src"]
 packages = ["methods", "datastruct", "analyze", "bootstrap", "bio"]
 exclude = ["_vendor/", "egg-info/"]
 
@@ -95,3 +98,15 @@ known-first-party = ["methods", "datastruct", "analyze", "bootstrap", "bio"]
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+
+[tool.uv]
+override-dependencies = [
+    "pandas>=2.0",
+    "matplotlib>=3.7",
+    "macs2 ; python_version < '0'",
+    "polars ; python_version < '0'",
+    "ray ; python_version < '0'",
+    "scatac-fragment-tools ; python_version < '0'",
+    "lda ; python_version < '0'",
+    "tmtoolkit ; python_version < '0'",
+]

@@ -509,10 +509,14 @@ def _run_scenicplus_direct(
 
     # Load cisTopic object for TF list
     if cisTopic_obj_fname and os.path.exists(cisTopic_obj_fname):
-        with open(cisTopic_obj_fname, "rb") as f:
-            cistopic_obj = pickle.load(f)
-        # Extract TF list from cisTopic if available
-        tf_list = getattr(cistopic_obj, "tf_names", None)
+        try:
+            with open(cisTopic_obj_fname, "rb") as f:
+                cistopic_obj = pickle.load(f)
+            # Extract TF list from cisTopic if available
+            tf_list = getattr(cistopic_obj, "tf_names", None)
+        except (ImportError, ModuleNotFoundError):
+            # pycisTopic has heavy deps (polars) that may not be available
+            tf_list = None
     else:
         tf_list = None
 
