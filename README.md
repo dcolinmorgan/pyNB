@@ -1,6 +1,6 @@
 # pyGS — Python GeneSpider
 
-Gene regulatory network inference and benchmarking, powered by [sparselink](sparselink/).
+Gene regulatory network inference and benchmarking, powered by [sparselink](https://pypi.org/project/sparselink/).
 
 pyGS provides biology-specific workflows (data loading, TF filtering, gold-standard evaluation) on top of **sparselink**, a domain-agnostic sparse network inference library with 20+ methods behind a unified interface.
 
@@ -8,18 +8,19 @@ pyGS provides biology-specific workflows (data loading, TF filtering, gold-stand
 
 ```bash
 # With uv (recommended)
-uv pip install -e ".[dev]" -e "sparselink/[dev]"
+uv pip install -e ".[dev]"
 
 # Or with pip
 pip install -e ".[dev]"
-pip install -e "sparselink/[dev]"
 
 # Optional extras
-uv pip install -e "sparselink/[causal]"   # PC, FCI (causal-learn)
-uv pip install -e "sparselink/[deep]"     # DAG-GNN (torch)
+pip install pyGS[netzoo]    # PANDA (netZooPy)
+pip install pyGS[scenic]    # SCENIC+
+pip install pyGS[causal]    # PC, FCI (causal-learn)
+pip install pyGS[deep]      # DAG-GNN (torch)
 ```
 
-Requires Python ≥ 3.11 (pyGS) or ≥ 3.10 (sparselink standalone).
+Requires Python ≥ 3.12.
 
 ## Quick Start
 
@@ -110,6 +111,8 @@ results = nb.run_nestboot(dataset, inference_method=my_method, nest_runs=50, boo
 
 ## Supported Methods
 
+### sparselink (domain-agnostic, via PyPI)
+
 | Category | Methods |
 |----------|---------|
 | Regression | Lasso, Elastic Net, Ridge, LSCO, TIGRESS |
@@ -117,43 +120,51 @@ results = nb.run_nestboot(dataset, inference_method=my_method, nest_runs=50, boo
 | Information theory | CLR |
 | Graphical models | Graphical Lasso, GLASSO+StARS, Neighborhood Selection |
 | Correlation | Partial Correlation |
-| Causal (time-series) | PCMCI, Granger, Transfer Entropy |
+| Causal (time-series) | PCMCI, Granger Causality, Transfer Entropy |
 | Constraint-based | PC, FCI |
 | Continuous optimization | NOTEARS, DAG-GNN |
 | Bayesian | BDeu, BGe |
 
-All methods implement `InferenceMethod.fit(X) -> InferenceResult`.
+All sparselink methods implement `InferenceMethod.fit(X) -> InferenceResult`.
+
+### pyGS (biology-specific)
+
+| Category | Methods |
+|----------|---------|
+| Integrative GRN | PANDA (netZooPy) |
+| Multi-omic GRN | SCENIC+ |
+
+pyGS methods accept `Dataset` objects (with perturbation matrix P) and are available
+in the interactive CLI and benchmarks. Install extras: `pip install pyGS[netzoo]` or `pip install pyGS[scenic]`.
 
 ## Project Structure
 
 ```
 pyGS/
 ├── src/                     # pyGS package (biology layer)
-│   ├── methods/             # Method wrappers
+│   ├── methods/             # Method wrappers (PANDA, SCENIC+, NestBoot)
 │   ├── datastruct/          # Network, Dataset, Experiment
 │   ├── analyze/             # CompareModels, Data loading
+│   ├── bench/               # CLI, GeneSpider benchmark, TUI
 │   ├── bio/                 # Biology-specific workflows
 │   └── bootstrap/           # NB-FDR analysis
-├── sparselink/              # Standalone inference library
-│   └── src/sparselink/
-│       ├── methods/         # 20+ registered inference methods
-│       ├── bench/           # Benchmarking, TUI, dashboard, NestBoot
-│       └── accel.py         # MLX acceleration (Apple Silicon)
 ├── tests/                   # pyGS tests
 ├── docs/site/               # MkDocs documentation source
 └── pyproject.toml
 ```
+
+sparselink (20+ inference methods) is installed from [PyPI](https://pypi.org/project/sparselink/).
 
 ## Development
 
 ```bash
 git clone https://github.com/dcolinmorgan/pyGS.git
 cd pyGS
-uv pip install -e ".[dev]" -e "sparselink/[dev]"
+uv pip install -e ".[dev]"
 
 # Lint & format
-ruff check src/ sparselink/
-ruff format src/ sparselink/
+ruff check src/
+ruff format src/
 
 # Type check
 mypy
