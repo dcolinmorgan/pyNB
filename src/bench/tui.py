@@ -66,11 +66,26 @@ def _print_banner() -> None:
 def _configure_genespider() -> argparse.Namespace:
     console.print(f"\n  [{TEAL}]Configure GeneSpider Benchmark[/]\n")
 
-    console.print(f"  [{TEAL}]A) Method tier[/]")
-    tiers = _pick_multi("Tiers", {
-        "1": "fast", "2": "medium", "3": "slow",
-    }, default="1")
-    tier = ",".join(tiers) if tiers else "fast"
+    console.print(f"  [{TEAL}]A) Method tier / method names[/]")
+    console.print(f"    [{INDIGO}]1[/] [{DIM}]fast (lasso, lsco, elastic_net, ridge, ...)[/]")
+    console.print(f"    [{INDIGO}]2[/] [{DIM}]medium (glasso, bdeu, bge, ...)[/]")
+    console.print(f"    [{INDIGO}]3[/] [{DIM}]slow (tigress, glasso_stars, pc, fci)[/]")
+    console.print(f"    [{INDIGO}]4[/] [{DIM}]nestboot (wrap selected methods in NestBoot)[/]")
+    console.print(f"    [{DIM}]Or type method names directly: scenicplus, genie3, ...[/]")
+    raw = Prompt.ask(f"  [{DIM}]Selection (comma-separated)[/]", default="1")
+
+    tier_map = {"1": "fast", "2": "medium", "3": "slow", "4": "nestboot"}
+    parts = [p.strip() for p in raw.split(",")]
+
+    tiers = []
+    extra_methods = []
+    for p in parts:
+        if p in tier_map:
+            tiers.append(tier_map[p])
+        else:
+            extra_methods.append(p)
+
+    tier = ",".join(tiers) if tiers else ""
 
     console.print(f"\n  [{TEAL}]B) Network sizes[/]")
     sizes = _pick_multi("Sizes", {
@@ -88,6 +103,7 @@ def _configure_genespider() -> argparse.Namespace:
     return argparse.Namespace(
         tier=tier, sizes=sizes_str, max_datasets=max_ds,
         timeout=timeout, output=output,
+        extra_methods=extra_methods,
     )
 
 
@@ -98,17 +114,39 @@ def _run_genespider_live(args: argparse.Namespace) -> None:
     warnings.simplefilter("ignore")
 
     from bench.genespider import (
-        TIERS, _list_datasets, load_dataset, run_single,
+        TIERS, PYGS_METHODS, _list_datasets, load_dataset, run_single,
     )
     from sparselink import list_methods
     import sparselink.methods  # noqa: F401
 
-    selected_tiers = [t.strip() for t in args.tier.split(",")]
+    selected_tiers = [t.strip() for t in args.tier.split(",") if t.strip()]
+    use_nestboot = "nestboot" in selected_tiers
+    method_tiers = [t for t in selected_tiers if t != "nestboot"]
+
     methods: list[str] = []
-    for t in selected_tiers:
+    for t in method_tiers:
         methods.extend(TIERS.get(t, []))
+
+    # Add any extra methods typed directly by name
+    extra = getattr(args, "extra_methods", [])
+    methods.extend(extra)
+
+    # If nothing resolved, don't silently default to something
+    if not methods:
+        console.print(f"  [{ROSE}]No methods selected. Specify a tier or method name.[/]")
+        return
+
+    # Filter to registered sparselink methods + known pyGS methods
     registered = set(list_methods())
-    methods = [m for m in methods if m in registered]
+    methods = [m for m in methods if m in registered or m in PYGS_METHODS]
+
+    if not methods:
+        console.print(f"  [{ROSE}]No valid methods found after filtering.[/]")
+        return
+
+    console.print(f"  [{TEAL}]Methods[/]  {', '.join(methods)}")
+    if use_nestboot:
+        console.print(f"  [{TEAL}]NestBoot[/] enabled")
 
     sizes = [s.strip() for s in args.sizes.split(",")]
 

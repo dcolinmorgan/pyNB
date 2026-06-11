@@ -8,8 +8,16 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-import scanpy as sc
-import yaml
+
+try:
+    import scanpy as sc
+except ImportError:
+    sc = None  # type: ignore[assignment]
+
+try:
+    import yaml
+except ImportError:
+    yaml = None  # type: ignore[assignment]
 
 from datastruct.Dataset import Dataset
 
@@ -538,9 +546,6 @@ def _run_scenicplus_direct(
     # GRN inference using GBM
     n_genes = len(var_names)
     adj_matrix = np.zeros((n_genes, n_genes))
-
-    # Parallel inference
-    print(f"Inferring GRN for {len(tf_indices)} TFs...")
 
     # Prepare arguments for workers
     worker_args = [(tf_idx, Y, n_genes, seed) for tf_idx in tf_indices]

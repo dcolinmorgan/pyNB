@@ -45,7 +45,11 @@ TIERS: dict[str, list[str]] = {
         "transfer_entropy", "pcmci",
     ],
     "slow": ["tigress", "glasso_stars", "pc", "fci"],
+    "scenicplus": ["scenicplus"],
 }
+
+# Methods handled by pyGS directly (not sparselink)
+PYGS_METHODS: set[str] = {"scenicplus"}
 
 CACHE_DIR = Path(".gs_cache")
 
@@ -180,6 +184,9 @@ def _alarm_handler(signum: int, frame: object) -> None:
 
 def _fit_best(method_name: str, X: np.ndarray, A_true: np.ndarray, P: np.ndarray | None = None) -> tuple:
     """Fit method, sweeping alpha if applicable. Returns (best_adj, elapsed)."""
+    if method_name in PYGS_METHODS:
+        return _fit_pygs_method(method_name, X, A_true, P)
+
     method_cls = get_method(method_name)
     if method_name in ALPHA_SWEEP:
         param = ALPHA_SWEEP[method_name]
@@ -211,6 +218,60 @@ def _fit_best(method_name: str, X: np.ndarray, A_true: np.ndarray, P: np.ndarray
             result = method_cls().fit(X, P)
         elapsed = time.perf_counter() - t0
         return result.adjacency_matrix, elapsed
+
+
+def _fit_pygs_method(method_name: str, X: np.ndarray, A_true: np.ndarray, P: np.ndarray | None = None) -> tuple:
+    """Fit a pyGS-native method (e.g., SCENIC+). Returns (best_adj, elapsed)."""
+    from datastruct.Dataset import Dataset
+    from analyze.Data import Data
+
+    n_genes = X.shape[1]
+    n_samples = X.shape[0]
+    gene_names = [f"G{i}" for i in range(n_genes)]
+
+    # Build Dataset (X is samples×genes, Dataset wants genes×samples)
+    ds = Dataset()
+    ds._Y = X.T
+    ds._P = P.T if P is not None else np.eye(n_genes, n_samples)
+    ds._names = gene_names
+    data_obj = Data(ds)
+
+    if method_name == "scenicplus":
+        from methods.scenicplus import SCENICPLUS
+        threshold_range = np.logspace(-6, 0, 30)
+        t0 = time.perf_counter()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            result = SCENICPLUS(
+                dataset=data_obj,
+                nested_boot=False,
+                threshold_range=threshold_range,
+                var_names=gene_names,
+                n_cpu=1,
+            )
+        elapsed = time.perf_counter() - t0
+        adj_3d, thresholds = result
+
+        # Pick best alpha (oracle) like other methods
+        from sklearn.metrics import roc_auc_score
+        mask = ~np.eye(n_genes, dtype=bool)
+        y_true = (A_true[mask] != 0).astype(int)
+        best_auroc = -1.0
+        best_adj = adj_3d[:, :, 0]
+        for k in range(adj_3d.shape[2]):
+            candidate = np.abs(adj_3d[:, :, k])
+            np.fill_diagonal(candidate, 0.0)
+            y_scores = candidate[mask]
+            try:
+                auroc = float(roc_auc_score(y_true, y_scores))
+            except ValueError:
+                auroc = 0.5
+            if auroc > best_auroc:
+                best_auroc = auroc
+                best_adj = candidate
+        return best_adj, elapsed
+    else:
+        raise ValueError(f"Unknown pyGS method: {method_name}")
 
 
 def run_single(
@@ -273,7 +334,7 @@ def main() -> None:
     for t in selected_tiers:
         methods.extend(TIERS.get(t, []))
     registered = set(list_methods())
-    methods = [m for m in methods if m in registered]
+    methods = [m for m in methods if m in registered or m in PYGS_METHODS]
 
     print(f"Methods: {methods}")
     print(f"Sizes: {sizes}")
