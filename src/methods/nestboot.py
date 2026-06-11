@@ -296,9 +296,10 @@ class Nestboot:
             if sub_merged.empty:
                 best_t = 0.8  # Fallback
             else:
-                # Find the lowest support threshold t where FDR(t) <= target_fdr
+                # Find the LOWEST support threshold t where FDR(t) <= target_fdr
+                # for ALL thresholds >= t (step-down procedure).
                 # FDR(t) = #{shuffled links with Afrac >= t} / #{normal links with Afrac >= t}
-                # Scan from low to high; the lowest valid t maximizes recall.
+                # Scan from HIGH to LOW: find most permissive t that controls FDR.
                 t_vals = np.linspace(0.05, 1.0, 96)
 
                 n_norm_arr = sub_merged["Afrac_norm"].values
@@ -306,7 +307,7 @@ class Nestboot:
 
                 best_t = 1.0  # Default: most conservative
 
-                for t in t_vals:
+                for t in reversed(t_vals):
                     n_norm = (n_norm_arr >= t).sum()
                     if n_norm == 0:
                         continue
@@ -315,7 +316,7 @@ class Nestboot:
 
                     if fdr_est <= target_fdr:
                         best_t = t
-                        break  # First (lowest) valid threshold
+                        break  # Most permissive threshold that controls FDR
 
             support_threshold = best_t
 

@@ -611,16 +611,28 @@ def _configure_genespider() -> argparse.Namespace:
     """Interactive config builder for GeneSpider benchmark."""
     console.print(f"\n  [{TEAL}]Configure GeneSpider Benchmark[/]\n")
 
-    console.print(f"  [{TEAL}]A) Method tier[/]")
-    tiers = _pick_multi(
-        "Tiers",
-        {"1": "fast", "2": "medium", "3": "slow", "4": "nestboot"},
-        default="1",
-    )
+    console.print(f"  [{TEAL}]A) Method tier / method names[/]")
+    console.print(f"    [{INDIGO}]1[/] [{DIM}]fast (lasso, lsco, elastic_net, ridge, ...)[/]")
+    console.print(f"    [{INDIGO}]2[/] [{DIM}]medium (glasso, bdeu, bge, ...)[/]")
+    console.print(f"    [{INDIGO}]3[/] [{DIM}]slow (tigress, glasso_stars, pc, fci)[/]")
+    console.print(f"    [{INDIGO}]4[/] [{DIM}]nestboot (wrap selected methods in NestBoot)[/]")
+    console.print(f"    [{DIM}]Or type method names directly: scenicplus, genie3, ...[/]")
+    raw = Prompt.ask(f"  [{DIM}]Selection (comma-separated)[/]", default="1")
+
+    tier_map = {"1": "fast", "2": "medium", "3": "slow", "4": "nestboot"}
+    parts = [p.strip() for p in raw.split(",")]
+
+    tiers = []
+    extra_methods: list[str] = []
+    for p in parts:
+        if p in tier_map:
+            tiers.append(tier_map[p])
+        elif p:
+            extra_methods.append(p)
 
     use_nestboot = "nestboot" in tiers
     tier_names = [t for t in tiers if t != "nestboot"]
-    tier = ",".join(tier_names) if tier_names else "fast"
+    tier = ",".join(tier_names) if tier_names else ""
 
     # NestBoot params
     nest_runs = 0
@@ -668,6 +680,7 @@ def _configure_genespider() -> argparse.Namespace:
         boot_runs=boot_runs,
         fdr=fdr,
         seed=42,
+        extra_methods=extra_methods,
     )
 
 
@@ -675,23 +688,32 @@ def _run_genespider_live(args: argparse.Namespace) -> None:
     """Run GeneSpider benchmark using sparselink methods on real data."""
     warnings.simplefilter("ignore")
 
-    from bench.genespider import TIERS, _list_datasets, load_dataset, run_single
+    from bench.genespider import TIERS, PYGS_METHODS, _list_datasets, load_dataset, run_single
     from sparselink import list_methods
 
     import sparselink.methods  # noqa: F401
 
     # Parse tiers — "nestboot" in the tier list enables NestBoot wrapping
-    selected_tiers = [t.strip() for t in args.tier.split(",")]
+    selected_tiers = [t.strip() for t in args.tier.split(",") if t.strip()]
     use_nestboot = getattr(args, "nestboot", False) or "nestboot" in selected_tiers
     method_tiers = [t for t in selected_tiers if t != "nestboot"]
-    if not method_tiers:
-        method_tiers = ["fast"]
 
     methods: list[str] = []
     for t in method_tiers:
         methods.extend(TIERS.get(t, []))
+
+    # Add extra methods typed directly by name
+    extra = getattr(args, "extra_methods", [])
+    methods.extend(extra)
+
+    # Filter to valid methods
     registered = set(list_methods())
-    methods = [m for m in methods if m in registered]
+    methods = [m for m in methods if m in registered or m in PYGS_METHODS]
+
+    if not methods:
+        console.print(f"  [{ROSE}]No valid methods selected.[/]")
+        return
+
     sizes = [s.strip() for s in args.sizes.split(",")]
 
     console.print(f"  [{TEAL}]Methods[/]  {', '.join(methods)}")
@@ -824,11 +846,10 @@ def _run_direct_fair(
     from sparselink import get_method
     from sparselink.bench.metrics import evaluate
 
-    from bench.genespider import ALPHA_SWEEP
+    from bench.genespider import ALPHA_SWEEP, PYGS_METHODS, _fit_pygs_method
 
     import sparselink.methods  # noqa: F401
 
-    method_cls = get_method(method_name)
     n = X.shape[1]
 
     base = dict(
@@ -847,10 +868,14 @@ def _run_direct_fair(
     try:
         t0 = time.perf_counter()
 
-        if method_name in ALPHA_SWEEP:
+        if method_name in PYGS_METHODS:
+            best_adj, _ = _fit_pygs_method(method_name, X, A_true, P)
+            elapsed = time.perf_counter() - t0
+        elif method_name in ALPHA_SWEEP:
             # Sweep alphas on full data, average the absolute adjacency
             # matrices. This is a simple ensemble over regularization
             # strength — no oracle, no gold standard.
+            method_cls = get_method(method_name)
             alpha_param = ALPHA_SWEEP[method_name]
             alpha_range = np.logspace(-3, 0, 10)
             adj_sum = np.zeros((n, n))
@@ -860,6 +885,7 @@ def _run_direct_fair(
             best_adj = adj_sum / len(alpha_range)
             np.fill_diagonal(best_adj, 0.0)
         else:
+            method_cls = get_method(method_name)
             result = method_cls().fit(X, P)
             best_adj = result.adjacency_matrix
 
@@ -915,7 +941,8 @@ def _run_nestboot_on_gs(
     ds._names = gene_names
     data_obj = Data(ds)
 
-    method_cls = get_method(method_name)
+    from bench.genespider import PYGS_METHODS
+    method_cls = get_method(method_name) if method_name not in PYGS_METHODS else None
 
     # Determine if this method supports a native regularization parameter
     from bench.genespider import ALPHA_SWEEP
@@ -937,14 +964,40 @@ def _run_nestboot_on_gs(
         P_in = P_mat.T if P_mat is not None else None
         _call_count[0] += 1
 
+        if method_name in PYGS_METHODS:
+            # Use SCENIC+ directly — returns 3D with threshold_range
+            from methods.scenicplus import SCENICPLUS
+            threshold_range = np.logspace(-6, 0, 10)
+            var_names = gene_names
+            result = SCENICPLUS(
+                dataset=dataset,
+                nested_boot=False,
+                threshold_range=threshold_range,
+                var_names=var_names,
+                n_cpu=1,
+            )
+            adj_3d, _ = result
+            return adj_3d
+
         if has_native_alpha:
             # Sweep native regularization parameter → 3D output
+            # Return THRESHOLDED outputs so NestBoot Afrac measures
+            # edge presence/absence (stability selection style)
             slices = []
             for alpha in alpha_range:  # type: ignore[union-attr]
                 result = method_cls(**{alpha_param: float(alpha)}).fit(
                     X_in, P_in
                 )
-                slices.append(result.adjacency_matrix)
+                adj = result.adjacency_matrix.copy()
+                # Binarize: keep only edges above a data-driven threshold
+                # This converts continuous weights → edge indicators for Afrac
+                scores = np.abs(adj)
+                np.fill_diagonal(scores, 0.0)
+                nonzero = scores[scores > 0]
+                if len(nonzero) > 0:
+                    thr = np.percentile(nonzero, 50)
+                    adj[scores < thr] = 0.0
+                slices.append(adj)
             return np.stack(slices, axis=2)
         else:
             # Fit with varying random_state for stochastic methods
@@ -1011,12 +1064,31 @@ def _run_nestboot_on_gs(
         )
         elapsed = time.perf_counter() - t0
 
-        # sxnet may be 3D (genes × genes × n_params).
-        # Average absolute scores across all param slices — mirrors
-        # how the direct baseline averages across alphas.
+        # Use xnet (FDR-thresholded binary) for F1/MCC evaluation,
+        # and sxnet (signed continuous) for AUROC/AUPR.
+        # If 3D (genes × genes × n_params), pick the slice with best AUROC.
+        xnet = nb_results.xnet
         sxnet = nb_results.sxnet
-        if sxnet.ndim == 3:
-            combined = np.mean(np.abs(sxnet), axis=2)
+
+        if hasattr(xnet, "ndim") and xnet.ndim == 3:
+            # Pick the alpha slice with best AUROC
+            best_auroc = -1.0
+            best_adj = np.abs(sxnet[:, :, 0])
+            for k in range(sxnet.shape[2]):
+                candidate = np.abs(sxnet[:, :, k])
+                np.fill_diagonal(candidate, 0.0)
+                from sklearn.metrics import roc_auc_score
+                mask = ~np.eye(n_genes, dtype=bool)
+                y_true = (A_true[mask] != 0).astype(int)
+                y_scores = candidate[mask]
+                try:
+                    auroc_k = float(roc_auc_score(y_true, y_scores))
+                except ValueError:
+                    auroc_k = 0.5
+                if auroc_k > best_auroc:
+                    best_auroc = auroc_k
+                    best_adj = candidate
+            combined = best_adj
         else:
             combined = np.abs(sxnet)
         np.fill_diagonal(combined, 0.0)
