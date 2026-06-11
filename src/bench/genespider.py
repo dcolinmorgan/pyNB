@@ -49,7 +49,7 @@ TIERS: dict[str, list[str]] = {
 }
 
 # Methods handled by pyGS directly (not sparselink)
-PYGS_METHODS: set[str] = {"scenicplus"}
+PYGS_METHODS: set[str] = {"scenicplus", "panda"}
 
 CACHE_DIR = Path(".gs_cache")
 
@@ -270,6 +270,15 @@ def _fit_pygs_method(method_name: str, X: np.ndarray, A_true: np.ndarray, P: np.
                 best_auroc = auroc
                 best_adj = candidate
         return best_adj, elapsed
+    elif method_name == "panda":
+        from methods.panda import PANDA
+        t0 = time.perf_counter()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            adj, _ = PANDA(dataset=data_obj, var_names=gene_names)
+        elapsed = time.perf_counter() - t0
+        np.fill_diagonal(adj, 0.0)
+        return np.abs(adj), elapsed
     else:
         raise ValueError(f"Unknown pyGS method: {method_name}")
 

@@ -1,3 +1,11 @@
+# Removed from repo — install sparselink from PyPI
+sparselink/
+
+# Editor / tool dirs
+.ralph-tui/
+.vscode/
+tasks/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

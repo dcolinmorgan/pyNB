@@ -34,6 +34,7 @@ docs = ["mkdocs-material", "mkdocstrings[python]"]
 causal = ["causal-learn"]
 deep = ["torch>=2.0"]
 scenic = ["pycistopic @ git+https://github.com/aertslab/pycisTopic.git", "setuptools<81"]
+netzoo = ["netzoopy>=0.10"]
 
 
 [tool.hatch.metadata]

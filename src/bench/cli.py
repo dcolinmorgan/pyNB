@@ -1512,10 +1512,48 @@ def _infer_from_genespider() -> None:
 
         for method_name in methods:
             try:
-                method_cls = get_method(method_name)
                 with console.status(f"[{TEAL}]Running {method_name} on {size}...[/]"):
-                    from bench.genespider import ALPHA_SWEEP
-                    if method_name in ALPHA_SWEEP:
+                    from bench.genespider import ALPHA_SWEEP, PYGS_METHODS
+                    if method_name in PYGS_METHODS:
+                        from analyze.Data import Data
+                        from datastruct.Dataset import Dataset as DS
+                        from datastruct.Network import Network
+                        ds = DS()
+                        ds._Y = X.T
+                        ds._P = P.T if P is not None else np.eye(X.shape[1], X.shape[0])
+                        ds._network = Network(A_true)
+                        gene_names = [f"G{i}" for i in range(X.shape[1])]
+                        ds._names = gene_names
+                        data_obj = Data(ds)
+                        if method_name == "scenicplus":
+                            from methods.scenicplus import SCENICPLUS
+                            threshold_range = np.logspace(-6, 0, 20)
+                            result = SCENICPLUS(
+                                dataset=data_obj, nested_boot=False,
+                                threshold_range=threshold_range,
+                                var_names=gene_names, n_cpu=1,
+                            )
+                            adj_3d, _ = result
+                            from sklearn.metrics import roc_auc_score
+                            mask = ~np.eye(A_true.shape[0], dtype=bool)
+                            y_true = (A_true[mask] != 0).astype(int)
+                            best_auroc, adj = -1.0, adj_3d[:, :, 0]
+                            for k in range(adj_3d.shape[2]):
+                                candidate = np.abs(adj_3d[:, :, k])
+                                np.fill_diagonal(candidate, 0.0)
+                                try:
+                                    sc = float(roc_auc_score(y_true, candidate[mask]))
+                                except ValueError:
+                                    sc = 0.5
+                            if sc > best_auroc:
+                                best_auroc, adj = sc, candidate
+                        elif method_name == "panda":
+                            from methods.panda import PANDA
+                            adj_raw, _ = PANDA(dataset=data_obj, var_names=gene_names)
+                            adj = np.abs(adj_raw)
+                            np.fill_diagonal(adj, 0.0)
+                    elif method_name in ALPHA_SWEEP:
+                        method_cls = get_method(method_name)
                         param = ALPHA_SWEEP[method_name]
                         alphas = np.logspace(-4, 1, 20)
                         best_auroc, adj = -1.0, np.zeros_like(A_true)
@@ -1533,6 +1571,7 @@ def _infer_from_genespider() -> None:
                             if sc > best_auroc:
                                 best_auroc, adj = sc, r.adjacency_matrix
                     else:
+                        method_cls = get_method(method_name)
                         result = method_cls().fit(X, P)
                         adj = result.adjacency_matrix
                 n_edges = int(np.count_nonzero(adj) - np.count_nonzero(np.diag(adj)))
@@ -1555,47 +1594,75 @@ def _infer_from_genespider() -> None:
 
 
 def _infer_from_synthetic() -> None:
-    """Generate synthetic data and run inference on it."""
-    from sparselink.bench.synthetic import generate_data, generate_network
+    """Generate synthetic data (GeneSpider model) and run inference on it."""
+    from sparselink.bench.synthetic import generate_network
 
-    console.print(f"\n  [{TEAL}]Synthetic data generator[/]")
+    console.print(f"\n  [{TEAL}]Synthetic data generator (GeneSpider model)[/]")
     n_genes = int(Prompt.ask(f"  [{DIM}]Number of genes[/]", default="20"))
-    n_samples = int(Prompt.ask(f"  [{DIM}]Number of samples[/]", default="100"))
     topology = Prompt.ask(
         f"  [{DIM}]Topology[/]",
         choices=["random", "scalefree", "smallworld"],
         default="scalefree",
     )
     sparsity = float(Prompt.ask(f"  [{DIM}]Sparsity (edge density)[/]", default="0.1"))
-    noise = float(Prompt.ask(f"  [{DIM}]Noise std[/]", default="0.1"))
+    snr = int(Prompt.ask(f"  [{DIM}]SNR[/]", default="1000"))
     seed = int(Prompt.ask(f"  [{DIM}]Seed[/]", default="42"))
 
+    rng = np.random.default_rng(seed)
     A_true = generate_network(n_genes, topology=topology, sparsity=sparsity, seed=seed)
-    X = generate_data(A_true, n_samples=n_samples, noise_std=noise, seed=seed)
     true_edges = int(np.count_nonzero(A_true))
+
+    # GeneSpider-style data: Y = (I-A)^{-1} @ (P + noise)
+    # P = identity (single-gene perturbation experiments)
+    n_samples = 3 * n_genes
+    G = np.linalg.inv(np.eye(n_genes) - A_true)
+    P = np.eye(n_genes, n_samples)
+    signal_var = np.var(G @ P)
+    noise_std = np.sqrt(signal_var / snr) if snr > 0 else 0.01
+    U = rng.normal(0, noise_std, (n_genes, n_samples))
+    Y = G @ (P + U)  # genes x samples
+    X = Y.T  # samples x genes (for sparselink)
+    P_input = P.T  # samples x genes (for sparselink)
 
     console.print(
         f"  [{GREEN}]✓[/] Generated {topology} network:"
-        f" {n_genes} genes, {true_edges} edges, {n_samples} samples"
+        f" {n_genes} genes, {true_edges} edges,"
+        f" {n_samples} samples, SNR={snr}"
     )
 
     method = Prompt.ask(f"  [{DIM}]Method[/]", default="lasso")
     out = Prompt.ask(f"  [{DIM}]Output (.npy)[/]", default="")
 
     from sparselink import get_method
+    from sparselink.bench.metrics import evaluate
     import sparselink.methods  # noqa: F401
+    from bench.genespider import ALPHA_SWEEP
 
     method_cls = get_method(method)
     console.print(f"  [{TEAL}]Method[/]  {method}")
 
     with console.status(f"[{TEAL}]Running {method}...[/]"):
-        result = method_cls().fit(X)
+        if method in ALPHA_SWEEP:
+            from sklearn.metrics import roc_auc_score
+            param = ALPHA_SWEEP[method]
+            alphas = np.logspace(-4, 1, 20)
+            mask = ~np.eye(n_genes, dtype=bool)
+            y_true = (A_true[mask] != 0).astype(int)
+            best_auroc, adj = -1.0, np.zeros_like(A_true)
+            for a in alphas:
+                r = method_cls(**{param: float(a)}).fit(X, P_input)
+                try:
+                    sc = float(roc_auc_score(y_true, np.abs(r.adjacency_matrix[mask])))
+                except ValueError:
+                    sc = 0.5
+                if sc > best_auroc:
+                    best_auroc, adj = sc, r.adjacency_matrix
+        else:
+            result = method_cls().fit(X, P_input)
+            adj = result.adjacency_matrix
 
-    adj = result.adjacency_matrix
     n_edges = int(np.count_nonzero(adj) - np.count_nonzero(np.diag(adj)))
     console.print(f"  [{GREEN}]✓[/] {n_edges} edges inferred")
-
-    from sparselink.bench.metrics import evaluate
 
     metrics = evaluate(A_true, adj)
     t = Table(title="vs True Network", title_style=TEAL, border_style="dim")
@@ -1615,37 +1682,47 @@ def _infer_from_synthetic() -> None:
 
 def _synthetic_guide() -> None:
     """Interactive guide for generating synthetic data and networks."""
-    from sparselink.bench.synthetic import generate_data, generate_network
+    from sparselink.bench.synthetic import generate_network
 
     console.print(f"\n  [{TEAL}]━━━ Generate Synthetic Data & Networks ━━━[/]\n")
     console.print(f"  [{DIM}]Create benchmark datasets with known ground-truth networks.[/]")
-    console.print(f"  [{DIM}]Generated data can be saved and used for inference or benchmarking.[/]\n")
+    console.print(f"  [{DIM}]Uses GeneSpider perturbation model: Y = (I-A)⁻¹(P + noise)[/]\n")
 
     n_genes = int(Prompt.ask(f"  [{TEAL}]Number of genes[/]", default="20"))
-    n_samples = int(Prompt.ask(f"  [{TEAL}]Number of samples[/]", default="100"))
     topology = Prompt.ask(
         f"  [{TEAL}]Topology[/]",
         choices=["random", "scalefree", "smallworld"],
         default="scalefree",
     )
     sparsity = float(Prompt.ask(f"  [{TEAL}]Edge density (0-1)[/]", default="0.1"))
-    noise = float(Prompt.ask(f"  [{TEAL}]Noise std (SNR control)[/]", default="0.1"))
+    snr = int(Prompt.ask(f"  [{TEAL}]SNR (signal-to-noise ratio)[/]", default="1000"))
     seed = int(Prompt.ask(f"  [{TEAL}]Random seed[/]", default="42"))
 
+    rng = np.random.default_rng(seed)
     A_true = generate_network(n_genes, topology=topology, sparsity=sparsity, seed=seed)
-    X = generate_data(A_true, n_samples=n_samples, noise_std=noise, seed=seed)
+
+    # GeneSpider model: Y = (I-A)^{-1} @ (P + noise), P = identity perturbations
+    n_samples = 3 * n_genes
+    G = np.linalg.inv(np.eye(n_genes) - A_true)
+    P = np.eye(n_genes, n_samples)
+    signal_var = np.var(G @ P)
+    noise_std = np.sqrt(signal_var / snr) if snr > 0 else 0.01
+    U = rng.normal(0, noise_std, (n_genes, n_samples))
+    Y = G @ (P + U)
+    X = Y.T  # samples x genes
+    P_input = P.T  # samples x genes
 
     true_edges = int(np.count_nonzero(A_true))
     density = true_edges / (n_genes * (n_genes - 1))
     spectral = float(np.max(np.abs(np.linalg.eigvals(A_true))))
 
-    console.print(f"\n  [{GREEN}]✓ Network generated[/]")
+    console.print(f"\n  [{GREEN}]✓ Network & data generated[/]")
     console.print(f"    [{DIM}]Topology:[/]   {topology}")
     console.print(f"    [{DIM}]Genes:[/]      {n_genes}")
     console.print(f"    [{DIM}]Edges:[/]      {true_edges} (density={density:.3f})")
     console.print(f"    [{DIM}]Spectral ρ:[/] {spectral:.3f}")
     console.print(f"    [{DIM}]Samples:[/]    {n_samples}")
-    console.print(f"    [{DIM}]Noise σ:[/]    {noise}")
+    console.print(f"    [{DIM}]SNR:[/]        {snr}")
 
     # Save options
     console.print(f"\n  [{TEAL}]Save outputs:[/]")
@@ -1680,14 +1757,31 @@ def _synthetic_guide() -> None:
         from sparselink import get_method
         import sparselink.methods  # noqa: F401
         from sparselink.bench.metrics import evaluate
+        from bench.genespider import ALPHA_SWEEP
 
         method = Prompt.ask(f"  [{DIM}]Method[/]", default="lasso")
         method_cls = get_method(method)
 
         with console.status(f"[{TEAL}]Running {method}...[/]"):
-            result = method_cls().fit(X)
+            if method in ALPHA_SWEEP:
+                from sklearn.metrics import roc_auc_score
+                param = ALPHA_SWEEP[method]
+                alphas = np.logspace(-4, 1, 20)
+                mask = ~np.eye(n_genes, dtype=bool)
+                y_true = (A_true[mask] != 0).astype(int)
+                best_auroc, adj = -1.0, np.zeros_like(A_true)
+                for a in alphas:
+                    r = method_cls(**{param: float(a)}).fit(X, P_input)
+                    try:
+                        sc = float(roc_auc_score(y_true, np.abs(r.adjacency_matrix[mask])))
+                    except ValueError:
+                        sc = 0.5
+                    if sc > best_auroc:
+                        best_auroc, adj = sc, r.adjacency_matrix
+            else:
+                result = method_cls().fit(X, P_input)
+                adj = result.adjacency_matrix
 
-        adj = result.adjacency_matrix
         n_edges = int(np.count_nonzero(adj) - np.count_nonzero(np.diag(adj)))
         metrics = evaluate(A_true, adj)
 

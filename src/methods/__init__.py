@@ -11,6 +11,11 @@ try:
 except ImportError:
     SCENICPLUS = None  # type: ignore[assignment]
 
+try:
+    from .panda import PANDA
+except ImportError:
+    PANDA = None  # type: ignore[assignment]
+
 
 def run(
     method: Any,
@@ -46,6 +51,8 @@ def run(
         }
         if SCENICPLUS is not None:
             method_map["scenicplus"] = SCENICPLUS
+        if PANDA is not None:
+            method_map["panda"] = PANDA
         if method.lower() not in method_map:
             raise ValueError(
                 f"Unknown method: {method}. Available: {list(method_map.keys())}"
@@ -71,4 +78,4 @@ def run(
         return method(dataset, **kwargs)
 
 
-__all__ = ["Lasso", "LSCO", "CLR", "GENIE3", "TIGRESS", "SCENICPLUS", "run"]
+__all__ = ["Lasso", "LSCO", "CLR", "GENIE3", "TIGRESS", "SCENICPLUS", "PANDA", "run"]
