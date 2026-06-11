@@ -1307,9 +1307,9 @@ const data = {json.dumps(data)};
 # ── Interactive mode ──────────────────────────────────────────────────────
 
 _MENU = {
-    "1": ("status", "Show system status & available methods"),
-    "2": ("methods", "List all inference methods"),
-    "3": ("infer", "Infer a network from a data file"),
+    "1": ("status_methods", "Status & available methods"),
+    "2": ("synthetic_guide", "Generate synthetic data & networks"),
+    "3": ("infer", "Infer a network"),
     "4": ("bench", "Run synthetic benchmark"),
     "5": ("bench-gs", "Run GeneSpider benchmark (+ NestBoot)"),
     "6": ("evaluate", "Evaluate predicted GRN vs gold standard"),
@@ -1317,6 +1317,320 @@ _MENU = {
     "8": ("dashboard", "Generate interactive HTML dashboard"),
     "9": ("show", "Render a previous result JSON"),
 }
+
+
+def _interactive_infer() -> None:
+    """Infer with data source selection: user file, GeneSpider, or synthetic."""
+    console.print(f"\n  [{TEAL}]Data source:[/]")
+    console.print(f"    [{INDIGO}]1[/] [{DIM}]Your data file (.csv, .tsv, .npy)[/]")
+    console.print(f"    [{INDIGO}]2[/] [{DIM}]GeneSpider benchmark dataset[/]")
+    console.print(f"    [{INDIGO}]3[/] [{DIM}]Generate synthetic network + data[/]")
+
+    src = Prompt.ask(f"  [{DIM}]Source[/]", choices=["1", "2", "3"], default="1")
+
+    if src == "1":
+        fpath = Prompt.ask(f"  [{DIM}]Data file (.csv, .tsv, .npy)[/]")
+        method = Prompt.ask(f"  [{DIM}]Method[/]", default="lasso")
+        out = Prompt.ask(f"  [{DIM}]Output (.npy)[/]", default="")
+        _cmd_infer(
+            argparse.Namespace(file=fpath, method=method, output=out or None)
+        )
+
+    elif src == "2":
+        _infer_from_genespider()
+
+    elif src == "3":
+        _infer_from_synthetic()
+
+
+def _infer_from_genespider() -> None:
+    """Load a GeneSpider dataset and run inference on it."""
+    from bench.genespider import TOPOLOGIES, VALID_SNRS, _list_datasets, load_dataset
+
+    console.print(f"\n  [{TEAL}]GeneSpider dataset selector[/]")
+
+    # Size selection (multiple)
+    raw_sizes = Prompt.ask(
+        f"  [{DIM}]Network size(s) (comma-separated)[/]",
+        default="N50",
+    )
+    sizes = [s.strip() for s in raw_sizes.split(",") if s.strip() in ("N10", "N50", "N100")]
+    if not sizes:
+        sizes = ["N50"]
+
+    # SNR
+    snrs = sorted(VALID_SNRS)
+    console.print(f"\n  [{TEAL}]SNR:[/]")
+    for i, s in enumerate(snrs, 1):
+        console.print(f"    [{INDIGO}]{i}[/] [{DIM}]{s}[/]")
+    snr_idx = int(Prompt.ask(f"  [{DIM}]SNR[/]", default="2")) - 1
+    snr_idx = max(0, min(snr_idx, len(snrs) - 1))
+    chosen_snr = snrs[snr_idx]
+
+    # Topology
+    console.print(f"\n  [{TEAL}]Topology:[/]")
+    for i, t in enumerate(TOPOLOGIES, 1):
+        console.print(f"    [{INDIGO}]{i}[/] [{DIM}]{t}[/]")
+    topo_idx = int(Prompt.ask(f"  [{DIM}]Topology[/]", default="2")) - 1
+    topo_idx = max(0, min(topo_idx, len(TOPOLOGIES) - 1))
+    chosen_topo = TOPOLOGIES[topo_idx]
+
+    # Methods (multiple)
+    raw_methods = Prompt.ask(
+        f"  [{DIM}]Method(s) (comma-separated)[/]", default="lasso"
+    )
+    methods = [m.strip() for m in raw_methods.split(",") if m.strip()]
+
+    from sparselink import get_method
+    from sparselink.bench.metrics import evaluate
+    import sparselink.methods  # noqa: F401
+
+    # Results table
+    results_table = Table(
+        title="Inference Results", title_style=TEAL, border_style="dim"
+    )
+    results_table.add_column("Size", style="bold")
+    results_table.add_column("Method", style="bold")
+    results_table.add_column("Edges", justify="right")
+    results_table.add_column("AUROC", justify="right")
+    results_table.add_column("AUPR", justify="right")
+    results_table.add_column("F1", justify="right")
+    results_table.add_column("MCC", justify="right")
+
+    import random as _rnd
+
+    for size in sizes:
+        console.print(f"\n  [{DIM}]Fetching {size} datasets...[/]")
+        datasets = _list_datasets(size)
+        if not datasets:
+            console.print(f"  [{ROSE}]No datasets found for {size}[/]")
+            continue
+
+        datasets = [d for d in datasets if d["snr"] == chosen_snr]
+        if not datasets:
+            console.print(f"  [{ROSE}]No SNR={chosen_snr} datasets for {size}[/]")
+            continue
+
+        _rnd.shuffle(datasets)
+
+        # Load a dataset matching topology
+        X, P, A_true, topology, net_name = None, None, None, None, None
+        for d in datasets:
+            try:
+                X, P, A_true, topology, net_name = load_dataset(d, size)
+                if topology == chosen_topo:
+                    break
+            except Exception:
+                continue
+
+        if X is None:
+            console.print(f"  [{ROSE}]Failed to load any {size} dataset[/]")
+            continue
+
+        if topology != chosen_topo:
+            console.print(
+                f"  [{DIM}]No {chosen_topo} for {size}/SNR={chosen_snr},"
+                f" using {topology}[/]"
+            )
+
+        console.print(
+            f"  [{TEAL}]{size}[/]  {net_name} ({topology})"
+            f" — {X.shape[0]}×{X.shape[1]}, SNR={chosen_snr}"
+        )
+
+        for method_name in methods:
+            try:
+                method_cls = get_method(method_name)
+                with console.status(f"[{TEAL}]Running {method_name} on {size}...[/]"):
+                    from bench.genespider import ALPHA_SWEEP
+                    if method_name in ALPHA_SWEEP:
+                        param = ALPHA_SWEEP[method_name]
+                        alphas = np.logspace(-4, 1, 20)
+                        best_auroc, adj = -1.0, np.zeros_like(A_true)
+                        for a in alphas:
+                            r = method_cls(**{param: float(a)}).fit(X, P)
+                            from sklearn.metrics import roc_auc_score
+                            mask = ~np.eye(A_true.shape[0], dtype=bool)
+                            try:
+                                sc = float(roc_auc_score(
+                                    (A_true[mask] != 0).astype(int),
+                                    np.abs(r.adjacency_matrix[mask]),
+                                ))
+                            except ValueError:
+                                sc = 0.5
+                            if sc > best_auroc:
+                                best_auroc, adj = sc, r.adjacency_matrix
+                    else:
+                        result = method_cls().fit(X, P)
+                        adj = result.adjacency_matrix
+                n_edges = int(np.count_nonzero(adj) - np.count_nonzero(np.diag(adj)))
+                metrics = evaluate(A_true, adj)
+                results_table.add_row(
+                    size, method_name, str(n_edges),
+                    f"[{_color(metrics.auroc)}]{metrics.auroc:.3f}[/]",
+                    f"[{_color(metrics.aupr)}]{metrics.aupr:.3f}[/]",
+                    f"[{_color(metrics.f1)}]{metrics.f1:.3f}[/]",
+                    f"[{_color(metrics.mcc, 0.2, 0.5)}]{metrics.mcc:.3f}[/]",
+                )
+            except Exception as e:
+                results_table.add_row(
+                    size, method_name, "—", "—", "—", "—", f"[{ROSE}]err[/]"
+                )
+                console.print(f"  [{ROSE}]{method_name}: {e}[/]")
+
+    console.print()
+    console.print(results_table)
+
+
+def _infer_from_synthetic() -> None:
+    """Generate synthetic data and run inference on it."""
+    from sparselink.bench.synthetic import generate_data, generate_network
+
+    console.print(f"\n  [{TEAL}]Synthetic data generator[/]")
+    n_genes = int(Prompt.ask(f"  [{DIM}]Number of genes[/]", default="20"))
+    n_samples = int(Prompt.ask(f"  [{DIM}]Number of samples[/]", default="100"))
+    topology = Prompt.ask(
+        f"  [{DIM}]Topology[/]",
+        choices=["random", "scalefree", "smallworld"],
+        default="scalefree",
+    )
+    sparsity = float(Prompt.ask(f"  [{DIM}]Sparsity (edge density)[/]", default="0.1"))
+    noise = float(Prompt.ask(f"  [{DIM}]Noise std[/]", default="0.1"))
+    seed = int(Prompt.ask(f"  [{DIM}]Seed[/]", default="42"))
+
+    A_true = generate_network(n_genes, topology=topology, sparsity=sparsity, seed=seed)
+    X = generate_data(A_true, n_samples=n_samples, noise_std=noise, seed=seed)
+    true_edges = int(np.count_nonzero(A_true))
+
+    console.print(
+        f"  [{GREEN}]✓[/] Generated {topology} network:"
+        f" {n_genes} genes, {true_edges} edges, {n_samples} samples"
+    )
+
+    method = Prompt.ask(f"  [{DIM}]Method[/]", default="lasso")
+    out = Prompt.ask(f"  [{DIM}]Output (.npy)[/]", default="")
+
+    from sparselink import get_method
+    import sparselink.methods  # noqa: F401
+
+    method_cls = get_method(method)
+    console.print(f"  [{TEAL}]Method[/]  {method}")
+
+    with console.status(f"[{TEAL}]Running {method}...[/]"):
+        result = method_cls().fit(X)
+
+    adj = result.adjacency_matrix
+    n_edges = int(np.count_nonzero(adj) - np.count_nonzero(np.diag(adj)))
+    console.print(f"  [{GREEN}]✓[/] {n_edges} edges inferred")
+
+    from sparselink.bench.metrics import evaluate
+
+    metrics = evaluate(A_true, adj)
+    t = Table(title="vs True Network", title_style=TEAL, border_style="dim")
+    t.add_column("Metric", style="bold")
+    t.add_column("Value", justify="right")
+    for name, val in [
+        ("AUROC", metrics.auroc), ("AUPR", metrics.aupr),
+        ("F1", metrics.f1), ("MCC", metrics.mcc),
+    ]:
+        t.add_row(name, f"[{_color(val)}]{val:.3f}[/]")
+    console.print(t)
+
+    if out:
+        np.save(out, adj)
+        console.print(f"  [{DIM}]Adjacency saved to {out}[/]")
+
+
+def _synthetic_guide() -> None:
+    """Interactive guide for generating synthetic data and networks."""
+    from sparselink.bench.synthetic import generate_data, generate_network
+
+    console.print(f"\n  [{TEAL}]━━━ Generate Synthetic Data & Networks ━━━[/]\n")
+    console.print(f"  [{DIM}]Create benchmark datasets with known ground-truth networks.[/]")
+    console.print(f"  [{DIM}]Generated data can be saved and used for inference or benchmarking.[/]\n")
+
+    n_genes = int(Prompt.ask(f"  [{TEAL}]Number of genes[/]", default="20"))
+    n_samples = int(Prompt.ask(f"  [{TEAL}]Number of samples[/]", default="100"))
+    topology = Prompt.ask(
+        f"  [{TEAL}]Topology[/]",
+        choices=["random", "scalefree", "smallworld"],
+        default="scalefree",
+    )
+    sparsity = float(Prompt.ask(f"  [{TEAL}]Edge density (0-1)[/]", default="0.1"))
+    noise = float(Prompt.ask(f"  [{TEAL}]Noise std (SNR control)[/]", default="0.1"))
+    seed = int(Prompt.ask(f"  [{TEAL}]Random seed[/]", default="42"))
+
+    A_true = generate_network(n_genes, topology=topology, sparsity=sparsity, seed=seed)
+    X = generate_data(A_true, n_samples=n_samples, noise_std=noise, seed=seed)
+
+    true_edges = int(np.count_nonzero(A_true))
+    density = true_edges / (n_genes * (n_genes - 1))
+    spectral = float(np.max(np.abs(np.linalg.eigvals(A_true))))
+
+    console.print(f"\n  [{GREEN}]✓ Network generated[/]")
+    console.print(f"    [{DIM}]Topology:[/]   {topology}")
+    console.print(f"    [{DIM}]Genes:[/]      {n_genes}")
+    console.print(f"    [{DIM}]Edges:[/]      {true_edges} (density={density:.3f})")
+    console.print(f"    [{DIM}]Spectral ρ:[/] {spectral:.3f}")
+    console.print(f"    [{DIM}]Samples:[/]    {n_samples}")
+    console.print(f"    [{DIM}]Noise σ:[/]    {noise}")
+
+    # Save options
+    console.print(f"\n  [{TEAL}]Save outputs:[/]")
+    net_out = Prompt.ask(f"  [{DIM}]Network file (.npy, blank=skip)[/]", default="")
+    data_out = Prompt.ask(f"  [{DIM}]Data file (.npy/.csv, blank=skip)[/]", default="")
+
+    if net_out:
+        if net_out.endswith(".csv"):
+            import pandas as pd
+            names = [f"G{i}" for i in range(n_genes)]
+            pd.DataFrame(A_true, index=names, columns=names).to_csv(net_out)
+        else:
+            np.save(net_out, A_true)
+        console.print(f"  [{GREEN}]✓[/] Network saved to {net_out}")
+
+    if data_out:
+        if data_out.endswith(".csv"):
+            import pandas as pd
+            names = [f"G{i}" for i in range(n_genes)]
+            pd.DataFrame(X, columns=names).to_csv(data_out, index=False)
+        else:
+            np.save(data_out, X)
+        console.print(f"  [{GREEN}]✓[/] Data saved to {data_out}")
+
+    # Offer to run inference immediately
+    run_now = Prompt.ask(
+        f"\n  [{DIM}]Run inference on this data now?[/]",
+        choices=["y", "n"],
+        default="y",
+    )
+    if run_now == "y":
+        from sparselink import get_method
+        import sparselink.methods  # noqa: F401
+        from sparselink.bench.metrics import evaluate
+
+        method = Prompt.ask(f"  [{DIM}]Method[/]", default="lasso")
+        method_cls = get_method(method)
+
+        with console.status(f"[{TEAL}]Running {method}...[/]"):
+            result = method_cls().fit(X)
+
+        adj = result.adjacency_matrix
+        n_edges = int(np.count_nonzero(adj) - np.count_nonzero(np.diag(adj)))
+        metrics = evaluate(A_true, adj)
+
+        console.print(f"\n  [{GREEN}]✓[/] {n_edges} edges inferred with {method}")
+        t = Table(title="vs True Network", title_style=TEAL, border_style="dim")
+        t.add_column("Metric", style="bold")
+        t.add_column("Value", justify="right")
+        for name, val in [
+            ("AUROC", metrics.auroc), ("AUPR", metrics.aupr),
+            ("F1", metrics.f1), ("MCC", metrics.mcc),
+        ]:
+            t.add_row(name, f"[{_color(val)}]{val:.3f}[/]")
+        console.print(t)
+
+    console.print(f"\n  [{DIM}]Tip: use 'pygs bench --tier fast' for full multi-method benchmarking[/]")
 
 
 def _interactive() -> None:
@@ -1349,23 +1663,16 @@ def _interactive() -> None:
 
             cmd, _ = _MENU[choice]
 
-            if cmd == "status":
+            if cmd == "status_methods":
                 _cmd_status(argparse.Namespace())
-
-            elif cmd == "methods":
+                console.print()
                 _cmd_methods(argparse.Namespace())
 
+            elif cmd == "synthetic_guide":
+                _synthetic_guide()
+
             elif cmd == "infer":
-                fpath = Prompt.ask(
-                    f"  [{DIM}]Data file (.csv, .tsv, .npy)[/]"
-                )
-                method = Prompt.ask(f"  [{DIM}]Method[/]", default="lasso")
-                out = Prompt.ask(f"  [{DIM}]Output (.npy)[/]", default="")
-                _cmd_infer(
-                    argparse.Namespace(
-                        file=fpath, method=method, output=out or None
-                    )
-                )
+                _interactive_infer()
 
             elif cmd == "bench":
                 ns = _configure_synthetic()
