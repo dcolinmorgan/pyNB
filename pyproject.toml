@@ -104,6 +104,7 @@ indent-style = "space"
 override-dependencies = [
     "pandas>=2.0",
     "matplotlib>=3.7",
+    "torch ; python_version < '0'",
     "macs2 ; python_version < '0'",
     "polars ; python_version < '0'",
     "ray ; python_version < '0'",

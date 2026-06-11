@@ -1139,6 +1139,94 @@ Parallel computation can reduce runtime by 50-75% for embarrassingly parallel ta
 
 **Note 30: Data sharing and format conversion.** When sharing inferred networks, include: (i) the adjacency matrix in a standard format (.mat for MATLAB, .csv for universal access), (ii) gene names/identifiers, (iii) edge list format for easy import into other tools, (iv) metadata describing the inference method and parameters, and (v) performance metrics if the true network is known. The GRN Benchmark format provides a standardized structure for sharing and comparing results.
 
+## **5\. pyGS: The Python Port of GeneSPIDER**
+
+While GeneSPIDER2 remains the reference MATLAB implementation for GRN simulation and benchmarking, a comprehensive Python port is available as **pyGS** (Python GeneSpider). pyGS reproduces the core algorithms and data structures of GeneSPIDER2 while extending them with modern Python tooling.
+
+### **Key Features of pyGS**
+
+* **Full MATLAB Interoperability**: pyGS uses JSON schemas for `Network` and `Dataset` objects that mirror GeneSPIDER2's MATLAB structures, enabling seamless data exchange between platforms.
+* **20+ Inference Methods**: Via the sparselink submodule, pyGS provides LASSO, LSCO, CLR, GENIE3, TIGRESS, Elastic Net, Ridge, Graphical LASSO, PC, FCI, PCMCI, Granger Causality, NOTEARS, and more.
+* **NestBoot FDR Control**: The `Nestboot` class implements the same nested bootstrapping framework described in Section 3.6, callable with any inference method.
+* **GeneSpider Benchmark Integration**: pyGS can directly download and benchmark against the Sonnhammer GRNi Bitbucket datasets (the same N50/N100 datasets used in GeneSPIDER2).
+* **SCENIC+ Integration**: Single-cell multi-omic GRN inference via SCENIC+ is built in.
+* **Interactive CLI**: An interactive terminal interface for configuring and running benchmarks.
+
+### **Installation**
+
+```bash
+git clone --recurse-submodules https://github.com/dcolinmorgan/pyGS.git
+cd pyGS
+uv sync
+```
+
+### **Quick Start: Equivalent to GeneSPIDER2 Workflow**
+
+The following Python code replicates the GeneSPIDER2 MATLAB workflow from Sections 3.4–3.5:
+
+```python
+import numpy as np
+from analyze.Data import Data
+from datastruct.Network import Network
+from analyze.CompareModels import CompareModels
+from methods.lasso import Lasso
+from methods.lsco import LSCO
+from methods.genie3 import GENIE3
+
+# Load a GeneSPIDER N50 dataset (equivalent to loading .mat files)
+dataset = Data.from_json_url(
+    'https://bitbucket.org/sonnhammergrni/gs-datasets/raw/master/N50/Tjarnberg-ID252384-D20151111-N50-E150-SNR1000-IDY252384.json'
+)
+true_net = Network.from_json_url(
+    'https://bitbucket.org/sonnhammergrni/gs-networks/raw/master/random/N50/Tjarnberg-D20150910-random-N50-L158-ID252384.json'
+)
+
+# Inference (equivalent to Methods.LSCON(Data, zeta))
+zetavec = np.logspace(-6, 0, 30)
+lsco_net, _ = LSCO(dataset, threshold_range=zetavec)
+lasso_net, _ = Lasso(dataset, alpha_range=zetavec)
+genie3_net, _ = GENIE3(dataset)
+
+# Evaluation (equivalent to analyse.CompareModels(Net, Aest))
+M = CompareModels(true_net, lsco_net)
+print(f"AUROC: {max(M.AUROC):.4f}, F1: {max(M.F1):.4f}, MCC: {max(M.MCC):.4f}")
+```
+
+### **NestBoot via pyGS**
+
+```python
+from methods.nestboot import Nestboot
+
+nb = Nestboot()
+results = nb.run_nestboot(
+    dataset=dataset,
+    inference_method=LSCO,
+    method_params={'threshold_range': zetavec},
+    nest_runs=10,
+    boot_runs=10,
+    seed=42,
+)
+M_nb = CompareModels(true_net, results.sxnet)
+```
+
+### **CLI Usage**
+
+```bash
+# Run GeneSpider benchmark (equivalent to running all methods on all datasets)
+uv run pygs bench-gs --tier fast --sizes N50
+
+# Run with NestBoot FDR wrapping
+uv run pygs bench-gs --tier fast --nestboot --nest-runs 10 --boot-runs 10
+
+# Single inference
+uv run pygs infer data.csv -m lasso -o result.npy
+
+# Evaluate against gold standard
+uv run pygs evaluate result.npy --gold gold_standard.json
+```
+
+For complete documentation, see the pyGS repository: https://github.com/dcolinmorgan/pyGS
+
 ## **References**
 
 1\. Huynh-Thu, V. A., Irrthum, A., Wehenkel, L. & Geurts, P. Inferring regulatory networks from expression data using tree-based methods. PLoS One 5, e12776 (2010).
