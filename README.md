@@ -80,6 +80,12 @@ pygs plot adj.npy --genes genes.txt --tfs tfs.txt # plot GRN with TF highlightin
 pygs dashboard -i results.json                    # HTML dashboard
 pygs show results.json                            # render result table
 ```
+#### Synthetic Data and Network Creation
+![image1](/docs/img/image0.png)
+#### Inference
+![image1](/docs/img/image1.png)
+#### NestBoot FDR Benchmark
+![image1](/docs/img/image2.png)
 
 ### NestBoot FDR control
 
