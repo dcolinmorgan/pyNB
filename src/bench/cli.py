@@ -404,28 +404,13 @@ def _cmd_infer(args: argparse.Namespace) -> None:
     from sparselink import get_method
 
     import sparselink.methods  # noqa: F401
+    from bio.io import load_expression
 
     path = Path(args.file)
-    if path.suffix == ".csv":
-        import pandas as pd
-
-        df = pd.read_csv(path)
-        X = df.select_dtypes(include=[np.number]).values
-        feature_names = list(df.select_dtypes(include=[np.number]).columns)
-    elif path.suffix in (".tsv", ".txt"):
-        import pandas as pd
-
-        df = pd.read_csv(path, sep="\t")
-        X = df.select_dtypes(include=[np.number]).values
-        feature_names = list(df.select_dtypes(include=[np.number]).columns)
-    elif path.suffix == ".npy":
-        X = np.load(path)
-        feature_names = [f"V{i}" for i in range(X.shape[1])]
-    else:
-        console.print(
-            f"[{ROSE}]Unsupported format: {path.suffix}."
-            f" Use .csv, .tsv, .txt, or .npy[/]"
-        )
+    try:
+        X, feature_names = load_expression(str(path))
+    except (ValueError, ImportError) as e:
+        console.print(f"  [{ROSE}]{e}[/]")
         return
 
     console.print(
@@ -439,6 +424,13 @@ def _cmd_infer(args: argparse.Namespace) -> None:
         result = method().fit(X)
 
     adj = result.adjacency_matrix
+
+    # Apply direction inference if requested
+    if getattr(args, "directed", False):
+        from bio.direction import infer_direction
+        adj = infer_direction(adj)
+        console.print(f"  [{TEAL}]Direction[/] inferred from perturbation asymmetry")
+
     n_edges = int(np.count_nonzero(adj) - np.count_nonzero(np.diag(adj)))
     console.print(f"  [{GREEN}]✓[/] {n_edges} edges inferred")
 
@@ -1927,10 +1919,13 @@ def main() -> None:
 
     # infer
     ip = subs.add_parser("infer", help="Infer a network from expression data")
-    ip.add_argument("file", help="Input data (.csv, .tsv, .npy)")
+    ip.add_argument("file", help="Input data (.h5ad, .csv, .tsv, .npy)")
     ip.add_argument("-m", "--method", default="lasso", help="Inference method")
     ip.add_argument(
         "-o", "--output", default=None, help="Save adjacency as .npy"
+    )
+    ip.add_argument(
+        "--directed", action="store_true", help="Infer edge direction from perturbation asymmetry"
     )
 
     # bench (synthetic)
